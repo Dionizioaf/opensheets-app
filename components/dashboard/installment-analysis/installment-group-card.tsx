@@ -6,10 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils/ui";
-import { RiArrowDownSLine, RiArrowRightSLine, RiBankCard2Line } from "@remixicon/react";
+import { RiArrowDownSLine, RiArrowRightSLine } from "@remixicon/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import Image from "next/image";
 import { useState } from "react";
 import type { InstallmentGroup } from "./types";
 
@@ -33,14 +32,6 @@ export function InstallmentGroupCard({
   );
 
   const unpaidCount = unpaidInstallments.length;
-
-  // Validar se o logo é uma URL válida (deve começar com / ou http:// ou https://)
-  const isValidLogo =
-    group.cartaoLogo &&
-    group.cartaoLogo.trim().length > 0 &&
-    (group.cartaoLogo.startsWith('/') ||
-     group.cartaoLogo.startsWith('http://') ||
-     group.cartaoLogo.startsWith('https://'));
 
   const isFullySelected =
     selectedInstallments.size === unpaidInstallments.length &&
@@ -74,22 +65,7 @@ export function InstallmentGroupCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  {isValidLogo ? (
-                    <Image
-                      src={group.cartaoLogo!}
-                      alt={group.cartaoName || "Cartão"}
-                      width={24}
-                      height={24}
-                      className="size-6 shrink-0 rounded"
-                    />
-                  ) : (
-                    <div className="flex size-6 shrink-0 items-center justify-center rounded bg-muted">
-                      <RiBankCard2Line className="size-4 text-muted-foreground" />
-                    </div>
-                  )}
-                  <p className="text-sm font-bold">{group.name}</p>
-                </div>
+                <p className="text-sm font-bold">{group.name}</p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   {group.cartaoName && (
                     <>

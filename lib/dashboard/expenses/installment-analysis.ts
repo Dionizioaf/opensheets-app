@@ -41,7 +41,6 @@ export type InstallmentGroup = {
   paymentMethod: string;
   cartaoId: string | null;
   cartaoName: string | null;
-  cartaoLogo: string | null;
   cartaoDueDay: string | null;
   totalInstallments: number;
   paidInstallments: number;
@@ -75,7 +74,6 @@ export async function fetchInstallmentAnalysis(
       purchaseDate: lancamentos.purchaseDate,
       cartaoId: lancamentos.cartaoId,
       cartaoName: cartoes.name,
-      cartaoLogo: cartoes.logo,
       cartaoDueDay: cartoes.dueDay,
     })
     .from(lancamentos)
@@ -133,7 +131,6 @@ export async function fetchInstallmentAnalysis(
         paymentMethod: row.paymentMethod,
         cartaoId: row.cartaoId,
         cartaoName: row.cartaoName,
-        cartaoLogo: row.cartaoLogo,
         cartaoDueDay: row.cartaoDueDay,
         totalInstallments: row.installmentCount ?? 0,
         paidInstallments: 0,
