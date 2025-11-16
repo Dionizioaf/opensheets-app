@@ -13,6 +13,7 @@ import { RecentTransactionsWidget } from "@/components/dashboard/recent-transact
 import { RecurringExpensesWidget } from "@/components/dashboard/recurring-expenses-widget";
 import { TopEstablishmentsWidget } from "@/components/dashboard/top-establishments-widget";
 import { TopExpensesWidget } from "@/components/dashboard/top-expenses-widget";
+import Link from "next/link";
 import {
   RiArrowUpDoubleLine,
   RiBarChartBoxLine,
@@ -38,6 +39,7 @@ export type WidgetConfig = {
   subtitle: string;
   icon: ReactNode;
   component: (props: { data: DashboardData; period: string }) => ReactNode;
+  action?: ReactNode;
 };
 
 export const widgetsConfig: WidgetConfig[] = [
@@ -133,6 +135,14 @@ export const widgetsConfig: WidgetConfig[] = [
     icon: <RiNumbersLine className="size-4" />,
     component: ({ data }) => (
       <InstallmentExpensesWidget data={data.installmentExpensesData} />
+    ),
+    action: (
+      <Link
+        href="/dashboard/analise-parcelas"
+        className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+      >
+        Análise
+      </Link>
     ),
   },
   {

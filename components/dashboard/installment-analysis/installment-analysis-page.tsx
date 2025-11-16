@@ -7,7 +7,6 @@ import { Separator } from "@/components/ui/separator";
 import { useMemo, useState } from "react";
 import type { InstallmentAnalysisData } from "./types";
 import { InstallmentGroupCard } from "./installment-group-card";
-import { PendingInvoiceCard } from "./pending-invoice-card";
 import { AnalysisSummaryPanel } from "./analysis-summary-panel";
 import {
   RiCalculatorLine,
@@ -27,52 +26,38 @@ export function InstallmentAnalysisPage({
     Map<string, Set<string>>
   >(new Map());
 
-  // Estado para faturas selecionadas: Set<invoiceKey (cartaoId:period)>
-  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(
-    new Set()
-  );
-
-  // Calcular se está tudo selecionado
+  // Calcular se está tudo selecionado (apenas parcelas não pagas)
   const isAllSelected = useMemo(() => {
     const allInstallmentsSelected = data.installmentGroups.every((group) => {
       const groupSelection = selectedInstallments.get(group.seriesId);
-      if (!groupSelection) return false;
-      return (
-        groupSelection.size === group.pendingInstallments.length &&
-        group.pendingInstallments.length > 0
+      const unpaidInstallments = group.pendingInstallments.filter(
+        (i) => !i.isSettled
       );
+      if (!groupSelection || unpaidInstallments.length === 0) return false;
+      return groupSelection.size === unpaidInstallments.length;
     });
 
-    const allInvoicesSelected =
-      data.pendingInvoices.length === selectedInvoices.size;
-
-    return (
-      allInstallmentsSelected &&
-      allInvoicesSelected &&
-      (data.installmentGroups.length > 0 || data.pendingInvoices.length > 0)
-    );
-  }, [selectedInstallments, selectedInvoices, data]);
+    return allInstallmentsSelected && data.installmentGroups.length > 0;
+  }, [selectedInstallments, data]);
 
   // Função para selecionar/desselecionar tudo
   const toggleSelectAll = () => {
     if (isAllSelected) {
       // Desmarcar tudo
       setSelectedInstallments(new Map());
-      setSelectedInvoices(new Set());
     } else {
-      // Marcar tudo
+      // Marcar tudo (exceto parcelas já pagas)
       const newInstallments = new Map<string, Set<string>>();
       data.installmentGroups.forEach((group) => {
-        const ids = new Set(group.pendingInstallments.map((i) => i.id));
-        newInstallments.set(group.seriesId, ids);
+        const unpaidIds = group.pendingInstallments
+          .filter((i) => !i.isSettled)
+          .map((i) => i.id);
+        if (unpaidIds.length > 0) {
+          newInstallments.set(group.seriesId, new Set(unpaidIds));
+        }
       });
 
-      const newInvoices = new Set(
-        data.pendingInvoices.map((inv) => `${inv.cartaoId}:${inv.period}`)
-      );
-
       setSelectedInstallments(newInstallments);
-      setSelectedInvoices(newInvoices);
     }
   };
 
@@ -112,92 +97,64 @@ export function InstallmentAnalysisPage({
     setSelectedInstallments(newMap);
   };
 
-  // Função para selecionar/desselecionar fatura
-  const toggleInvoiceSelection = (invoiceKey: string) => {
-    const newSet = new Set(selectedInvoices);
-    if (newSet.has(invoiceKey)) {
-      newSet.delete(invoiceKey);
-    } else {
-      newSet.add(invoiceKey);
-    }
-    setSelectedInvoices(newSet);
-  };
-
   // Calcular totais
-  const { totalInstallments, totalInvoices, grandTotal, selectedCount } =
-    useMemo(() => {
-      let installmentsSum = 0;
-      let installmentsCount = 0;
+  const { totalInstallments, grandTotal, selectedCount } = useMemo(() => {
+    let installmentsSum = 0;
+    let installmentsCount = 0;
 
-      selectedInstallments.forEach((installmentIds, seriesId) => {
-        const group = data.installmentGroups.find(
-          (g) => g.seriesId === seriesId
-        );
-        if (group) {
-          installmentIds.forEach((id) => {
-            const installment = group.pendingInstallments.find(
-              (i) => i.id === id
-            );
-            if (installment) {
-              installmentsSum += installment.amount;
-              installmentsCount++;
-            }
-          });
-        }
-      });
+    selectedInstallments.forEach((installmentIds, seriesId) => {
+      const group = data.installmentGroups.find(
+        (g) => g.seriesId === seriesId
+      );
+      if (group) {
+        installmentIds.forEach((id) => {
+          const installment = group.pendingInstallments.find(
+            (i) => i.id === id
+          );
+          if (installment && !installment.isSettled) {
+            installmentsSum += installment.amount;
+            installmentsCount++;
+          }
+        });
+      }
+    });
 
-      let invoicesSum = 0;
-      let invoicesCount = 0;
+    return {
+      totalInstallments: installmentsSum,
+      grandTotal: installmentsSum,
+      selectedCount: installmentsCount,
+    };
+  }, [selectedInstallments, data]);
 
-      selectedInvoices.forEach((key) => {
-        const [cartaoId, period] = key.split(":");
-        const invoice = data.pendingInvoices.find(
-          (inv) => inv.cartaoId === cartaoId && inv.period === period
-        );
-        if (invoice) {
-          invoicesSum += invoice.totalAmount;
-          invoicesCount++;
-        }
-      });
-
-      return {
-        totalInstallments: installmentsSum,
-        totalInvoices: invoicesSum,
-        grandTotal: installmentsSum + invoicesSum,
-        selectedCount: installmentsCount + invoicesCount,
-      };
-    }, [selectedInstallments, selectedInvoices, data]);
-
-  const hasNoData =
-    data.installmentGroups.length === 0 && data.pendingInvoices.length === 0;
+  const hasNoData = data.installmentGroups.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-          <RiCalculatorLine className="size-5 text-primary" />
+        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+          <RiCalculatorLine className="size-4 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Análise de Parcelas e Faturas</h1>
-          <p className="text-sm text-muted-foreground">
-            Veja quanto você gastaria pagando tudo que está em aberto
+          <h1 className="text-xl font-bold">Análise de Parcelas</h1>
+          <p className="text-xs text-muted-foreground">
+            Quanto você gastaria pagando tudo que está em aberto
           </p>
         </div>
       </div>
 
       {/* Card de resumo principal */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-        <CardContent className="flex flex-col items-center justify-center gap-3 py-8">
-          <p className="text-sm font-medium text-muted-foreground">
+        <CardContent className="flex flex-col items-center justify-center gap-2 py-5">
+          <p className="text-xs font-medium text-muted-foreground">
             Se você pagar tudo que está selecionado:
           </p>
           <MoneyValues
             amount={grandTotal}
-            className="text-4xl font-bold text-primary"
+            className="text-3xl font-bold text-primary"
           />
-          <p className="text-sm text-muted-foreground">
-            {selectedCount} {selectedCount === 1 ? "item" : "itens"} selecionados
+          <p className="text-xs text-muted-foreground">
+            {selectedCount} {selectedCount === 1 ? "parcela" : "parcelas"} selecionadas
           </p>
         </CardContent>
       </Card>
@@ -221,7 +178,7 @@ export function InstallmentAnalysisPage({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         {/* Conteúdo principal */}
         <div className="flex flex-col gap-6">
           {/* Seção de Lançamentos Parcelados */}
@@ -244,7 +201,9 @@ export function InstallmentAnalysisPage({
                     onToggleGroup={() =>
                       toggleGroupSelection(
                         group.seriesId,
-                        group.pendingInstallments.map((i) => i.id)
+                        group.pendingInstallments
+                          .filter((i) => !i.isSettled)
+                          .map((i) => i.id)
                       )
                     }
                     onToggleInstallment={(installmentId) =>
@@ -256,38 +215,13 @@ export function InstallmentAnalysisPage({
             </div>
           )}
 
-          {/* Seção de Faturas Pendentes */}
-          {data.pendingInvoices.length > 0 && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <Separator className="flex-1" />
-                <h2 className="text-lg font-semibold">Faturas Pendentes</h2>
-                <Separator className="flex-1" />
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {data.pendingInvoices.map((invoice) => {
-                  const invoiceKey = `${invoice.cartaoId}:${invoice.period}`;
-                  return (
-                    <PendingInvoiceCard
-                      key={invoiceKey}
-                      invoice={invoice}
-                      isSelected={selectedInvoices.has(invoiceKey)}
-                      onToggle={() => toggleInvoiceSelection(invoiceKey)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Estado vazio */}
           {hasNoData && (
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-3 py-12">
                 <RiCalculatorLine className="size-12 text-muted-foreground/50" />
                 <div className="text-center">
-                  <p className="font-medium">Nenhuma parcela ou fatura pendente</p>
+                  <p className="font-medium">Nenhuma parcela pendente</p>
                   <p className="text-sm text-muted-foreground">
                     Você está em dia com seus pagamentos!
                   </p>
@@ -302,7 +236,6 @@ export function InstallmentAnalysisPage({
           <div className="lg:sticky lg:top-4 lg:self-start">
             <AnalysisSummaryPanel
               totalInstallments={totalInstallments}
-              totalInvoices={totalInvoices}
               grandTotal={grandTotal}
               selectedCount={selectedCount}
             />

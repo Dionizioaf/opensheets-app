@@ -16,6 +16,7 @@ export function DashboardGrid({ data, period }: DashboardGridProps) {
           title={widget.title}
           subtitle={widget.subtitle}
           icon={widget.icon}
+          action={widget.action}
         >
           {widget.component({ data, period })}
         </WidgetCard>

@@ -24,6 +24,7 @@ type WidgetProps = {
   subtitle: string;
   children: React.ReactNode;
   icon: React.ReactElement;
+  action?: React.ReactNode;
 };
 
 export default function WidgetCard({
@@ -31,6 +32,7 @@ export default function WidgetCard({
   subtitle,
   icon,
   children,
+  action,
 }: WidgetProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -84,6 +86,7 @@ export default function WidgetCard({
               {subtitle}
             </CardDescription>
           </div>
+          {action && <div className="shrink-0">{action}</div>}
         </div>
       </CardHeader>
 

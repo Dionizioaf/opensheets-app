@@ -10,9 +10,8 @@ import {
   calculateLastInstallmentDate,
   formatLastInstallmentDate,
 } from "@/lib/installments/utils";
-import { RiNumbersLine, RiArrowRightSLine } from "@remixicon/react";
+import { RiNumbersLine } from "@remixicon/react";
 import Image from "next/image";
-import Link from "next/link";
 import { Progress } from "../ui/progress";
 import { WidgetEmptyState } from "../widget-empty-state";
 
@@ -186,14 +185,6 @@ export function InstallmentExpensesWidget({
           );
         })}
       </ul>
-
-      <Link
-        href="/dashboard/analise-parcelas"
-        className="flex items-center justify-center gap-1 px-6 py-2 text-sm font-medium text-primary hover:underline"
-      >
-        Ver Análise Completa
-        <RiArrowRightSLine className="size-4" />
-      </Link>
     </CardContent>
   );
 }

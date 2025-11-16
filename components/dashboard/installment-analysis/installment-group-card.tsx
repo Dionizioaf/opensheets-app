@@ -27,13 +27,17 @@ export function InstallmentGroupCard({
 }: InstallmentGroupCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const unpaidInstallments = group.pendingInstallments.filter(
+    (i) => !i.isSettled
+  );
+
   const isFullySelected =
-    selectedInstallments.size === group.pendingInstallments.length &&
-    group.pendingInstallments.length > 0;
+    selectedInstallments.size === unpaidInstallments.length &&
+    unpaidInstallments.length > 0;
 
   const isPartiallySelected =
     selectedInstallments.size > 0 &&
-    selectedInstallments.size < group.pendingInstallments.length;
+    selectedInstallments.size < unpaidInstallments.length;
 
   const progress =
     group.totalInstallments > 0
@@ -48,7 +52,7 @@ export function InstallmentGroupCard({
 
   return (
     <Card className={cn(isFullySelected && "border-primary/50")}>
-      <CardContent className="flex flex-col gap-3 py-4">
+      <CardContent className="flex flex-col gap-2 py-3">
         {/* Header do card */}
         <div className="flex items-start gap-3">
           <Checkbox
@@ -61,8 +65,8 @@ export function InstallmentGroupCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="font-medium">{group.name}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <p className="text-sm font-medium">{group.name}</p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   {group.cartaoName && (
                     <>
                       <span>{group.cartaoName}</span>
@@ -73,7 +77,7 @@ export function InstallmentGroupCard({
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-col items-end gap-1">
+              <div className="flex shrink-0 flex-col items-end gap-0.5">
                 <MoneyValues
                   amount={group.totalPendingAmount}
                   className="text-sm font-semibold"
@@ -88,7 +92,7 @@ export function InstallmentGroupCard({
             </div>
 
             {/* Progress bar */}
-            <div className="mt-3">
+            <div className="mt-2">
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {group.paidInstallments} de {group.totalInstallments} pagas
@@ -100,7 +104,7 @@ export function InstallmentGroupCard({
                     : "pendentes"}
                 </span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-1.5" />
             </div>
 
             {/* Badges de status */}
@@ -139,6 +143,7 @@ export function InstallmentGroupCard({
           <div className="ml-9 mt-2 flex flex-col gap-2 border-l-2 border-muted pl-4">
             {group.pendingInstallments.map((installment) => {
               const isSelected = selectedInstallments.has(installment.id);
+              const isPaid = installment.isSettled;
               const dueDate = installment.dueDate
                 ? format(installment.dueDate, "dd/MM/yyyy", { locale: ptBR })
                 : format(installment.purchaseDate, "dd/MM/yyyy", {
@@ -150,20 +155,27 @@ export function InstallmentGroupCard({
                   key={installment.id}
                   className={cn(
                     "flex items-center gap-3 rounded-md border p-2 transition-colors",
-                    isSelected && "border-primary/50 bg-primary/5"
+                    isSelected && !isPaid && "border-primary/50 bg-primary/5",
+                    isPaid && "bg-muted/50 opacity-60"
                   )}
                 >
                   <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => onToggleInstallment(installment.id)}
+                    checked={isPaid ? false : isSelected}
+                    disabled={isPaid}
+                    onCheckedChange={() => !isPaid && onToggleInstallment(installment.id)}
                     aria-label={`Selecionar parcela ${installment.currentInstallment} de ${group.totalInstallments}`}
                   />
 
                   <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">
+                      <p className={cn("text-sm font-medium", isPaid && "line-through")}>
                         Parcela {installment.currentInstallment}/
                         {group.totalInstallments}
+                        {isPaid && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            Paga
+                          </Badge>
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Vencimento: {dueDate}
@@ -172,7 +184,7 @@ export function InstallmentGroupCard({
 
                     <MoneyValues
                       amount={installment.amount}
-                      className="shrink-0 text-sm"
+                      className={cn("shrink-0 text-sm", isPaid && "opacity-60")}
                     />
                   </div>
                 </div>
