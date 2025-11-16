@@ -34,6 +34,9 @@ export function InstallmentGroupCard({
 
   const unpaidCount = unpaidInstallments.length;
 
+  // Validar se o logo é uma URL válida
+  const isValidLogo = group.cartaoLogo && group.cartaoLogo.trim().length > 0;
+
   const isFullySelected =
     selectedInstallments.size === unpaidInstallments.length &&
     unpaidInstallments.length > 0;
@@ -67,9 +70,9 @@ export function InstallmentGroupCard({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  {group.cartaoLogo ? (
+                  {isValidLogo ? (
                     <Image
-                      src={group.cartaoLogo}
+                      src={group.cartaoLogo!}
                       alt={group.cartaoName || "Cartão"}
                       width={24}
                       height={24}
