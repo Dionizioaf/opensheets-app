@@ -23,12 +23,12 @@
 ## Tasks
 
 - [ ] 1.0 Set up OFX parsing infrastructure
-  - [ ] 1.1 Research and select an OFX parsing library (e.g., ofx-js, node-ofx-parser) compatible with the project
-  - [ ] 1.2 Install the selected OFX library using pnpm
-  - [ ] 1.3 Create Zod schemas in `lib/schemas/ofx.ts` for OFX file structure and transaction data validation
-  - [ ] 1.4 Implement basic OFX file parsing function in `lib/ofx-parser/parser.ts` that extracts transactions
-  - [ ] 1.5 Add file type validation to ensure only .ofx files are accepted
-  - [ ] 1.6 Test parsing with sample OFX files to ensure data extraction works correctly
+  - [x] 1.1 Research and select an OFX parsing library (e.g., ofx-js, node-ofx-parser) compatible with the project
+  - [x] 1.2 Install the selected OFX library using pnpm
+  - [x] 1.3 Create Zod schemas in `lib/schemas/ofx.ts` for OFX file structure and transaction data validation
+  - [x] 1.4 Implement basic OFX file parsing function in `lib/ofx-parser/parser.ts` that extracts transactions
+  - [x] 1.5 Add file type validation to ensure only .ofx files are accepted
+  - [x] 1.6 Test parsing with sample OFX files to ensure data extraction works correctly
 - [ ] 2.0 Implement AI categorization system
   - [ ] 2.1 Create `lib/utils/ai-categorization.ts` utility reusing the existing AI integration from insights
   - [ ] 2.2 Define a Zod schema for AI categorization responses (category suggestions with confidence scores)
