@@ -88,9 +88,48 @@ The AI categorization system automatically suggests categories for transactions 
 
 - [ ] 3.0 Build OFX import wizard UI
   - [x] 3.1 Create the main wizard modal component in `components/ofx-import/ofx-import-wizard.tsx` using shadcn/ui Dialog
-  - [ ] 3.2 Implement step navigation logic with progress indicators
-  - [ ] 3.3 Create file upload step component with drag-and-drop support and file validation
-  - [ ] 3.4 Build field mapping step showing auto-suggested mappings with edit capabilities
+
+### Tutorial: Using the OFX Import Wizard
+
+The OFX import wizard provides a step-by-step interface for importing bank transactions. Here's how to use it:
+
+1. **Opening the Wizard**: The wizard is triggered from the accounts page by clicking the "Import OFX" button on any account card.
+
+2. **Wizard Structure**: The wizard consists of 4 steps:
+   - **Upload**: File selection with drag-and-drop support
+   - **Mapping**: Field configuration (to be implemented)
+   - **Review**: Transaction editing and duplicate detection (to be implemented)
+   - **Confirm**: Final import confirmation (to be implemented)
+
+3. **Navigation**: Use "Anterior" and "Próximo" buttons to navigate between steps. The progress bar shows current progress.
+
+4. **File Upload Features**:
+   - Drag and drop support for OFX files
+   - Click to browse files manually
+   - File type validation (.ofx only)
+   - File size limit (10MB)
+   - Visual feedback for selected files
+
+5. **Responsive Design**: The wizard adapts to different screen sizes with proper mobile support.
+
+6. **Accessibility**: Includes proper ARIA labels, keyboard navigation, and screen reader support.
+
+7. **Integration**: Pass `accountId` and `accountName` props to associate transactions with the correct account.
+
+```tsx
+import { OFXImportWizard } from '@/components/ofx-import/ofx-import-wizard';
+
+// Usage in accounts page
+<OFXImportWizard
+  open={wizardOpen}
+  onOpenChange={setWizardOpen}
+  accountId={selectedAccount.id}
+  accountName={selectedAccount.name}
+/>
+```
+  - [x] 3.2 Implement step navigation logic with progress indicators
+  - [x] 3.3 Create file upload step component with drag-and-drop support and file validation
+  - [x] 3.4 Build field mapping step showing auto-suggested mappings with edit capabilities
   - [ ] 3.5 Develop transaction review step with editable table showing categories, duplicates, and validation
   - [ ] 3.6 Create confirmation step with summary and final import button
   - [ ] 3.7 Add responsive design and accessibility features matching app standards
