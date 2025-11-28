@@ -87,7 +87,7 @@ The AI categorization system automatically suggests categories for transactions 
    - `OPENROUTER_API_KEY` for OpenRouter models
 
 - [ ] 3.0 Build OFX import wizard UI
-  - [ ] 3.1 Create the main wizard modal component in `components/ofx-import/ofx-import-wizard.tsx` using shadcn/ui Dialog
+  - [x] 3.1 Create the main wizard modal component in `components/ofx-import/ofx-import-wizard.tsx` using shadcn/ui Dialog
   - [ ] 3.2 Implement step navigation logic with progress indicators
   - [ ] 3.3 Create file upload step component with drag-and-drop support and file validation
   - [ ] 3.4 Build field mapping step showing auto-suggested mappings with edit capabilities
