@@ -30,13 +30,13 @@
   - [x] 1.5 Add file type validation to ensure only .ofx files are accepted
   - [x] 1.6 Test parsing with sample OFX files to ensure data extraction works correctly
 - [ ] 2.0 Implement AI categorization system
-  - [ ] 2.1 Create `lib/utils/ai-categorization.ts` utility reusing the existing AI integration from insights
-  - [ ] 2.2 Define a Zod schema for AI categorization responses (category suggestions with confidence scores)
-  - [ ] 2.3 Create a system prompt for transaction categorization based on description and historical data
-  - [ ] 2.4 Implement the categorization function using generateObject with multiple provider support
-  - [ ] 2.5 Add fallback logic to historical matching when AI fails or is disabled
-  - [ ] 2.6 Create a function to combine AI suggestions with historical matches for better accuracy
-  - [ ] 2.7 Add user preference handling for enabling/disabling AI categorization
+  - [x] 2.1 Create `lib/utils/ai-categorization.ts` utility reusing the existing AI integration from insights
+  - [x] 2.2 Define a Zod schema for AI categorization responses (category suggestions with confidence scores)
+  - [x] 2.3 Create a system prompt for transaction categorization based on description and historical data
+  - [x] 2.4 Implement the categorization function using generateObject with multiple provider support
+  - [x] 2.5 Add fallback logic to historical matching when AI fails or is disabled
+  - [x] 2.6 Create a function to combine AI suggestions with historical matches for better accuracy
+  - [x] 2.7 Add user preference handling for enabling/disabling AI categorization
 - [ ] 3.0 Build OFX import wizard UI
   - [ ] 3.1 Create the main wizard modal component in `components/ofx-import/ofx-import-wizard.tsx` using shadcn/ui Dialog
   - [ ] 3.2 Implement step navigation logic with progress indicators
