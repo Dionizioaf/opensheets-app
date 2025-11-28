@@ -29,7 +29,7 @@
   - [x] 1.4 Implement basic OFX file parsing function in `lib/ofx-parser/parser.ts` that extracts transactions
   - [x] 1.5 Add file type validation to ensure only .ofx files are accepted
   - [x] 1.6 Test parsing with sample OFX files to ensure data extraction works correctly
-- [ ] 2.0 Implement AI categorization system
+- [x] 2.0 Implement AI categorization system
   - [x] 2.1 Create `lib/utils/ai-categorization.ts` utility reusing the existing AI integration from insights
   - [x] 2.2 Define a Zod schema for AI categorization responses (category suggestions with confidence scores)
   - [x] 2.3 Create a system prompt for transaction categorization based on description and historical data
@@ -37,6 +37,55 @@
   - [x] 2.5 Add fallback logic to historical matching when AI fails or is disabled
   - [x] 2.6 Create a function to combine AI suggestions with historical matches for better accuracy
   - [x] 2.7 Add user preference handling for enabling/disabling AI categorization
+
+### Tutorial: Using the AI Categorization System
+
+The AI categorization system automatically suggests categories for transactions during OFX import. Here's how it works:
+
+1. **Basic Usage**: Call `categorizeTransaction()` with transaction details:
+
+   ```typescript
+   import { categorizeTransaction } from "@/lib/utils/ai-categorization";
+
+   const result = await categorizeTransaction(
+     "UBER TRIP", // transaction name
+     25.5, // amount
+     availableCategories, // array of category objects
+     "gpt-4", // AI model ID
+     userId // optional user ID for historical matching
+   );
+   ```
+
+2. **Response Structure**: Returns a `CombinedCategorization` object with:
+
+   - `primarySuggestion`: Best category match with confidence score
+   - `alternativeSuggestions`: Up to 4 additional suggestions
+   - `historicalMatch`: Historical transaction data if available
+
+3. **Provider Support**: Supports multiple AI providers:
+
+   - OpenAI: `"gpt-4"`, `"gpt-3.5-turbo"`
+   - Anthropic: `"claude-3-sonnet-20240229"`
+   - Google: `"gemini-1.5-pro"`
+   - OpenRouter: `"anthropic/claude-3.5-sonnet"`
+
+4. **Fallback Logic**: If AI fails, automatically falls back to:
+
+   - Historical transaction matching (last 6 months)
+   - Default category ("Outros") as last resort
+
+5. **Testing**: Run the test file to verify functionality:
+
+   ```bash
+   npx tsx lib/utils/test-ai-categorization.ts
+   ```
+
+6. **Environment Variables**: Ensure AI provider API keys are set:
+   - `OPENAI_API_KEY` for OpenAI models
+   - `ANTHROPIC_API_KEY` for Claude models
+   - `GOOGLE_GENERATIVE_AI_API_KEY` for Gemini
+   - `OPENROUTER_API_KEY` for OpenRouter models
+
 - [ ] 3.0 Build OFX import wizard UI
   - [ ] 3.1 Create the main wizard modal component in `components/ofx-import/ofx-import-wizard.tsx` using shadcn/ui Dialog
   - [ ] 3.2 Implement step navigation logic with progress indicators
