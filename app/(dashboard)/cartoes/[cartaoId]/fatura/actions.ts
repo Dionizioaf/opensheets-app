@@ -17,6 +17,7 @@ import {
   type InvoicePaymentStatus,
 } from "@/lib/faturas";
 import { PAGADOR_ROLE_ADMIN } from "@/lib/pagadores/constants";
+import { parseLocalDateString } from "@/lib/utils/date";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -157,7 +158,7 @@ export async function updateInvoicePaymentStatusAction(
           if (adminPagador) {
             // Usar a data customizada ou a data atual como data de pagamento
             const invoiceDate = data.paymentDate
-              ? new Date(data.paymentDate)
+              ? parseLocalDateString(data.paymentDate)
               : new Date();
 
             const amount = `-${formatDecimal(adminShare)}`;
@@ -273,7 +274,7 @@ export async function updatePaymentDateAction(
       await tx
         .update(lancamentos)
         .set({
-          purchaseDate: new Date(data.paymentDate),
+          purchaseDate: parseLocalDateString(data.paymentDate),
         })
         .where(eq(lancamentos.id, existingPayment.id));
     });

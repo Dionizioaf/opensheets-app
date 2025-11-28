@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { getPaymentMethodIcon } from "@/lib/utils/icons";
+import { parseLocalDateString } from "@/lib/utils/date";
 import {
   currencyFormatter,
   formatCondition,
@@ -143,7 +144,7 @@ export function LancamentoDetailsDialog({
                 {isInstallment && (
                   <li className="mt-4">
                     <InstallmentTimeline
-                      purchaseDate={new Date(lancamento.purchaseDate)}
+                      purchaseDate={parseLocalDateString(lancamento.purchaseDate)}
                       currentInstallment={parcelaAtual}
                       totalInstallments={totalParcelas}
                       period={lancamento.period}

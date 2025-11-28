@@ -39,6 +39,7 @@ type NavItem = {
     avatarUrl?: string | null;
     isShared?: boolean;
     key?: string;
+    icon?: RemixiconComponentType;
   }[];
 };
 
@@ -158,7 +159,9 @@ export function NavMain({ sections }: { sections: NavSection[] }) {
                                         href={buildHrefWithPeriod(subItem.url)}
                                         className="flex items-center gap-2"
                                       >
-                                        {subItem.avatarUrl !== undefined ? (
+                                        {subItem.icon ? (
+                                          <subItem.icon className="size-4" />
+                                        ) : subItem.avatarUrl !== undefined ? (
                                           <Avatar className="size-5 border border-border/60 bg-background">
                                             <AvatarImage
                                               src={avatarSrc}

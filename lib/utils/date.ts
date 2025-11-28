@@ -42,6 +42,26 @@ const MONTH_NAMES = [
 // ============================================================================
 
 /**
+ * Safely parses a date string (YYYY-MM-DD) as a local date
+ *
+ * IMPORTANT: new Date("2025-11-25") treats the date as UTC midnight,
+ * which in Brazil (UTC-3) becomes 2025-11-26 03:00 local time!
+ *
+ * This function always interprets the date string in the local timezone.
+ *
+ * @param dateString - Date string in YYYY-MM-DD format
+ * @returns Date object in local timezone
+ */
+export function parseLocalDateString(dateString: string): Date {
+  const [year, month, day] = dateString.split("-");
+  return new Date(
+    Number.parseInt(year ?? "0", 10),
+    Number.parseInt(month ?? "1", 10) - 1,
+    Number.parseInt(day ?? "1", 10)
+  );
+}
+
+/**
  * Gets today's date in UTC
  * @returns Date object set to today at midnight UTC
  */
@@ -110,7 +130,7 @@ export function getTodayDateString(): string {
  * @returns Date object for today
  */
 export function getTodayDate(): Date {
-  return new Date(getTodayDateString());
+  return parseLocalDateString(getTodayDateString());
 }
 
 /**
@@ -119,12 +139,12 @@ export function getTodayDate(): Date {
  */
 export function getTodayInfo(): { date: Date; period: string } {
   const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
-  const day = now.getUTCDate();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const day = now.getDate();
 
   return {
-    date: new Date(Date.UTC(year, month, day)),
+    date: new Date(year, month, day),
     period: `${year}-${String(month + 1).padStart(2, "0")}`,
   };
 }
@@ -162,12 +182,7 @@ export function addMonthsToDate(value: Date, offset: number): Date {
  * formatDate("2024-11-14") // "qui 14 nov"
  */
 export function formatDate(value: string): string {
-  const [year, month, day] = value.split("-");
-  const parsed = new Date(
-    Number.parseInt(year ?? "0", 10),
-    Number.parseInt(month ?? "1", 10) - 1,
-    Number.parseInt(day ?? "1", 10)
-  );
+  const parsed = parseLocalDateString(value);
 
   return new Intl.DateTimeFormat("pt-BR", {
     weekday: "short",

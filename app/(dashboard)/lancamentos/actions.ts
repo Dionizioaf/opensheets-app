@@ -22,7 +22,11 @@ import {
 } from "@/lib/pagadores/notifications";
 import { noteSchema, uuidSchema } from "@/lib/schemas/common";
 import { formatDecimalForDbRequired } from "@/lib/utils/currency";
-import { getTodayDateString } from "@/lib/utils/date";
+import {
+  getTodayDate,
+  getTodayDateString,
+  parseLocalDateString,
+} from "@/lib/utils/date";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -32,7 +36,7 @@ const resolvePeriod = (purchaseDate: string, period?: string | null) => {
     return period;
   }
 
-  const date = new Date(purchaseDate);
+  const date = parseLocalDateString(purchaseDate);
   if (Number.isNaN(date.getTime())) {
     throw new Error("Data da transação inválida.");
   }
@@ -41,8 +45,6 @@ const resolvePeriod = (purchaseDate: string, period?: string | null) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
 };
-
-const getTodayDate = () => new Date(getTodayDateString());
 
 const baseFields = z.object({
   purchaseDate: z
@@ -471,13 +473,13 @@ export async function createLancamentoAction(
     const data = createSchema.parse(input);
 
     const period = resolvePeriod(data.purchaseDate, data.period);
-    const purchaseDate = new Date(data.purchaseDate);
-    const dueDate = data.dueDate ? new Date(data.dueDate) : null;
+    const purchaseDate = parseLocalDateString(data.purchaseDate);
+    const dueDate = data.dueDate ? parseLocalDateString(data.dueDate) : null;
     const shouldSetBoletoPaymentDate =
       data.paymentMethod === "Boleto" && (data.isSettled ?? false);
     const boletoPaymentDate = shouldSetBoletoPaymentDate
       ? data.boletoPaymentDate
-        ? new Date(data.boletoPaymentDate)
+        ? parseLocalDateString(data.boletoPaymentDate)
         : getTodayDate()
       : null;
 
@@ -603,7 +605,7 @@ export async function updateLancamentoAction(
       data.paymentMethod === "Boleto" && Boolean(normalizedSettled);
     const boletoPaymentDateValue = shouldSetBoletoPaymentDate
       ? data.boletoPaymentDate
-        ? new Date(data.boletoPaymentDate)
+        ? parseLocalDateString(data.boletoPaymentDate)
         : getTodayDate()
       : null;
 
@@ -611,7 +613,7 @@ export async function updateLancamentoAction(
       .update(lancamentos)
       .set({
         name: data.name,
-        purchaseDate: new Date(data.purchaseDate),
+        purchaseDate: parseLocalDateString(data.purchaseDate),
         transactionType: data.transactionType,
         amount: normalizedAmount,
         condition: data.condition,
@@ -624,7 +626,7 @@ export async function updateLancamentoAction(
         isSettled: normalizedSettled,
         installmentCount: data.installmentCount ?? null,
         recurrenceCount: data.recurrenceCount ?? null,
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        dueDate: data.dueDate ? parseLocalDateString(data.dueDate) : null,
         boletoPaymentDate: boletoPaymentDateValue,
         period,
       })
@@ -963,14 +965,14 @@ export async function updateLancamentoBulkAction(
 
     const baseDueDate =
       hasDueDateUpdate && data.dueDate
-        ? new Date(data.dueDate)
+        ? parseLocalDateString(data.dueDate)
         : hasDueDateUpdate
         ? null
         : undefined;
 
     const baseBoletoPaymentDate =
       hasBoletoPaymentDateUpdate && data.boletoPaymentDate
-        ? new Date(data.boletoPaymentDate)
+        ? parseLocalDateString(data.boletoPaymentDate)
         : hasBoletoPaymentDateUpdate
         ? null
         : undefined;
@@ -1192,7 +1194,7 @@ export async function createMassLancamentosAction(
 
       const period =
         data.fixedFields.period ?? resolvePeriod(transaction.purchaseDate);
-      const purchaseDate = new Date(transaction.purchaseDate);
+      const purchaseDate = parseLocalDateString(transaction.purchaseDate);
       const amountSign: 1 | -1 = transactionType === "Despesa" ? -1 : 1;
       const totalCents = Math.round(Math.abs(transaction.amount) * 100);
       const amount = centsToDecimalString(totalCents * amountSign);

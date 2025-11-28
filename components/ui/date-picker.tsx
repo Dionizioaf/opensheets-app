@@ -47,7 +47,9 @@ function parseYYYYMMDD(dateString: string): Date | undefined {
     return undefined;
   }
 
-  // Tenta formato YYYY-MM-DD primeiro
+  // Parse YYYY-MM-DD format as local date
+  // IMPORTANT: new Date("2025-11-25") treats the date as UTC midnight,
+  // which in Brazil (UTC-3) becomes 2025-11-26 03:00 local time!
   const ymdMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (ymdMatch) {
     const [, year, month, day] = ymdMatch;
@@ -55,9 +57,9 @@ function parseYYYYMMDD(dateString: string): Date | undefined {
     return isValidDate(date) ? date : undefined;
   }
 
-  // Fallback para Date parser nativo
-  const date = new Date(dateString);
-  return isValidDate(date) ? date : undefined;
+  // For other formats, return undefined instead of using native parser
+  // to avoid timezone issues
+  return undefined;
 }
 
 export interface DatePickerProps {

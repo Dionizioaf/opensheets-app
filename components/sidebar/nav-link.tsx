@@ -6,6 +6,7 @@ import {
   RiDashboardLine,
   RiFundsLine,
   RiGroupLine,
+  RiLineChartLine,
   RiPriceTag3Line,
   RiSettingsLine,
   RiSparklingLine,
@@ -19,6 +20,7 @@ export type SidebarSubItem = {
   avatarUrl?: string | null;
   isShared?: boolean;
   key?: string;
+  icon?: RemixiconComponentType;
 };
 
 export type SidebarItem = {
@@ -64,6 +66,8 @@ export function createSidebarNavData(pagadores: PagadorLike[]): SidebarNavData {
     .sort((a, b) =>
       a.title.localeCompare(b.title, "pt-BR", { sensitivity: "base" })
     );
+
+  const pagadorItemsWithHistory: SidebarSubItem[] = pagadorItems;
 
   return {
     navMain: [
@@ -114,12 +118,20 @@ export function createSidebarNavData(pagadores: PagadorLike[]): SidebarNavData {
             title: "Pagadores",
             url: "/pagadores",
             icon: RiGroupLine,
-            items: pagadorItems,
+            items: pagadorItemsWithHistory,
           },
           {
             title: "Categorias",
             url: "/categorias",
             icon: RiPriceTag3Line,
+            items: [
+              {
+                title: "Histórico",
+                url: "/categorias/historico",
+                key: "historico-categorias",
+                icon: RiLineChartLine,
+              },
+            ],
           },
         ],
       },

@@ -334,10 +334,24 @@ export function formatMonthLabel(period: string): string {
  * derivePeriodFromDate() // current period
  */
 export function derivePeriodFromDate(value?: string | null): string {
-  const date = value ? new Date(value) : new Date();
+  if (!value) {
+    return getCurrentPeriod();
+  }
+
+  // Parse date string as local date to avoid timezone issues
+  // IMPORTANT: new Date("2025-11-25") treats the date as UTC midnight,
+  // which in Brazil (UTC-3) becomes 2025-11-26 03:00 local time!
+  const [year, month, day] = value.split("-");
+  const date = new Date(
+    Number.parseInt(year ?? "0", 10),
+    Number.parseInt(month ?? "1", 10) - 1,
+    Number.parseInt(day ?? "1", 10)
+  );
+
   if (Number.isNaN(date.getTime())) {
     return getCurrentPeriod();
   }
+
   return formatPeriod(date.getFullYear(), date.getMonth() + 1);
 }
 
