@@ -39,8 +39,58 @@ export async function parseOfxFile(
     }
 
     try {
-        // Use ofx-js to parse the OFX file
-        const rawData = parse(fileContent);
+        // Preprocess: handle OFX v1 SGML by closing all tags (even multiline)
+        const isSgml = /OFXSGML|OFXHEADER/i.test(fileContent);
+        const contentStart = fileContent.indexOf("<OFX>");
+        const body = contentStart >= 0 ? fileContent.slice(contentStart) : fileContent;
+        // Improved SGML to XML: closes all tags, even multiline values
+        const sgmlToXml = (s: string) => {
+            // Normalize line endings
+            let xml = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+            // Find all tags and close them if not already closed
+            // Handles multiline values
+            xml = xml.replace(/<([A-Z0-9_]+)>([\s\S]*?)(?=<[A-Z0-9_]+>|<\/OFX>|$)/g, (match, tag, value) => {
+                // If value already contains a closing tag, leave as is
+                if (value.includes(`</${tag}>`)) return match;
+                return `<${tag}>${value.trim()}</${tag}>`;
+            });
+            // Ensure closing OFX root if missing (rare)
+            if (!/<\/OFX>/i.test(xml)) {
+                xml += "</OFX>";
+            }
+            return xml;
+        };
+
+        const contentForParse = isSgml ? sgmlToXml(body) : fileContent;
+
+        // Use ofx-js to parse the OFX/converted XML file
+        const rawData = parse(contentForParse);
+
+        // Helper to convert OFX date (e.g., 20250901100000[-03:EST]) to ISO string
+        const toIsoFromOfx = (value: any): string | undefined => {
+            if (!value || typeof value !== "string") return undefined;
+            // Extract leading 14 digits (YYYYMMDDHHmmss)
+            const m = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+            if (!m) return undefined;
+            const [, Y, M, D, h, mnt, s] = m;
+            // Default offset minutes = 0
+            let offsetMinutes = 0;
+            const tz = value.match(/\[([+-]?)(\d{2})(?::[A-Z]{2,4})?\]/i);
+            if (tz) {
+                const sign = tz[1] === "-" ? -1 : 1;
+                const hh = parseInt(tz[2], 10);
+                if (!Number.isNaN(hh)) offsetMinutes = sign * hh * 60;
+            }
+            const utcMs = Date.UTC(
+                parseInt(Y, 10),
+                parseInt(M, 10) - 1,
+                parseInt(D, 10),
+                parseInt(h, 10),
+                parseInt(mnt, 10),
+                parseInt(s, 10)
+            ) - offsetMinutes * 60 * 1000;
+            return new Date(utcMs).toISOString();
+        };
 
         // Transform the parsed data to match our schema
         const transformedData = {
@@ -51,7 +101,7 @@ export async function parseOfxFile(
                 currency: rawData.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.CURDEF,
             } : undefined,
             transactions: rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.STMTTRN?.map((txn: any) => ({
-                date: txn.DTPOSTED,
+                date: toIsoFromOfx(txn.DTPOSTED) ?? txn.DTPOSTED,
                 amount: parseFloat(txn.TRNAMT),
                 description: txn.MEMO || txn.NAME,
                 payee: txn.NAME,
@@ -60,8 +110,8 @@ export async function parseOfxFile(
                 checkNumber: txn.CHECKNUM,
                 refNumber: txn.REFNUM,
             })) || [],
-            startDate: rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.DTSTART,
-            endDate: rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.DTEND,
+            startDate: toIsoFromOfx(rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.DTSTART),
+            endDate: toIsoFromOfx(rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.DTEND),
         };
 
         // Validate the transformed data against our schema

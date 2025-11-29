@@ -240,11 +240,20 @@ export async function parseOFXFileAction(
     const userId = await getUserId();
 
     // Parse the OFX file
-    const parsedData = await parseOfxFile(fileContent);
+    let parsedData;
+    try {
+      parsedData = await parseOfxFile(fileContent);
+      console.log("[OFX Action] parsedData:", JSON.stringify(parsedData, null, 2));
+    } catch (err) {
+      console.error("[OFX Action] parseOfxFile error:", err);
+      throw err;
+    }
 
     // Validate the parsed data
     const validationResult = OfxFileSchema.safeParse(parsedData);
+    console.log("[OFX Action] validationResult.success:", validationResult.success);
     if (!validationResult.success) {
+      console.error("[OFX Action] validation errors:", validationResult.error);
       const errorMsg = getErrorMessage("PARSE_INVALID_FORMAT");
       return {
         success: false,

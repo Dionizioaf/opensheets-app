@@ -23,6 +23,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { fileContent, accountId } = body;
 
+    // Debug logging
+    console.log("[OFX API] fileContent type:", typeof fileContent);
+    if (typeof fileContent === "string") {
+      console.log("[OFX API] fileContent length:", fileContent.length);
+      console.log("[OFX API] fileContent preview:", fileContent.slice(0, 100));
+    } else {
+      console.log("[OFX API] fileContent value:", fileContent);
+    }
+
     // Validate input
     if (!fileContent || typeof fileContent !== "string") {
       return NextResponse.json(
