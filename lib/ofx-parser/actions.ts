@@ -24,6 +24,27 @@ import { ofxTransactionSchema, ofxFileSchema } from "@/lib/schemas/ofx";
 import { categorizeTransaction } from "@/lib/utils/ai-categorization";
 import { parseOFXFile } from "@/lib/ofx-parser/parser";
 
+// Timeout for AI categorization requests (milliseconds)
+const AI_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => void): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      try { onTimeout(); } catch {}
+      resolve(undefined);
+    }, ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        resolve(undefined);
+      });
+  });
+}
+
 // Types for import process
 export interface ImportTransaction {
   date: string;
@@ -286,22 +307,28 @@ export async function categorizeTransactionsAction(
 }> {
   try {
     const userId = await getUserId();
-
+    const timeoutWarnings: string[] = [];
     const categorizations = await Promise.all(
       transactions.map(async (tx, index) => {
         try {
-          const result = await categorizeTransaction(
-            tx.description,
-            tx.amount,
-            availableCategories,
-            "gpt-4", // Default model, could be configurable
-            userId
+          const result = await withTimeout(
+            categorizeTransaction(
+              tx.description,
+              tx.amount,
+              availableCategories,
+              "gpt-4", // Default model, could be configurable
+              userId
+            ),
+            AI_TIMEOUT_MS,
+            () => {
+              timeoutWarnings.push(`Categorização com IA excedeu o tempo para a transação #${index + 1}.`);
+            }
           );
 
           return {
             transactionIndex: index,
-            suggestions: result.primarySuggestion
-              ? [result.primarySuggestion, ...result.alternativeSuggestions]
+            suggestions: result && (result as any).primarySuggestion
+              ? [(result as any).primarySuggestion, ...(result as any).alternativeSuggestions]
               : [],
           };
         } catch (error) {
@@ -317,6 +344,9 @@ export async function categorizeTransactionsAction(
     const warnings: string[] = [];
     if (failedCount > 0) {
       warnings.push(`${failedCount} transação(ões) sem sugestão de categoria da IA. Use seleção manual.`);
+    }
+    if (timeoutWarnings.length > 0) {
+      warnings.push(...timeoutWarnings);
     }
     return {
       success: true,
