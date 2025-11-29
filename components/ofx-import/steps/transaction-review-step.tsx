@@ -24,6 +24,7 @@ import { formatDate } from "@/lib/utils/date";
 import { findBatchTransactionDuplicates, type DuplicateDetectionResult } from "@/lib/ofx-parser/duplicate-detection";
 import { RiAlertLine, RiCheckLine, RiErrorWarningLine, RiMagicLine } from "@remixicon/react";
 import * as React from "react";
+import { ErrorGuidanceAlert } from "@/components/ofx-import/error-guidance-alert";
 
 // Helper function to format date as dd/MM/yyyy
 export const formatDateDisplay = (dateString: string): string => {

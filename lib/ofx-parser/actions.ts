@@ -23,6 +23,7 @@ import { z } from "zod";
 import { ofxTransactionSchema, ofxFileSchema } from "@/lib/schemas/ofx";
 import { categorizeTransaction } from "@/lib/utils/ai-categorization";
 import { parseOFXFile } from "@/lib/ofx-parser/parser";
+import { getErrorMessage } from "@/lib/ofx-parser/error-messages";
 
 // Timeout for AI categorization requests (milliseconds)
 const AI_TIMEOUT_MS = 5000;
@@ -118,6 +119,7 @@ export async function importOFXTransactionsAction(
 
     // Transaction count limit (999)
     if (transactions.length > 999) {
+      const errorMsg = getErrorMessage("TRANSACTION_LIMIT_EXCEEDED");
       return {
         success: false,
         imported: 0,
@@ -125,7 +127,7 @@ export async function importOFXTransactionsAction(
         updated: 0,
         errors: 0,
         transactionIds: [],
-        message: "Limite de 999 transações por importação excedido.",
+        message: `${errorMsg.title}: ${errorMsg.description}`,
       };
     }
 
@@ -235,9 +237,10 @@ export async function parseOFXFileAction(
     // Validate the parsed data
     const validationResult = ofxFileSchema.safeParse(parsedData);
     if (!validationResult.success) {
+      const errorMsg = getErrorMessage("PARSE_INVALID_FORMAT");
       return {
         success: false,
-        error: "Arquivo OFX inválido ou corrompido",
+        error: `${errorMsg.title}: ${errorMsg.description}`,
       };
     }
 
@@ -266,14 +269,16 @@ export async function parseOFXFileAction(
       warnings.push(`${skippedCount} transação(ões) inválida(s) ignorada(s) (faltando data ou valor).`);
     }
     if (sanitized.length === 0) {
-      return { success: false, error: "Nenhuma transação válida encontrada no arquivo OFX" };
+      const errorMsg = getErrorMessage("PARSE_NO_TRANSACTIONS");
+      return { success: false, error: `${errorMsg.title}: ${errorMsg.description}` };
     }
     return { success: true, transactions: sanitized, warnings };
   } catch (error) {
     console.error("Error parsing OFX file:", error);
+    const errorMsg = getErrorMessage("PARSE_FAILED");
     return {
       success: false,
-      error: "Erro ao processar arquivo OFX",
+      error: `${errorMsg.title}: ${errorMsg.description}`,
     };
   }
 }

@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils/ui";
 import { RiFileUploadLine, RiFileTextLine, RiCloseLine, RiCheckLine, RiErrorWarningLine } from "@remixicon/react";
 import * as React from "react";
+import { getErrorMessage, getUserFriendlyError } from "@/lib/ofx-parser/error-messages";
+import { ErrorGuidanceAlert } from "@/components/ofx-import/error-guidance-alert";
 
 export interface FileUploadStepProps {
   accountId: string;
@@ -59,25 +61,28 @@ export function FileUploadStep({
     // Check file type
     const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
     if (!ACCEPTED_FILE_TYPES.includes(fileExtension)) {
+      const errorMsg = getErrorMessage("FILE_INVALID_TYPE");
       return {
         isValid: false,
-        error: `Tipo de arquivo não suportado. Use apenas arquivos ${ACCEPTED_FILE_TYPES.join(' ou ')}.`
+        error: `${errorMsg.title}: ${errorMsg.description}`
       };
     }
 
     // Check file size
     if (file.size > MAX_FILE_SIZE) {
+      const errorMsg = getErrorMessage("FILE_TOO_LARGE");
       return {
         isValid: false,
-        error: `Arquivo muito grande. O tamanho máximo é ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+        error: `${errorMsg.title}: ${errorMsg.description}`
       };
     }
 
     // Check if file is empty
     if (file.size === 0) {
+      const errorMsg = getErrorMessage("FILE_EMPTY");
       return {
         isValid: false,
-        error: 'O arquivo está vazio.'
+        error: `${errorMsg.title}: ${errorMsg.description}`
       };
     }
 
@@ -127,7 +132,8 @@ export function FileUploadStep({
         warnings: result.warnings || [],
       });
     } catch (error) {
-      const errorMessage = 'Erro ao processar o arquivo. Tente novamente.';
+      const friendlyError = getUserFriendlyError(error);
+      const errorMessage = `${friendlyError.title}: ${friendlyError.description}`;
       setValidationError(errorMessage);
       setSelectedFile(null);
       setBackendError(null);
@@ -330,17 +336,18 @@ export function FileUploadStep({
 
           {/* Error Message */}
           {(validationError || backendError) && (
-            <div
-              className="flex items-start gap-2 p-3 border border-destructive/50 rounded-lg bg-destructive/5 text-sm text-destructive"
-              role="alert"
-              aria-live="polite"
-            >
-              <RiErrorWarningLine className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
-              <div>
-                <p className="font-medium">Erro no arquivo</p>
-                <p>{validationError || backendError}</p>
-              </div>
-            </div>
+            <ErrorGuidanceAlert
+              errorMessage={validationError || backendError || undefined}
+              onRetry={
+                selectedFile
+                  ? undefined
+                  : () => {
+                      setValidationError(null);
+                      setBackendError(null);
+                      handleBrowseClick();
+                    }
+              }
+            />
           )}
         </CardContent>
       </Card>
