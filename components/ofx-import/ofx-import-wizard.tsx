@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils/ui";
-import { ChevronLeftIcon, ChevronRightIcon } from "@remixicon/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 
 export interface OFXImportWizardProps {
@@ -17,6 +17,7 @@ export interface OFXImportWizardProps {
   onOpenChange: (open: boolean) => void;
   accountId: string;
   accountName: string;
+  userId: string;
 }
 
 export type WizardStep = "upload" | "mapping" | "review" | "confirm";
@@ -60,6 +61,7 @@ export function OFXImportWizard({
   onOpenChange,
   accountId,
   accountName,
+  userId,
 }: OFXImportWizardProps) {
   const [currentStepIndex, setCurrentStepIndex] = React.useState(0);
   const [wizardData, setWizardData] = React.useState<Record<string, any>>({});
@@ -102,25 +104,33 @@ export function OFXImportWizard({
   const canGoPrevious = currentStepIndex > 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog
+      open={open}
+      onOpenChange={handleClose}
+      aria-labelledby="ofx-import-title"
+      aria-describedby="ofx-import-description"
+    >
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+        aria-labelledby="ofx-import-title"
+      >
         <DialogHeader className="space-y-4">
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle id="ofx-import-title" className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold">
                 Importar OFX - {accountName}
               </h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p id="ofx-import-description" className="text-sm text-muted-foreground mt-1">
                 {currentStep.description}
               </p>
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground" aria-live="polite">
               Passo {currentStepIndex + 1} de {STEPS.length}
             </div>
           </DialogTitle>
 
           {/* Progress Bar */}
-          <div className="space-y-2">
+          <div className="space-y-2" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso do assistente: ${Math.round(progress)}% completo`}>
             <Progress value={progress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
               {STEPS.map((step, index) => (
@@ -130,6 +140,7 @@ export function OFXImportWizard({
                     "flex items-center gap-1",
                     index <= currentStepIndex ? "text-foreground" : "text-muted-foreground"
                   )}
+                  aria-current={index === currentStepIndex ? "step" : undefined}
                 >
                   <div
                     className={cn(
@@ -140,6 +151,7 @@ export function OFXImportWizard({
                         ? "bg-primary animate-pulse"
                         : "bg-muted"
                     )}
+                    aria-hidden="true"
                   />
                   <span className="hidden sm:inline">{step.title}</span>
                 </div>
@@ -149,11 +161,20 @@ export function OFXImportWizard({
         </DialogHeader>
 
         {/* Step Content */}
-        <div className="flex-1 overflow-hidden">
-          <React.Suspense fallback={<div className="p-8 text-center">Carregando...</div>}>
+        <div className="flex-1 overflow-hidden" role="main" aria-label={`Conteúdo do passo: ${currentStep.title}`}>
+          <React.Suspense
+            fallback={
+              <div className="p-8 text-center" aria-live="polite">
+                <div className="sr-only">Carregando conteúdo do passo...</div>
+                <div className="inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                <p className="mt-2 text-sm text-muted-foreground">Carregando...</p>
+              </div>
+            }
+          >
             <currentStep.component
               accountId={accountId}
               accountName={accountName}
+              userId={userId}
               wizardData={wizardData}
               onDataChange={(data: any) => handleStepDataChange(currentStep.id, data)}
             />
@@ -161,19 +182,24 @@ export function OFXImportWizard({
         </div>
 
         {/* Navigation Footer */}
-        <div className="flex items-center justify-between pt-4 border-t">
+        <div className="flex items-center justify-between pt-4 border-t" role="navigation" aria-label="Navegação do assistente">
           <Button
             variant="outline"
             onClick={handlePrevious}
             disabled={!canGoPrevious}
             className="flex items-center gap-2"
+            aria-label={canGoPrevious ? `Voltar para o passo anterior: ${STEPS[currentStepIndex - 1]?.title}` : "Botão voltar desabilitado - você está no primeiro passo"}
           >
-            <ChevronLeftIcon className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             Anterior
           </Button>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleClose}>
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              aria-label="Cancelar importação e fechar assistente"
+            >
               Cancelar
             </Button>
 
@@ -182,9 +208,14 @@ export function OFXImportWizard({
                 onClick={handleNext}
                 disabled={!canGoNext}
                 className="flex items-center gap-2"
+                aria-label={
+                  canGoNext
+                    ? `Avançar para o próximo passo: ${STEPS[currentStepIndex + 1]?.title}`
+                    : "Botão próximo desabilitado - complete os campos obrigatórios primeiro"
+                }
               >
                 Próximo
-                <ChevronRightIcon className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             ) : (
               <Button
@@ -194,6 +225,7 @@ export function OFXImportWizard({
                   handleClose();
                 }}
                 className="flex items-center gap-2"
+                aria-label="Confirmar e executar a importação das transações"
               >
                 Importar Transações
               </Button>

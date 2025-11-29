@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils/ui";
 import {
   RiArrowLeftRightLine,
   RiDeleteBin5Line,
+  RiDownloadLine,
   RiEyeOffLine,
   RiFileList2Line,
   RiPencilLine,
@@ -23,6 +24,7 @@ interface AccountCardProps {
   onEdit?: () => void;
   onRemove?: () => void;
   onTransfer?: () => void;
+  onImportOFX?: () => void;
   className?: string;
 }
 
@@ -37,6 +39,7 @@ export function AccountCard({
   onEdit,
   onRemove,
   onTransfer,
+  onImportOFX,
   className,
 }: AccountCardProps) {
   const isInactive = status?.toLowerCase() === "inativa";
@@ -58,6 +61,12 @@ export function AccountCard({
       label: "transferir",
       icon: <RiArrowLeftRightLine className="size-4" aria-hidden />,
       onClick: onTransfer,
+      variant: "default" as const,
+    },
+    {
+      label: "importar OFX",
+      icon: <RiDownloadLine className="size-4" aria-hidden />,
+      onClick: onImportOFX,
       variant: "default" as const,
     },
     {

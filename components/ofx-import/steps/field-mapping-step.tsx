@@ -112,14 +112,16 @@ export function FieldMappingStep({
             size="sm"
             onClick={toggleEditMode}
             className="flex items-center gap-2"
+            aria-label={isEditing ? "Salvar alterações no mapeamento de campos" : "Editar mapeamento de campos"}
+            aria-pressed={isEditing}
           >
-            {isEditing ? <RiCheckLine className="h-4 w-4" /> : <RiEditLine className="h-4 w-4" />}
+            {isEditing ? <RiCheckLine className="h-4 w-4" aria-hidden="true" /> : <RiEditLine className="h-4 w-4" aria-hidden="true" />}
             {isEditing ? "Salvar" : "Editar"}
           </Button>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Mapping visualization */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* OFX Fields */}
             <div className="space-y-4">
               <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
@@ -130,26 +132,34 @@ export function FieldMappingStep({
                 const appFieldInfo = mappedTo ? getAppFieldInfo(mappedTo) : null;
 
                 return (
-                  <div key={ofxField.key} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                  <div
+                    key={ofxField.key}
+                    className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30"
+                    role="group"
+                    aria-labelledby={`ofx-field-${ofxField.key}`}
+                  >
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{ofxField.label}</div>
+                      <div id={`ofx-field-${ofxField.key}`} className="font-medium text-sm">{ofxField.label}</div>
                       <div className="text-xs text-muted-foreground">{ofxField.description}</div>
                     </div>
-                    <RiArrowRightLine className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <RiArrowRightLine className="h-4 w-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                     <div className="flex-1 min-w-0">
                       {isEditing ? (
                         <Select
                           value={mappedTo}
                           onValueChange={(value) => handleMappingChange(ofxField.key, value)}
                         >
-                          <SelectTrigger className="h-8">
+                          <SelectTrigger
+                            className="h-8"
+                            aria-label={`Mapear campo ${ofxField.label} para campo da aplicação`}
+                          >
                             <SelectValue placeholder="Selecionar campo..." />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="">Não mapear</SelectItem>
                             {APP_FIELDS.map((appField) => (
                               <SelectItem key={appField.key} value={appField.key}>
-                                {appField.label}
+                                {appField.label} {appField.required ? '(Obrigatório)' : '(Opcional)'}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -179,23 +189,28 @@ export function FieldMappingStep({
                 const isRequired = appField.required;
 
                 return (
-                  <div key={appField.key} className="flex items-center gap-3 p-3 rounded-lg border">
+                  <div
+                    key={appField.key}
+                    className="flex items-center gap-3 p-3 rounded-lg border"
+                    role="group"
+                    aria-labelledby={`app-field-${appField.key}`}
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <div className="font-medium text-sm">{appField.label}</div>
+                        <div id={`app-field-${appField.key}`} className="font-medium text-sm">{appField.label}</div>
                         {isRequired && (
-                          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0.5" aria-label="Campo obrigatório">
                             Obrigatório
                           </Badge>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">{appField.description}</div>
                       {mappedFrom.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
+                        <div className="flex flex-wrap gap-1 mt-1" role="list" aria-label="Campos OFX mapeados">
                           {mappedFrom.map((ofxField) => {
                             const ofxInfo = getOfxFieldInfo(ofxField);
                             return (
-                              <Badge key={ofxField} variant="outline" className="text-xs">
+                              <Badge key={ofxField} variant="outline" className="text-xs" role="listitem">
                                 {ofxInfo?.label}
                               </Badge>
                             );
@@ -215,26 +230,26 @@ export function FieldMappingStep({
           <div className="space-y-3">
             <h4 className="font-medium text-sm">Resumo do Mapeamento</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
+              <div className="text-center" role="region" aria-labelledby="mapped-fields">
+                <div id="mapped-fields" className="text-2xl font-bold text-primary">
                   {Object.values(mappings).filter(Boolean).length}
                 </div>
                 <div className="text-muted-foreground">Campos mapeados</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+              <div className="text-center" role="region" aria-labelledby="required-ok">
+                <div id="required-ok" className="text-2xl font-bold text-green-600">
                   {APP_FIELDS.filter(field => field.required && getMappedFields(field.key).length > 0).length}
                 </div>
                 <div className="text-muted-foreground">Obrigatórios ok</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
+              <div className="text-center" role="region" aria-labelledby="optional-mapped">
+                <div id="optional-mapped" className="text-2xl font-bold text-orange-600">
                   {APP_FIELDS.filter(field => !field.required && getMappedFields(field.key).length > 0).length}
                 </div>
                 <div className="text-muted-foreground">Opcionais mapeados</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
+              <div className="text-center" role="region" aria-labelledby="missing-required">
+                <div id="missing-required" className="text-2xl font-bold text-red-600">
                   {APP_FIELDS.filter(field => field.required && getMappedFields(field.key).length === 0).length}
                 </div>
                 <div className="text-muted-foreground">Faltando obrigatórios</div>
@@ -246,3 +261,5 @@ export function FieldMappingStep({
     </div>
   );
 }
+
+export default FieldMappingStep;

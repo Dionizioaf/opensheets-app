@@ -158,11 +158,12 @@ export function ConfirmationStep({
       </div>
 
       {/* File and Account Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6" role="region" aria-labelledby="account-file-info">
+        <h4 id="account-file-info" className="sr-only">Informações da conta e arquivo</h4>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <RiBankLine className="h-5 w-5" />
+              <RiBankLine className="h-5 w-5" aria-hidden="true" />
               Conta de Destino
             </CardTitle>
           </CardHeader>
@@ -181,14 +182,14 @@ export function ConfirmationStep({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <RiFileTextLine className="h-5 w-5" />
+              <RiFileTextLine className="h-5 w-5" aria-hidden="true" />
               Arquivo OFX
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Nome:</span>
-              <span className="font-medium truncate">{fileInfo?.name || "Não informado"}</span>
+              <span className="font-medium truncate" title={fileInfo?.name}>{fileInfo?.name || "Não informado"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Tamanho:</span>
@@ -330,14 +331,24 @@ export function ConfirmationStep({
       </Card>
 
       {/* Final Actions */}
-      <div className="flex items-center justify-center gap-4 pt-4">
-        <Button variant="outline" size="lg">
+      <div className="flex items-center justify-center gap-4 pt-4" role="region" aria-labelledby="final-actions">
+        <h4 id="final-actions" className="sr-only">Ações finais de importação</h4>
+        <Button
+          variant="outline"
+          size="lg"
+          aria-label="Voltar para o passo de revisão para fazer alterações"
+        >
           Revisar Novamente
         </Button>
         <Button
           size="lg"
           disabled={!canImport}
           className="min-w-48"
+          aria-label={
+            canImport
+              ? `Confirmar e executar a importação de ${summary.valid} transações válidas`
+              : "Botão desabilitado - corrigir problemas antes de importar"
+          }
         >
           Confirmar Importação
         </Button>
@@ -345,3 +356,5 @@ export function ConfirmationStep({
     </div>
   );
 }
+
+export default ConfirmationStep;

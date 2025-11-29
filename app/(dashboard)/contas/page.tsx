@@ -10,7 +10,7 @@ export default async function Page() {
 
   return (
     <main className="flex flex-col items-start gap-6">
-      <AccountsPage accounts={accounts} logoOptions={logoOptions} />
+      <AccountsPage accounts={accounts} logoOptions={logoOptions} userId={userId} />
     </main>
   );
 }

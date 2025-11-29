@@ -4,6 +4,7 @@ import { deleteAccountAction } from "@/app/(dashboard)/contas/actions";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { AccountCard } from "@/components/contas/account-card";
 import { EmptyState } from "@/components/empty-state";
+import { OFXImportWizard } from "@/components/ofx-import/ofx-import-wizard";
 import { Button } from "@/components/ui/button";
 import { getCurrentPeriod } from "@/lib/utils/period";
 import { RiAddCircleLine, RiBankLine } from "@remixicon/react";
@@ -19,6 +20,7 @@ import type { Account } from "./types";
 interface AccountsPageProps {
   accounts: Account[];
   logoOptions: string[];
+  userId: string;
 }
 
 const resolveLogoSrc = (logo: string | null) => {
@@ -30,7 +32,7 @@ const resolveLogoSrc = (logo: string | null) => {
   return `/logos/${fileName}`;
 };
 
-export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
+export function AccountsPage({ accounts, logoOptions, userId }: AccountsPageProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
@@ -39,6 +41,8 @@ export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferFromAccount, setTransferFromAccount] =
     useState<Account | null>(null);
+  const [ofxImportOpen, setOfxImportOpen] = useState(false);
+  const [selectedAccountForImport, setSelectedAccountForImport] = useState<Account | null>(null);
 
   const hasAccounts = accounts.length > 0;
 
@@ -108,6 +112,18 @@ export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
     }
   }, []);
 
+  const handleImportOFXRequest = useCallback((account: Account) => {
+    setSelectedAccountForImport(account);
+    setOfxImportOpen(true);
+  }, []);
+
+  const handleOfxImportOpenChange = useCallback((open: boolean) => {
+    setOfxImportOpen(open);
+    if (!open) {
+      setSelectedAccountForImport(null);
+    }
+  }, []);
+
   const removeTitle = accountToRemove
     ? `Remover conta "${accountToRemove.name}"?`
     : "Remover conta?";
@@ -155,6 +171,7 @@ export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
                   onEdit={() => handleEdit(account)}
                   onRemove={() => handleRemoveRequest(account)}
                   onTransfer={() => handleTransferRequest(account)}
+                  onImportOFX={() => handleImportOFXRequest(account)}
                   onViewStatement={() =>
                     router.push(`/contas/${account.id}/extrato`)
                   }
@@ -194,11 +211,21 @@ export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
 
       {transferFromAccount && (
         <TransferDialog
-          accounts={accounts}
+          accounts={accounts as any}
           fromAccountId={transferFromAccount.id}
           currentPeriod={getCurrentPeriod()}
           open={transferOpen}
           onOpenChange={handleTransferOpenChange}
+        />
+      )}
+
+      {selectedAccountForImport && (
+        <OFXImportWizard
+          accountId={selectedAccountForImport.id}
+          accountName={selectedAccountForImport.name}
+          userId={userId}
+          open={ofxImportOpen}
+          onOpenChange={handleOfxImportOpenChange}
         />
       )}
     </>
