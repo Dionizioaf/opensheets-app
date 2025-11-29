@@ -324,8 +324,66 @@ interface ConfirmationData {
 
 9. **User Experience**: The interface provides clear visual feedback and prevents accidental imports of problematic data, ensuring data quality and user confidence in the import process.
 
-- [x] 3.7 Add responsive design and accessibility features matching app standards
-- [x] 3.7 Add responsive design and accessibility features matching app standards
+### Tutorial: Using Duplicate Detection and Handling
+
+The duplicate detection system automatically identifies potential duplicate transactions during OFX import and provides user-friendly options for resolution. Here's how it works:
+
+1. **Automatic Detection**: When transactions are loaded in the review step, the system automatically:
+
+   - Queries existing transactions from the last 90 days
+   - Compares date, amount, and description similarity
+   - Uses fuzzy string matching for flexible description comparison
+   - Flags transactions with similarity scores above 70%
+
+2. **Visual Indicators**:
+
+   - **"Duplicata" Badge**: Red badges mark potential duplicate transactions
+   - **Similarity Score**: Shows percentage match (e.g., "95% similar")
+   - **Existing Transaction**: Displays the matching transaction description
+   - **Warning Status**: Orange validation status for duplicates requiring attention
+
+3. **Resolution Options**: For each duplicate transaction, users can choose:
+
+   - **Pular (Skip)**: Don't import this transaction (default for high-confidence duplicates)
+   - **Importar (Import)**: Import as a new transaction despite the duplicate
+   - **Atualizar (Update)**: Update the existing transaction with new information
+
+4. **Bulk Operations**: For multiple duplicates, use bulk actions:
+
+   - **"Pular Todas"**: Skip all duplicate transactions
+   - **"Importar Todas"**: Import all duplicate transactions as new
+   - Individual resolution takes precedence over bulk actions
+
+5. **Duplicate Detection Algorithm**:
+
+   - **Date Matching**: Exact date matches get highest weight
+   - **Amount Matching**: Exact amount matches are strongly considered
+   - **Description Similarity**: Uses Levenshtein distance for fuzzy matching
+   - **Combined Scoring**: Multi-factor algorithm prevents false positives
+
+6. **Validation Integration**: Duplicate transactions are marked with "warning" status and default to "skip" action, preventing accidental duplicate imports while allowing user override.
+
+```typescript
+// Example duplicate detection result
+interface DuplicateDetectionResult {
+  isDuplicate: boolean;
+  matches: Array<{
+    existingTransactionId: string;
+    similarity: number; // 0.95 = 95% match
+    matchReasons: string[]; // ["exact_date", "exact_amount", "similar_description"]
+  }>;
+  bestMatch?: {
+    existingTransactionId: string;
+    similarity: number;
+    matchReasons: string[];
+  };
+}
+```
+
+7. **API Integration**: Duplicate detection runs server-side via `/api/ofx/duplicate-detection` endpoint, ensuring secure database access and proper user authentication.
+
+8. **Fallback Behavior**: If duplicate detection fails, transactions are marked as non-duplicates to prevent blocking the import process.
+
 - [x] 4.0 Add import functionality to accounts page
   - [x] 4.1 Locate the account cards component in `components/contas/` and identify where to add the button
   - [x] 4.2 Add "Import OFX" button to each account card using shadcn/ui Button component
@@ -340,12 +398,12 @@ interface ConfirmationData {
   - [x] 5.5 Implement user options: skip, update existing, or import as new
   - [x] 5.6 Add validation to prevent accidental duplicate imports
 - [ ] 6.0 Integrate with database and validation
-  - [ ] 6.1 Create server action in `lib/ofx-parser/actions.ts` for handling the complete import process
-  - [ ] 6.2 Implement currency conversion logic in `lib/utils/currency.ts` for exchange rate handling
-  - [ ] 6.3 Add transaction insertion using Drizzle ORM with proper relations to accounts and categories
-  - [ ] 6.4 Implement data validation using Zod schemas before database insertion
-  - [ ] 6.5 Add revalidation calls for "lancamentos" entity after successful import
-  - [ ] 6.6 Ensure all database operations are wrapped in transactions for consistency
+  - [x] 6.1 Create server action in `lib/ofx-parser/actions.ts` for handling the complete import process
+  - [x] 6.2 Add robust validation logic to ensure all data is valid before import (required fields, categories, duplicates, permissions)
+  - [x] 6.3 Implement currency conversion logic in `lib/utils/currency.ts` for exchange rate handling
+  - [x] 6.4 Implement transaction insertion using Drizzle ORM with proper relations to accounts and categories
+  - [x] 6.5 Add revalidation calls for "lancamentos" entity after successful import
+  - [x] 6.6 Ensure all database operations are wrapped in transactions for consistency
 - [ ] 7.0 Add error handling and edge cases
   - [ ] 7.1 Implement file size validation (max 10MB) and transaction count limit (999)
   - [ ] 7.2 Add error handling for invalid OFX files with user-friendly messages
