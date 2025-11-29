@@ -30,6 +30,7 @@ export function FileUploadStep({
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+  const [backendError, setBackendError] = React.useState<string | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -39,6 +40,12 @@ export function FileUploadStep({
     const existingFile = wizardData.upload?.file;
     if (existingFile) {
       setSelectedFile(existingFile);
+    }
+    // Show backend error if present in wizardData
+    if (wizardData.upload?.backendError) {
+      setBackendError(wizardData.upload.backendError);
+    } else {
+      setBackendError(null);
     }
   }, [wizardData.upload]);
 
@@ -74,6 +81,7 @@ export function FileUploadStep({
   const processFile = React.useCallback(async (file: File) => {
     setIsProcessing(true);
     setValidationError(null);
+    setBackendError(null);
 
     try {
       const validation = validateFile(file);
@@ -84,24 +92,42 @@ export function FileUploadStep({
         return;
       }
 
-      // Simulate file processing (in real implementation, this would parse the OFX file)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Read file content as text
+      const fileContent = await file.text();
+
+      // Call backend to parse OFX file and validate
+      const response = await fetch("/api/ofx/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileContent, accountId }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        setBackendError(result.error || "Arquivo OFX inválido ou corrompido");
+        setSelectedFile(null);
+        onDataChange({ file: null, backendError: result.error || "Arquivo OFX inválido ou corrompido" });
+        return;
+      }
 
       setSelectedFile(file);
+      setBackendError(null);
       onDataChange({
         file,
         parsed: true,
-        error: null
+        error: null,
+        transactions: result.transactions,
       });
     } catch (error) {
       const errorMessage = 'Erro ao processar o arquivo. Tente novamente.';
       setValidationError(errorMessage);
       setSelectedFile(null);
+      setBackendError(null);
       onDataChange({ file: null, error: errorMessage });
     } finally {
       setIsProcessing(false);
     }
-  }, [validateFile, onDataChange]);
+  }, [validateFile, onDataChange, accountId]);
 
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -286,7 +312,7 @@ export function FileUploadStep({
           )}
 
           {/* Error Message */}
-          {validationError && (
+          {(validationError || backendError) && (
             <div
               className="flex items-start gap-2 p-3 border border-destructive/50 rounded-lg bg-destructive/5 text-sm text-destructive"
               role="alert"
@@ -295,7 +321,7 @@ export function FileUploadStep({
               <RiErrorWarningLine className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <p className="font-medium">Erro no arquivo</p>
-                <p>{validationError}</p>
+                <p>{validationError || backendError}</p>
               </div>
             </div>
           )}

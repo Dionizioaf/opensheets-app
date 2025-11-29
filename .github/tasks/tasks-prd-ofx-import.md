@@ -397,7 +397,7 @@ interface DuplicateDetectionResult {
   - [x] 5.4 Create UI components for displaying duplicate warnings in the review step
   - [x] 5.5 Implement user options: skip, update existing, or import as new
   - [x] 5.6 Add validation to prevent accidental duplicate imports
-- [ ] 6.0 Integrate with database and validation
+- [x] 6.0 Integrate with database and validation
   - [x] 6.1 Create server action in `lib/ofx-parser/actions.ts` for handling the complete import process
   - [x] 6.2 Add robust validation logic to ensure all data is valid before import (required fields, categories, duplicates, permissions)
   - [x] 6.3 Implement currency conversion logic in `lib/utils/currency.ts` for exchange rate handling
@@ -405,8 +405,8 @@ interface DuplicateDetectionResult {
   - [x] 6.5 Add revalidation calls for "lancamentos" entity after successful import
   - [x] 6.6 Ensure all database operations are wrapped in transactions for consistency
 - [ ] 7.0 Add error handling and edge cases
-  - [ ] 7.1 Implement file size validation (max 10MB) and transaction count limit (999)
-  - [ ] 7.2 Add error handling for invalid OFX files with user-friendly messages
+   - [x] 7.1 Implement file size validation (max 10MB) and transaction count limit (999)
+  - [x] 7.2 Add error handling for invalid OFX files with user-friendly messages
   - [ ] 7.3 Handle incomplete OFX data by skipping invalid transactions or using defaults
   - [ ] 7.4 Implement graceful handling of AI categorization failures with manual fallback
   - [ ] 7.5 Add timeout handling for long-running AI requests

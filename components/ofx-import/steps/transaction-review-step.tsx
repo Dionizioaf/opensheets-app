@@ -152,13 +152,18 @@ export function TransactionReviewStep({
   const [selectedTransactions, setSelectedTransactions] = React.useState<Set<string>>(new Set());
   const [isDetectingDuplicates, setIsDetectingDuplicates] = React.useState(false);
 
+  // Check for backend parsing error from upload step
+  const backendError = wizardData.upload?.backendError;
+
   // Load transactions from wizard data or use mock data
   React.useEffect(() => {
     const existingTransactions = wizardData.review?.transactions;
     if (existingTransactions) {
       setTransactions(existingTransactions);
+    } else if (wizardData.upload?.transactions) {
+      setTransactions(wizardData.upload.transactions);
     }
-  }, [wizardData.review]);
+  }, [wizardData.review, wizardData.upload]);
 
   // Perform duplicate detection when transactions are loaded
   React.useEffect(() => {
@@ -342,6 +347,17 @@ export function TransactionReviewStep({
 
   return (
     <div className="space-y-6">
+      {/* Show backend error if present */}
+      {backendError && (
+        <div className="flex items-start gap-2 p-3 border border-destructive/50 rounded-lg bg-destructive/5 text-sm text-destructive" role="alert" aria-live="polite">
+          <RiErrorWarningLine className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="font-medium">Erro ao processar arquivo OFX</p>
+            <p>{backendError}</p>
+          </div>
+        </div>
+      )}
+
       <div className="text-center space-y-2">
         <h3 className="text-lg font-medium">Revisão das Transações</h3>
         <p className="text-sm text-muted-foreground">

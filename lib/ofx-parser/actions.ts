@@ -61,6 +61,7 @@ export async function importOFXTransactionsAction(
 ): Promise<ImportResult> {
   try {
     const userId = await getUserId();
+
     const { accountId, transactions, fieldMappings, skipDuplicates, updateExisting } = options;
 
     // Zod validation for input
@@ -91,6 +92,19 @@ export async function importOFXTransactionsAction(
         errors: 0,
         transactionIds: [],
         message: "Dados de importação inválidos",
+      };
+    }
+
+    // Transaction count limit (999)
+    if (transactions.length > 999) {
+      return {
+        success: false,
+        imported: 0,
+        skipped: 0,
+        updated: 0,
+        errors: 0,
+        transactionIds: [],
+        message: "Limite de 999 transações por importação excedido.",
       };
     }
 
