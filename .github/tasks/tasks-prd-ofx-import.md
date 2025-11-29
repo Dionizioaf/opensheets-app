@@ -130,8 +130,178 @@ import { OFXImportWizard } from '@/components/ofx-import/ofx-import-wizard';
   - [x] 3.2 Implement step navigation logic with progress indicators
   - [x] 3.3 Create file upload step component with drag-and-drop support and file validation
   - [x] 3.4 Build field mapping step showing auto-suggested mappings with edit capabilities
-  - [ ] 3.5 Develop transaction review step with editable table showing categories, duplicates, and validation
-  - [ ] 3.6 Create confirmation step with summary and final import button
+
+### Tutorial: Using the Field Mapping Step
+
+The field mapping step allows users to configure how OFX file fields are mapped to application fields. Here's how it works:
+
+1. **Auto-Suggested Mappings**: The system automatically suggests mappings based on common OFX standards:
+   - OFX `date` → Application `purchaseDate`
+   - OFX `amount` → Application `amount`
+   - OFX `description`/`payee` → Application `name`
+   - OFX `type` → Application `transactionType`
+   - OFX `id` → Application `note`
+
+2. **Interactive Editing**: Click "Editar" to modify mappings:
+   - Select different application fields for each OFX field
+   - Choose "Não mapear" to skip unwanted OFX fields
+   - Visual arrows show the mapping relationships
+
+3. **Field Validation**: The interface shows:
+   - **Required fields** marked with badges
+   - **Mapping summary** with statistics:
+     - Total mapped fields
+     - Required fields properly mapped
+     - Optional fields mapped
+     - Missing required mappings
+
+4. **Dual View**: The interface displays both:
+   - **OFX Fields** (left): Shows available fields from the uploaded file
+   - **Application Fields** (right): Shows target fields with mapping sources
+
+5. **Smart Defaults**: Mappings are pre-configured for typical OFX files but can be customized for specific bank formats.
+
+```typescript
+// Example mapping configuration
+const mappings = {
+  date: "purchaseDate",      // OFX date → purchase date
+  amount: "amount",          // OFX amount → transaction amount
+  description: "name",       // OFX description → transaction name
+  payee: "name",            // OFX payee → transaction name (combined)
+  type: "transactionType",   // OFX type → receita/despesa
+  id: "note",               // OFX ID → additional notes
+};
+```
+
+6. **Validation Logic**: The step prevents progression if required application fields are not mapped from at least one OFX field.
+
+### Tutorial: Using the Transaction Review Step
+
+The transaction review step provides an editable table for reviewing and adjusting parsed OFX transactions before import. Here's how it works:
+
+1. **Transaction Overview**: The step displays all parsed transactions in a comprehensive table with:
+   - **Summary Cards**: Shows counts for valid, warning, and error transactions, plus AI usage statistics
+   - **Editable Table**: Columns for date, description, amount, category, status, and AI indicators
+
+2. **AI-Powered Categorization**: 
+   - **Magic Wand Icons** (✨) indicate transactions with AI suggestions
+   - **Category Dropdown**: Shows AI suggestions first with confidence percentages (e.g., "Transporte - 95%")
+   - **Manual Override**: Users can select different categories or keep AI suggestions
+
+3. **Duplicate Detection**:
+   - **"Duplicata" Badge**: Red badges mark potential duplicate transactions
+   - **Warning Status**: Orange alerts for transactions needing attention
+   - **Validation Icons**: Green checkmarks for valid, orange warnings for issues, red errors for problems
+
+4. **Interactive Editing**:
+   - **Bulk Selection**: Checkboxes for selecting multiple transactions
+   - **Bulk Actions**: Apply categories, mark as valid, or delete multiple transactions at once
+   - **Inline Editing**: Click category dropdowns to change assignments instantly
+
+5. **Transaction Details**:
+   - **Payee Information**: Shows both description and payee when available
+   - **Amount Formatting**: Proper currency display with color coding (green for credits, red for debits)
+   - **Date Display**: Formatted as dd/MM/yyyy for Brazilian locale
+
+6. **Validation Summary**: Before proceeding, the step ensures:
+   - All transactions have assigned categories
+   - No critical validation errors remain
+   - Duplicate handling preferences are set
+
+```typescript
+// Example transaction data structure
+interface TransactionItem {
+  id: string;
+  date: string;              // "2024-01-15"
+  amount: number;            // -25.50 (negative for debits)
+  description: string;       // "UBER TRIP"
+  payee?: string;           // "UBER"
+  type: "debit" | "credit";
+  categoryId: string | null;
+  categoryName: string | null;
+  isDuplicate: boolean;
+  validationStatus: "valid" | "warning" | "error";
+  aiSuggestions: Array<{
+    categoryId: string;
+    categoryName: string;
+    confidence: number;      // 0.95
+  }>;
+}
+```
+
+7. **Progress Tracking**: The step prevents advancement until all critical issues are resolved, ensuring data quality before import.
+
+### Tutorial: Using the Confirmation Step
+
+The confirmation step provides a comprehensive final review before importing transactions into the system. Here's how it works:
+
+1. **Import Summary Dashboard**: The step displays key statistics in an overview:
+   - **Total Transactions**: Complete count of parsed transactions
+   - **Valid Transactions**: Number ready for import (green checkmark)
+   - **Warnings**: Transactions with issues needing attention (orange alert)
+   - **Errors**: Transactions with critical problems (red warning)
+
+2. **Account and File Information**: 
+   - **Destination Account**: Shows selected account name and ID
+   - **OFX File Details**: File name, size, and last modification date
+   - **Field Mappings**: Summary of how OFX fields were mapped to application fields
+
+3. **Financial Overview**: 
+   - **Revenue Summary**: Total credit amounts (green)
+   - **Expense Summary**: Total debit amounts (red)
+   - **Net Balance**: Calculated difference between credits and debits
+
+4. **Category Distribution**: 
+   - **Category Breakdown**: Shows how many transactions per category
+   - **Amount Totals**: Sum amounts for each category with color coding
+   - **Sorted by Frequency**: Most used categories appear first
+
+5. **Issue Detection and Warnings**:
+   - **Duplicate Alerts**: Highlights transactions marked as duplicates
+   - **Validation Errors**: Lists transactions with critical validation issues
+   - **Missing Categories**: Warns about transactions without category assignments
+
+6. **Import Readiness Check**:
+   - **Status Indicator**: Green checkmark when ready, orange warning when issues exist
+   - **Import Button**: Enabled only when all validations pass
+   - **Review Option**: "Revisar Novamente" button to return to previous steps
+
+7. **Final Actions**:
+   - **Confirm Import**: Large primary button to execute the import
+   - **Cancel/Review**: Options to go back and make changes
+   - **Progress Feedback**: Clear messaging about what will be imported
+
+```typescript
+// Example confirmation data structure
+interface ConfirmationData {
+  summary: {
+    total: number;
+    valid: number;
+    warnings: number;
+    errors: number;
+    duplicates: number;
+    withCategories: number;
+  };
+  financials: {
+    credits: number;
+    debits: number;
+    net: number;
+  };
+  categories: Record<string, {
+    count: number;
+    totalAmount: number;
+  }>;
+  canImport: boolean; // true when all validations pass
+}
+```
+
+8. **Validation Logic**: The step prevents import if:
+   - Any transactions have validation errors
+   - Transactions lack category assignments
+   - Critical mapping issues exist
+
+9. **User Experience**: The interface provides clear visual feedback and prevents accidental imports of problematic data, ensuring data quality and user confidence in the import process.
+  - [ ] 3.7 Add responsive design and accessibility features matching app standards
   - [ ] 3.7 Add responsive design and accessibility features matching app standards
 - [ ] 4.0 Add import functionality to accounts page
   - [ ] 4.1 Locate the account cards component in `components/contas/` and identify where to add the button
