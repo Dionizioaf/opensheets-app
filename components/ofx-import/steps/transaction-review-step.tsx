@@ -151,6 +151,7 @@ export function TransactionReviewStep({
   const [transactions, setTransactions] = React.useState<TransactionItem[]>(MOCK_TRANSACTIONS);
   const [selectedTransactions, setSelectedTransactions] = React.useState<Set<string>>(new Set());
   const [isDetectingDuplicates, setIsDetectingDuplicates] = React.useState(false);
+  const [aiWarnings, setAiWarnings] = React.useState<string[]>([]);
 
   // Check for backend parsing error from upload step
   const backendError = wizardData.upload?.backendError;
@@ -236,6 +237,37 @@ export function TransactionReviewStep({
 
     performDuplicateDetection();
   }, [transactions.length, accountId]);
+
+  // Fetch AI categorizations and capture warnings when suggestions fail
+  React.useEffect(() => {
+    const runAiCategorization = async () => {
+      if (transactions.length === 0) return;
+      try {
+        const response = await fetch("/api/ofx/categorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transactions: transactions.map(tx => ({ description: tx.description, amount: tx.amount, date: tx.date })),
+          }),
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (result.success && Array.isArray(result.categorizations)) {
+          // Merge suggestions into transactions
+          setTransactions(prev => prev.map((tx, idx) => {
+            const entry = result.categorizations.find((c: any) => c.transactionIndex === idx);
+            return entry
+              ? { ...tx, aiSuggestions: entry.suggestions || [] }
+              : tx;
+          }));
+          setAiWarnings(result.warnings || []);
+        }
+      } catch (e) {
+        // Silent fail; users can categorize manually
+      }
+    };
+    runAiCategorization();
+  }, [transactions.length]);
 
   // Save transactions to wizard data
   React.useEffect(() => {
@@ -355,6 +387,17 @@ export function TransactionReviewStep({
           <div>
             <p className="font-medium">Erro ao processar arquivo OFX</p>
             <p>{backendError}</p>
+          </div>
+        </div>
+      )}
+      {!backendError && aiWarnings.length > 0 && (
+        <div className="flex items-start gap-2 p-3 border border-orange-300 rounded-lg bg-orange-50 dark:bg-orange-950/20 text-sm text-orange-700 dark:text-orange-300" role="alert" aria-live="polite">
+          <RiAlertLine className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="font-medium">Avisos de categorização com IA</p>
+            {aiWarnings.map((w, i) => (
+              <p key={i}>{w}</p>
+            ))}
           </div>
         </div>
       )}

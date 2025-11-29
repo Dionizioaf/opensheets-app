@@ -281,6 +281,7 @@ export async function categorizeTransactionsAction(
       confidence: number;
     }>;
   }>;
+  warnings?: string[];
   error?: string;
 }> {
   try {
@@ -312,10 +313,15 @@ export async function categorizeTransactionsAction(
         }
       })
     );
-
+    const failedCount = categorizations.filter(c => c.suggestions.length === 0).length;
+    const warnings: string[] = [];
+    if (failedCount > 0) {
+      warnings.push(`${failedCount} transação(ões) sem sugestão de categoria da IA. Use seleção manual.`);
+    }
     return {
       success: true,
       categorizations,
+      warnings,
     };
   } catch (error) {
     console.error("Error in bulk categorization:", error);
