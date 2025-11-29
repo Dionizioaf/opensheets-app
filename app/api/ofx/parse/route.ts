@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       transactions: result.transactions,
+      warnings: result.warnings ?? [],
     });
   } catch (error) {
     console.error("Error in OFX parse API:", error);

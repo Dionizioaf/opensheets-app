@@ -202,6 +202,7 @@ export async function parseOFXFileAction(
 ): Promise<{
   success: boolean;
   transactions?: ImportTransaction[];
+  warnings?: string[];
   error?: string;
 }> {
   try {
@@ -219,18 +220,34 @@ export async function parseOFXFileAction(
       };
     }
 
-    // Convert to import transactions format
-    const transactions: ImportTransaction[] = parsedData.transactions.map((tx) => ({
-      date: tx.date,
-      amount: tx.amount,
-      description: tx.description,
-      payee: tx.payee,
-    }));
-
-    return {
-      success: true,
-      transactions,
-    };
+    // Sanitize & filter incomplete transactions
+    const warnings: string[] = [];
+    const sanitized: ImportTransaction[] = [];
+    let skippedCount = 0;
+    for (const tx of parsedData.transactions) {
+      if (!tx.date || typeof tx.amount !== "number") {
+        skippedCount++;
+        continue; // Skip invalid core data
+      }
+      let description = tx.description?.trim();
+      if (!description) {
+        description = "Sem descrição"; // Default description
+        warnings.push("Descrição ausente substituída por 'Sem descrição'.");
+      }
+      sanitized.push({
+        date: tx.date,
+        amount: tx.amount,
+        description,
+        payee: tx.payee?.trim() || undefined,
+      });
+    }
+    if (skippedCount > 0) {
+      warnings.push(`${skippedCount} transação(ões) inválida(s) ignorada(s) (faltando data ou valor).`);
+    }
+    if (sanitized.length === 0) {
+      return { success: false, error: "Nenhuma transação válida encontrada no arquivo OFX" };
+    }
+    return { success: true, transactions: sanitized, warnings };
   } catch (error) {
     console.error("Error parsing OFX file:", error);
     return {

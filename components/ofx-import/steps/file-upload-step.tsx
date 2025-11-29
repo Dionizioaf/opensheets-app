@@ -32,6 +32,7 @@ export function FileUploadStep({
   const [validationError, setValidationError] = React.useState<string | null>(null);
   const [backendError, setBackendError] = React.useState<string | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [warnings, setWarnings] = React.useState<string[]>([]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -46,6 +47,11 @@ export function FileUploadStep({
       setBackendError(wizardData.upload.backendError);
     } else {
       setBackendError(null);
+    }
+    if (wizardData.upload?.warnings) {
+      setWarnings(wizardData.upload.warnings);
+    } else {
+      setWarnings([]);
     }
   }, [wizardData.upload]);
 
@@ -112,11 +118,13 @@ export function FileUploadStep({
 
       setSelectedFile(file);
       setBackendError(null);
+      setWarnings(result.warnings || []);
       onDataChange({
         file,
         parsed: true,
         error: null,
         transactions: result.transactions,
+        warnings: result.warnings || [],
       });
     } catch (error) {
       const errorMessage = 'Erro ao processar o arquivo. Tente novamente.';
@@ -301,11 +309,20 @@ export function FileUploadStep({
                 </div>
               )}
 
-              {/* Success Message */}
-              {!isProcessing && !validationError && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <RiCheckLine className="w-4 h-4" aria-hidden="true" />
-                  Arquivo processado com sucesso! Clique em "Próximo" para continuar.
+              {/* Success / Warning Messages */}
+              {!isProcessing && !validationError && !backendError && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <RiCheckLine className="w-4 h-4" aria-hidden="true" />
+                    Arquivo processado com sucesso! Clique em "Próximo" para continuar.
+                  </div>
+                  {warnings.length > 0 && (
+                    <div className="space-y-1 text-xs text-orange-600" role="alert" aria-live="polite">
+                      {warnings.map((w, i) => (
+                        <p key={i}>{w}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

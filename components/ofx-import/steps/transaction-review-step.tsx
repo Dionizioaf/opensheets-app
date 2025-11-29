@@ -154,6 +154,7 @@ export function TransactionReviewStep({
 
   // Check for backend parsing error from upload step
   const backendError = wizardData.upload?.backendError;
+  const uploadWarnings: string[] = wizardData.upload?.warnings || [];
 
   // Load transactions from wizard data or use mock data
   React.useEffect(() => {
@@ -354,6 +355,17 @@ export function TransactionReviewStep({
           <div>
             <p className="font-medium">Erro ao processar arquivo OFX</p>
             <p>{backendError}</p>
+          </div>
+        </div>
+      )}
+      {!backendError && uploadWarnings.length > 0 && (
+        <div className="flex items-start gap-2 p-3 border border-orange-300 rounded-lg bg-orange-50 dark:bg-orange-950/20 text-sm text-orange-700 dark:text-orange-300" role="alert" aria-live="polite">
+          <RiAlertLine className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="font-medium">Avisos do arquivo OFX</p>
+            {uploadWarnings.map((w, i) => (
+              <p key={i}>{w}</p>
+            ))}
           </div>
         </div>
       )}
