@@ -21,7 +21,7 @@ import { z } from "zod";
 // Import schemas and utilities
 import { OfxFileSchema } from "@/lib/schemas/ofx";
 import { categorizeTransaction } from "@/lib/utils/ai-categorization";
-import { parseOfxFile } from "@/lib/ofx-parser/parser";
+import { parseOFX } from "@/lib/ofx-parser/parser";
 import { getErrorMessage } from "@/lib/ofx-parser/error-messages";
 
 // Timeout for AI categorization requests (milliseconds)
@@ -242,10 +242,10 @@ export async function parseOFXFileAction(
     // Parse the OFX file
     let parsedData;
     try {
-      parsedData = await parseOfxFile(fileContent);
+      parsedData = await parseOFX(fileContent);
       console.log("[OFX Action] parsedData:", JSON.stringify(parsedData, null, 2));
     } catch (err) {
-      console.error("[OFX Action] parseOfxFile error:", err);
+      console.error("[OFX Action] parseOFX error:", err);
       throw err;
     }
 
@@ -261,11 +261,12 @@ export async function parseOFXFileAction(
       };
     }
 
-    // Sanitize & filter incomplete transactions
+    // Sanitize & filter incomplete transactions (flatten from all accounts)
     const warnings: string[] = [];
     const sanitized: ImportTransaction[] = [];
     let skippedCount = 0;
-    for (const tx of parsedData.transactions) {
+    const allTransactions = (parsedData.accounts || []).flatMap(acc => acc.transactions || []);
+    for (const tx of allTransactions) {
       if (!tx.date || typeof tx.amount !== "number") {
         skippedCount++;
         continue; // Skip invalid core data

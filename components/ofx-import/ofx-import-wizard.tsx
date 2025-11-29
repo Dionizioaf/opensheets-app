@@ -12,17 +12,6 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
-
-export interface OFXImportWizardProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  accountId: string;
-  accountName: string;
-  userId: string;
-}
-
-export type WizardStep = "upload" | "mapping" | "review" | "confirm";
-
 export interface WizardStepData {
   id: WizardStep;
   title: string;
@@ -112,20 +101,22 @@ export function OFXImportWizard({
       aria-describedby="ofx-import-description"
     >
       <DialogContent
-        className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         aria-labelledby="ofx-import-title"
+        aria-describedby="ofx-import-description"
       >
         <DialogHeader className="space-y-2">
           <div className="flex items-start justify-between gap-4">
-            <DialogTitle id="ofx-import-title">Importar OFX - {accountName}</DialogTitle>
+            <DialogTitle id="ofx-import-title">
+              {accountName ? `Importar OFX - ${accountName}` : 'Importar OFX'}
+            </DialogTitle>
             <div className="text-sm text-muted-foreground" aria-live="polite">
               Passo {currentStepIndex + 1} de {STEPS.length}
             </div>
           </div>
           <DialogDescription id="ofx-import-description">
-            {currentStep.description}
+            {currentStep.description || 'Importação de arquivo OFX'}
           </DialogDescription>
-
           {/* Progress Bar */}
           <div className="space-y-2 mt-2" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso do assistente: ${Math.round(progress)}% completo`}>
             <Progress value={progress} className="h-2" />
@@ -149,7 +140,7 @@ export function OFXImportWizard({
                         : "bg-muted"
                     )}
                     aria-hidden="true"
-                  />
+                  ></div>
                   <span className="hidden sm:inline">{step.title}</span>
                 </div>
               ))}
@@ -157,8 +148,8 @@ export function OFXImportWizard({
           </div>
         </DialogHeader>
 
-        {/* Step Content */}
-        <div className="flex-1 overflow-hidden" role="main" aria-label={`Conteúdo do passo: ${currentStep.title}`}>
+        {/* Step Content with vertical and horizontal scroll */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto max-h-[60vh]" role="main" aria-label={`Conteúdo do passo: ${currentStep.title}`}>
           <React.Suspense
             fallback={
               <div className="p-8 text-center" aria-live="polite">

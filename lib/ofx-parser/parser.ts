@@ -1,151 +1,215 @@
-import { parse } from "ofx-js";
-import { OfxFileSchema, type OfxFile } from "@/lib/schemas/ofx";
+
+// lib/ofx-parser/parser.ts
+
+export interface Transaction {
+    id: string;
+    date: string;
+    amount: number;
+    type: string;
+    description: string;
+    memo?: string;
+    checkNum?: string;
+    refNum?: string;
+}
+
+export interface Account {
+    bankId: string;
+    accountId: string;
+    accountType: string;
+    balance: number;
+    balanceDate: string;
+    currency: string;
+    transactions: Transaction[];
+}
+
+export interface OFXParsedData {
+    bankName?: string;
+    accounts: Account[];
+    dtStart: string;
+    dtEnd: string;
+    rawText: string;
+}
 
 /**
- * Error thrown when OFX parsing fails
+ * Parses OFX file content to structured JSON
+ * Handles both SGML and XML OFX formats
  */
-export class OfxParseError extends Error {
-    constructor(message: string, public originalError?: Error) {
-        super(message);
-        this.name = "OfxParseError";
+export async function parseOFX(ofxContent: string): Promise<OFXParsedData> {
+    try {
+        // Remove BOM if present
+        const cleanContent = ofxContent.replace(/^\uFEFF/, '').trim();
+    
+        // Detect format and parse accordingly
+        if (cleanContent.includes('<?xml')) {
+            return parseXMLOFX(cleanContent);
+        } else {
+            return parseSGMLOFX(cleanContent);
+        }
+    } catch (error) {
+        throw new Error(`OFX parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
 /**
- * Parses an OFX file content and extracts transaction data
- *
- * @param fileContent - The raw OFX file content as string
- * @param filename - The original filename for validation
- * @returns Validated OFX file data with transactions
- * @throws OfxParseError if parsing or validation fails
+ * Parses XML-based OFX (OFX 2.0)
  */
-export async function parseOfxFile(
-    fileContent: string,
-    filename?: string
-): Promise<OfxFile> {
-    // Validate file type if filename is provided
-    if (filename && !isOfxFile(filename)) {
-        throw new OfxParseError(
-            "Invalid file type. Only .ofx files are supported."
-        );
-    }
-
-    // Validate file size (10MB limit as per PRD)
-    const fileSize = getFileSize(fileContent);
-    if (fileSize > 10 * 1024 * 1024) {
-        throw new OfxParseError(
-            "File too large. Maximum size is 10MB."
-        );
-    }
-
-    try {
-        // Preprocess: handle OFX v1 SGML by closing all tags (even multiline)
-        const isSgml = /OFXSGML|OFXHEADER/i.test(fileContent);
-        const contentStart = fileContent.indexOf("<OFX>");
-        const body = contentStart >= 0 ? fileContent.slice(contentStart) : fileContent;
-        // Improved SGML to XML: closes all tags, even multiline values
-        const sgmlToXml = (s: string) => {
-            // Normalize line endings
-            let xml = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-            // Find all tags and close them if not already closed
-            // Handles multiline values
-            xml = xml.replace(/<([A-Z0-9_]+)>([\s\S]*?)(?=<[A-Z0-9_]+>|<\/OFX>|$)/g, (match, tag, value) => {
-                // If value already contains a closing tag, leave as is
-                if (value.includes(`</${tag}>`)) return match;
-                return `<${tag}>${value.trim()}</${tag}>`;
-            });
-            // Ensure closing OFX root if missing (rare)
-            if (!/<\/OFX>/i.test(xml)) {
-                xml += "</OFX>";
-            }
-            return xml;
+function parseXMLOFX(xmlContent: string): OFXParsedData {
+    const accounts: Account[] = [];
+  
+    // Extract bank info
+    const bankName = extractValue(xmlContent, 'ORGNAME') || 'Unknown Bank';
+  
+    // Extract statement transactions
+    const stmtList = xmlContent.match(/<STMTTRS>[\s\S]*?<\/STMTTRS>/g) || [];
+  
+    for (const stmt of stmtList) {
+        const account: Account = {
+            bankId: extractValue(stmt, 'BANKID') || '',
+            accountId: extractValue(stmt, 'ACCTID') || '',
+            accountType: extractValue(stmt, 'ACCTTYPE') || 'CHECKING',
+            balance: parseFloat(extractValue(stmt, 'BALAMT') || '0'),
+            balanceDate: formatDate(extractValue(stmt, 'DTASOF') || ''),
+            currency: extractValue(stmt, 'CURDEF') || 'USD',
+            transactions: []
         };
 
-        const contentForParse = isSgml ? sgmlToXml(body) : fileContent;
-
-        // Use ofx-js to parse the OFX/converted XML file
-        const rawData = parse(contentForParse);
-
-        // Helper to convert OFX date (e.g., 20250901100000[-03:EST]) to ISO string
-        const toIsoFromOfx = (value: any): string | undefined => {
-            if (!value || typeof value !== "string") return undefined;
-            // Extract leading 14 digits (YYYYMMDDHHmmss)
-            const m = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
-            if (!m) return undefined;
-            const [, Y, M, D, h, mnt, s] = m;
-            // Default offset minutes = 0
-            let offsetMinutes = 0;
-            const tz = value.match(/\[([+-]?)(\d{2})(?::[A-Z]{2,4})?\]/i);
-            if (tz) {
-                const sign = tz[1] === "-" ? -1 : 1;
-                const hh = parseInt(tz[2], 10);
-                if (!Number.isNaN(hh)) offsetMinutes = sign * hh * 60;
-            }
-            const utcMs = Date.UTC(
-                parseInt(Y, 10),
-                parseInt(M, 10) - 1,
-                parseInt(D, 10),
-                parseInt(h, 10),
-                parseInt(mnt, 10),
-                parseInt(s, 10)
-            ) - offsetMinutes * 60 * 1000;
-            return new Date(utcMs).toISOString();
-        };
-
-        // Transform the parsed data to match our schema
-        const transformedData = {
-            account: rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKACCTFROM ? {
-                accountId: rawData.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKACCTFROM.ACCTID,
-                accountType: rawData.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKACCTFROM.ACCTTYPE,
-                bankId: rawData.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKACCTFROM.BANKID,
-                currency: rawData.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.CURDEF,
-            } : undefined,
-            transactions: rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.STMTTRN?.map((txn: any) => ({
-                date: toIsoFromOfx(txn.DTPOSTED) ?? txn.DTPOSTED,
-                amount: parseFloat(txn.TRNAMT),
-                description: txn.MEMO || txn.NAME,
-                payee: txn.NAME,
-                type: txn.TRNTYPE?.toLowerCase() === 'debit' ? 'debit' : 'credit',
-                id: txn.FITID,
-                checkNumber: txn.CHECKNUM,
-                refNumber: txn.REFNUM,
-            })) || [],
-            startDate: toIsoFromOfx(rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.DTSTART),
-            endDate: toIsoFromOfx(rawData.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.DTEND),
-        };
-
-        // Validate the transformed data against our schema
-        const validatedData = OfxFileSchema.parse(transformedData);
-
-        return validatedData;
-    } catch (error) {
-        if (error instanceof Error) {
-            throw new OfxParseError(
-                `Failed to parse OFX file: ${error.message}`,
-                error
-            );
+        // Parse transactions
+        const transactionMatches = stmt.matchAll(/<STMTTRN>[\s\S]*?<\/STMTTRN>/g);
+        for (const match of transactionMatches) {
+            const txn = match[0];
+            const transaction: Transaction = {
+                id: extractValue(txn, 'FITID') || `txn-${Date.now()}`,
+                date: formatDate(extractValue(txn, 'DTPOSTED') || ''),
+                amount: parseFloat(extractValue(txn, 'TRNAMT') || '0'),
+                type: extractValue(txn, 'TRNTYPE') || 'OTHER',
+                description: extractValue(txn, 'NAME') || '',
+                memo: extractValue(txn, 'MEMO'),
+                checkNum: extractValue(txn, 'CHECKNUM'),
+                refNum: extractValue(txn, 'REFNUM')
+            };
+            account.transactions.push(transaction);
         }
 
-        throw new OfxParseError("Failed to parse OFX file: Unknown error");
+        accounts.push(account);
     }
+
+    return {
+        bankName,
+        accounts,
+        dtStart: extractValue(xmlContent, 'DTSTART') || '',
+        dtEnd: extractValue(xmlContent, 'DTEND') || '',
+        rawText: xmlContent
+    };
 }
 
 /**
- * Validates if a file has the correct OFX extension
- *
- * @param filename - The filename to check
- * @returns true if the file has .ofx extension
+ * Parses SGML-based OFX (OFX 1.x)
+ * This is the legacy format without XML declaration
  */
-export function isOfxFile(filename: string): boolean {
-    return filename.toLowerCase().endsWith('.ofx');
+function parseSGMLOFX(sgmlContent: string): OFXParsedData {
+    const accounts: Account[] = [];
+  
+    // Extract header info
+    const bankName = extractSGMLValue(sgmlContent, 'ORGNAME') || 'Unknown Bank';
+  
+    // Find all banking statements
+    const stmtBlocks = sgmlContent.match(/<STMTRS>[\s\S]*?<\/STMTRS>/g) || [];
+  
+    for (const stmtBlock of stmtBlocks) {
+        const account: Account = {
+            bankId: extractSGMLValue(stmtBlock, 'BANKID') || '',
+            accountId: extractSGMLValue(stmtBlock, 'ACCTID') || '',
+            accountType: extractSGMLValue(stmtBlock, 'ACCTTYPE') || 'CHECKING',
+            balance: parseFloat(extractSGMLValue(stmtBlock, 'BALAMT') || '0'),
+            balanceDate: formatDate(extractSGMLValue(stmtBlock, 'DTASOF') || ''),
+            currency: extractSGMLValue(stmtBlock, 'CURDEF') || 'USD',
+            transactions: []
+        };
+
+        // Parse individual transactions
+        const transactionMatches = stmtBlock.matchAll(/<STMTTRN>[\s\S]*?<\/STMTTRN>/g);
+        for (const match of transactionMatches) {
+            const txnBlock = match[0];
+            const transaction: Transaction = {
+                id: extractSGMLValue(txnBlock, 'FITID') || `txn-${Date.now()}`,
+                date: formatDate(extractSGMLValue(txnBlock, 'DTPOSTED') || ''),
+                amount: parseFloat(extractSGMLValue(txnBlock, 'TRNAMT') || '0'),
+                type: extractSGMLValue(txnBlock, 'TRNTYPE') || 'OTHER',
+                description: extractSGMLValue(txnBlock, 'NAME') || '',
+                memo: extractSGMLValue(txnBlock, 'MEMO'),
+                checkNum: extractSGMLValue(txnBlock, 'CHECKNUM'),
+                refNum: extractSGMLValue(txnBlock, 'REFNUM')
+            };
+            account.transactions.push(transaction);
+        }
+
+        accounts.push(account);
+    }
+
+    return {
+        bankName,
+        accounts,
+        dtStart: extractSGMLValue(sgmlContent, 'DTSTART') || '',
+        dtEnd: extractSGMLValue(sgmlContent, 'DTEND') || '',
+        rawText: sgmlContent
+    };
 }
 
 /**
- * Gets file size in bytes
- *
- * @param content - The file content
- * @returns Size in bytes
+ * Extracts value from XML-style tags
  */
-export function getFileSize(content: string): number {
-    return Buffer.byteLength(content, 'utf8');
+function extractValue(content: string, tag: string): string | undefined {
+    const regex = new RegExp(`<${tag}>([^<]*)<\/${tag}>`, 'i');
+    const match = content.match(regex);
+    return match ? match[1].trim() : undefined;
+}
+
+/**
+ * Extracts value from SGML-style tags (no closing tags)
+ */
+function extractSGMLValue(content: string, tag: string): string | undefined {
+    const regex = new RegExp(`<${tag}>([^<\n]*)`, 'i');
+    const match = content.match(regex);
+    return match ? match[1].trim() : undefined;
+}
+
+/**
+ * Converts OFX date format (YYYYMMDD) to ISO 8601
+ */
+function formatDate(ofxDate: string): string {
+    if (!ofxDate || ofxDate.length < 8) return '';
+  
+    const year = ofxDate.substring(0, 4);
+    const month = ofxDate.substring(4, 6);
+    const day = ofxDate.substring(6, 8);
+  
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Validates parsed OFX data
+ */
+export function validateOFXData(data: OFXParsedData): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!data.accounts || data.accounts.length === 0) {
+        errors.push('No accounts found in OFX data');
+    }
+
+    for (const account of data.accounts) {
+        if (!account.accountId) {
+            errors.push(`Account missing accountId`);
+        }
+        if (!account.bankId) {
+            errors.push(`Account ${account.accountId} missing bankId`);
+        }
+        if (account.transactions.length === 0) {
+            errors.push(`Account ${account.accountId} has no transactions`);
+        }
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
 }

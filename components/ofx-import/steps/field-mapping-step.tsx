@@ -146,7 +146,7 @@ export function FieldMappingStep({
                     <div className="flex-1 min-w-0">
                       {isEditing ? (
                         <Select
-                          value={mappedTo}
+                          value={mappedTo && mappedTo !== "" ? mappedTo : "none"}
                           onValueChange={(value) => handleMappingChange(ofxField.key, value)}
                         >
                           <SelectTrigger
@@ -156,7 +156,7 @@ export function FieldMappingStep({
                             <SelectValue placeholder="Selecionar campo..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Não mapear</SelectItem>
+                            <SelectItem value="none">Não mapear</SelectItem>
                             {APP_FIELDS.map((appField) => (
                               <SelectItem key={appField.key} value={appField.key}>
                                 {appField.label} {appField.required ? '(Obrigatório)' : '(Opcional)'}

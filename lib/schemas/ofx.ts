@@ -42,32 +42,33 @@ export const OfxTransactionSchema = z.object({
  * OFX file/account information schema
  */
 export const OfxAccountSchema = z.object({
-    // Account ID
-    accountId: z.string().optional(),
-
-    // Account type (checking, savings, etc.)
-    accountType: z.string().optional(),
-
-    // Bank ID
-    bankId: z.string().optional(),
-
-    // Currency
-    currency: z.string().optional(),
+    bankId: z.string(),
+    accountId: z.string(),
+    accountType: z.string(),
+    balance: z.number(),
+    balanceDate: z.string(),
+    currency: z.string(),
+    transactions: z.array(z.object({
+        id: z.string(),
+        date: z.string(),
+        amount: z.number(),
+        type: z.string(),
+        description: z.string(),
+        memo: z.string().optional(),
+        checkNum: z.string().optional(),
+        refNum: z.string().optional(),
+    })),
 });
 
 /**
  * Complete OFX file schema
  */
 export const OfxFileSchema = z.object({
-    // Account information
-    account: OfxAccountSchema.optional(),
-
-    // Array of transactions
-    transactions: z.array(OfxTransactionSchema),
-
-    // File metadata
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
+    bankName: z.string().optional(),
+    accounts: z.array(OfxAccountSchema),
+    dtStart: z.string(),
+    dtEnd: z.string(),
+    rawText: z.string(),
 });
 
 /**

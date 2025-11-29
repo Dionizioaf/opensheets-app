@@ -1,4 +1,4 @@
-import { parseOfxFile, isOfxFile } from "./parser";
+import { parseOFX, isOfxFile } from "./parser";
 
 // Simple test without actual OFX content
 async function testParser() {
@@ -13,7 +13,7 @@ async function testParser() {
         const minimalOfx = `<?xml version="1.0"?><OFX></OFX>`;
 
         try {
-            const result = await parseOfxFile(minimalOfx, "test.ofx");
+            const result = await parseOFX(minimalOfx);
             console.log("✅ Basic parsing works!");
             console.log("Result:", result);
         } catch (error) {

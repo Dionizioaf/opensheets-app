@@ -154,6 +154,10 @@ export function TransactionReviewStep({
   const [isDetectingDuplicates, setIsDetectingDuplicates] = React.useState(false);
   const [aiWarnings, setAiWarnings] = React.useState<string[]>([]);
 
+  // Refs to prevent infinite loops
+  const hasDetectedDuplicates = React.useRef(false);
+  const hasRunAiCategorization = React.useRef(false);
+
   // Check for backend parsing error from upload step
   const backendError = wizardData.upload?.backendError;
   const uploadWarnings: string[] = wizardData.upload?.warnings || [];
@@ -163,17 +167,24 @@ export function TransactionReviewStep({
     const existingTransactions = wizardData.review?.transactions;
     if (existingTransactions) {
       setTransactions(existingTransactions);
+      // Reset processing flags when new transactions are loaded
+      hasDetectedDuplicates.current = false;
+      hasRunAiCategorization.current = false;
     } else if (wizardData.upload?.transactions) {
       setTransactions(wizardData.upload.transactions);
+      // Reset processing flags when new transactions are loaded
+      hasDetectedDuplicates.current = false;
+      hasRunAiCategorization.current = false;
     }
-  }, [wizardData.review, wizardData.upload]);
+  }, [wizardData.review?.transactions, wizardData.upload?.transactions]);
 
-  // Perform duplicate detection when transactions are loaded
+  // Perform duplicate detection when transactions are loaded (only once)
   React.useEffect(() => {
     const performDuplicateDetection = async () => {
-      if (transactions.length === 0) return;
+      if (transactions.length === 0 || isDetectingDuplicates || hasDetectedDuplicates.current) return;
 
       setIsDetectingDuplicates(true);
+      hasDetectedDuplicates.current = true;
       try {
         // Convert transactions to the format expected by the API
         const transactionsForDetection = transactions.map(tx => ({
@@ -237,12 +248,13 @@ export function TransactionReviewStep({
     };
 
     performDuplicateDetection();
-  }, [transactions.length, accountId]);
+  }, [transactions.length, accountId, isDetectingDuplicates]);
 
-  // Fetch AI categorizations and capture warnings when suggestions fail
+  // Fetch AI categorizations when transactions are loaded (only once)
   React.useEffect(() => {
     const runAiCategorization = async () => {
-      if (transactions.length === 0) return;
+      if (transactions.length === 0 || hasRunAiCategorization.current) return;
+      hasRunAiCategorization.current = true;
       try {
         const response = await fetch("/api/ofx/categorize", {
           method: "POST",
@@ -465,7 +477,7 @@ export function TransactionReviewStep({
               <RiMagicLine className="h-5 w-5 text-blue-600" />
               <div>
                 <div className="text-2xl font-bold text-blue-600">
-                  {transactions.filter(tx => tx.aiSuggestions.length > 0).length}
+                  {transactions.filter(tx => tx.aiSuggestions && tx.aiSuggestions.length > 0).length}
                 </div>
                 <div className="text-sm text-muted-foreground">Com IA</div>
               </div>
@@ -592,7 +604,7 @@ export function TransactionReviewStep({
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {transaction.aiSuggestions.length > 0 && (
+                          {transaction.aiSuggestions && transaction.aiSuggestions.length > 0 && (
                             <>
                               <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                                 Sugestões da IA
@@ -662,7 +674,7 @@ export function TransactionReviewStep({
                       )}
                     </TableCell>
                     <TableCell>
-                      {transaction.aiSuggestions.length > 0 && (
+                      {transaction.aiSuggestions && transaction.aiSuggestions.length > 0 && (
                         <RiMagicLine
                           className="h-4 w-4 text-blue-600"
                           aria-label={`${transaction.aiSuggestions.length} sugestão(ões) de categoria disponível(is) da IA`}
