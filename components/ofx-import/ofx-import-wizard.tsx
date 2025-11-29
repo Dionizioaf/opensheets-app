@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils/ui";
@@ -114,23 +115,19 @@ export function OFXImportWizard({
         className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
         aria-labelledby="ofx-import-title"
       >
-        <DialogHeader className="space-y-4">
-          <DialogTitle id="ofx-import-title" className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">
-                Importar OFX - {accountName}
-              </h2>
-              <p id="ofx-import-description" className="text-sm text-muted-foreground mt-1">
-                {currentStep.description}
-              </p>
-            </div>
+        <DialogHeader className="space-y-2">
+          <div className="flex items-start justify-between gap-4">
+            <DialogTitle id="ofx-import-title">Importar OFX - {accountName}</DialogTitle>
             <div className="text-sm text-muted-foreground" aria-live="polite">
               Passo {currentStepIndex + 1} de {STEPS.length}
             </div>
-          </DialogTitle>
+          </div>
+          <DialogDescription id="ofx-import-description">
+            {currentStep.description}
+          </DialogDescription>
 
           {/* Progress Bar */}
-          <div className="space-y-2" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso do assistente: ${Math.round(progress)}% completo`}>
+          <div className="space-y-2 mt-2" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso do assistente: ${Math.round(progress)}% completo`}>
             <Progress value={progress} className="h-2" />
             <div className="flex justify-between text-xs text-muted-foreground">
               {STEPS.map((step, index) => (

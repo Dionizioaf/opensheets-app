@@ -14,15 +14,14 @@
 import { db } from "@/lib/db";
 import { lancamentos } from "@/db/schema";
 import { getUserId } from "@/lib/auth/server";
-import { handleActionError } from "@/lib/actions/helpers";
-import { revalidateForEntity } from "@/lib/actions/revalidate";
+import { handleActionError, revalidateForEntity } from "@/lib/actions/helpers";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 // Import schemas and utilities
-import { ofxTransactionSchema, ofxFileSchema } from "@/lib/schemas/ofx";
+import { OfxFileSchema } from "@/lib/schemas/ofx";
 import { categorizeTransaction } from "@/lib/utils/ai-categorization";
-import { parseOFXFile } from "@/lib/ofx-parser/parser";
+import { parseOfxFile } from "@/lib/ofx-parser/parser";
 import { getErrorMessage } from "@/lib/ofx-parser/error-messages";
 
 // Timeout for AI categorization requests (milliseconds)
@@ -212,7 +211,16 @@ export async function importOFXTransactionsAction(
       message,
     };
   } catch (error) {
-    return handleActionError(error, "Erro ao importar transações OFX");
+    const handled = handleActionError(error);
+    return {
+      success: false,
+      imported: 0,
+      skipped: 0,
+      updated: 0,
+      errors: 0,
+      transactionIds: [],
+      message: (handled as any)?.message || "Erro ao importar transações OFX",
+    };
   }
 }
 
@@ -232,10 +240,10 @@ export async function parseOFXFileAction(
     const userId = await getUserId();
 
     // Parse the OFX file
-    const parsedData = await parseOFXFile(fileContent);
+    const parsedData = await parseOfxFile(fileContent);
 
     // Validate the parsed data
-    const validationResult = ofxFileSchema.safeParse(parsedData);
+    const validationResult = OfxFileSchema.safeParse(parsedData);
     if (!validationResult.success) {
       const errorMsg = getErrorMessage("PARSE_INVALID_FORMAT");
       return {

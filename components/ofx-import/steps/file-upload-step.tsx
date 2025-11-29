@@ -271,7 +271,7 @@ export function FileUploadStep({
             <div className="space-y-4">
               {/* File Info */}
               <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/50">
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   <RiFileTextLine className="w-8 h-8 text-primary" aria-hidden="true" />
                 </div>
 
