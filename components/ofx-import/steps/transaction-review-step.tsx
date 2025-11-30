@@ -157,6 +157,12 @@ export function TransactionReviewStep({
   // Refs to prevent infinite loops
   const hasDetectedDuplicates = React.useRef(false);
   const hasRunAiCategorization = React.useRef(false);
+  const transactionsRef = React.useRef(transactions);
+
+  // Keep transactions ref in sync
+  React.useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
 
   // Check for backend parsing error from upload step
   const backendError = wizardData.upload?.backendError;
@@ -248,7 +254,7 @@ export function TransactionReviewStep({
     };
 
     performDuplicateDetection();
-  }, [transactions.length, accountId, isDetectingDuplicates]);
+  }, [transactions.length, accountId]); // Removed isDetectingDuplicates to prevent infinite loops
 
   // Fetch AI categorizations when transactions are loaded (only once)
   React.useEffect(() => {
@@ -285,7 +291,7 @@ export function TransactionReviewStep({
   // Save transactions to wizard data
   React.useEffect(() => {
     onDataChange({ transactions });
-  }, [transactions, onDataChange]);
+  }, [transactions, onDataChange]); // onDataChange is now memoized in parent component
 
   const handleCategoryChange = React.useCallback((transactionId: string, categoryId: string) => {
     setTransactions(prev =>
@@ -328,7 +334,7 @@ export function TransactionReviewStep({
   }, []);
 
   const handleBulkDuplicateResolution = React.useCallback((action: "skip" | "import" | "update") => {
-    const duplicateTransactions = transactions.filter(tx => tx.isDuplicate);
+    const duplicateTransactions = transactionsRef.current.filter(tx => tx.isDuplicate);
     setTransactions(prev =>
       prev.map(tx =>
         duplicateTransactions.some(dt => dt.id === tx.id)
@@ -340,15 +346,15 @@ export function TransactionReviewStep({
           : tx
       )
     );
-  }, [transactions]);
+  }, []); // Use ref to avoid dependency on transactions
 
   const handleSelectAll = React.useCallback((selected: boolean) => {
     if (selected) {
-      setSelectedTransactions(new Set(transactions.map(tx => tx.id)));
+      setSelectedTransactions(new Set(transactionsRef.current.map(tx => tx.id)));
     } else {
       setSelectedTransactions(new Set());
     }
-  }, [transactions]);
+  }, []); // Use ref to avoid dependency on transactions
 
   const getStatusIcon = React.useCallback((status: TransactionStatus) => {
     switch (status) {

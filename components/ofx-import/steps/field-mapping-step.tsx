@@ -3,9 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { RiArrowRightLine, RiCheckLine, RiEditLine } from "@remixicon/react";
+import { RiArrowRightLine, RiCheckLine, RiEditLine, RiSettings4Line } from "@remixicon/react";
 import * as React from "react";
 
 export interface FieldMappingStepProps {
@@ -52,23 +53,33 @@ export function FieldMappingStep({
   onDataChange,
 }: FieldMappingStepProps) {
   const [mappings, setMappings] = React.useState<Record<string, string>>(DEFAULT_MAPPINGS);
+  const [defaultValues, setDefaultValues] = React.useState<Record<string, string>>({});
   const [isEditing, setIsEditing] = React.useState(false);
 
-  // Load mappings from wizard data or use defaults
+  // Load mappings and default values from wizard data or use defaults
   React.useEffect(() => {
     const existingMappings = wizardData.mapping?.mappings || DEFAULT_MAPPINGS;
+    const existingDefaults = wizardData.mapping?.defaultValues || {};
     setMappings(existingMappings);
+    setDefaultValues(existingDefaults);
   }, [wizardData.mapping]);
 
-  // Save mappings to wizard data
+  // Save mappings and default values to wizard data
   React.useEffect(() => {
-    onDataChange({ mappings });
-  }, [mappings, onDataChange]);
+    onDataChange({ mappings, defaultValues });
+  }, [mappings, defaultValues, onDataChange]);
 
   const handleMappingChange = React.useCallback((ofxField: string, appField: string) => {
     setMappings(prev => ({
       ...prev,
       [ofxField]: appField,
+    }));
+  }, []);
+
+  const handleDefaultValueChange = React.useCallback((appField: string, value: string) => {
+    setDefaultValues(prev => ({
+      ...prev,
+      [appField]: value,
     }));
   }, []);
 
@@ -187,37 +198,61 @@ export function FieldMappingStep({
               {APP_FIELDS.map((appField) => {
                 const mappedFrom = getMappedFields(appField.key);
                 const isRequired = appField.required;
+                const hasDefaultValue = defaultValues[appField.key] && defaultValues[appField.key].trim() !== "";
 
                 return (
                   <div
                     key={appField.key}
-                    className="flex items-center gap-3 p-3 rounded-lg border"
+                    className="space-y-2 p-3 rounded-lg border"
                     role="group"
                     aria-labelledby={`app-field-${appField.key}`}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div id={`app-field-${appField.key}`} className="font-medium text-sm">{appField.label}</div>
-                        {isRequired && (
-                          <Badge variant="secondary" className="text-xs px-1.5 py-0.5" aria-label="Campo obrigatório">
-                            Obrigatório
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{appField.description}</div>
-                      {mappedFrom.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1" role="list" aria-label="Campos OFX mapeados">
-                          {mappedFrom.map((ofxField) => {
-                            const ofxInfo = getOfxFieldInfo(ofxField);
-                            return (
-                              <Badge key={ofxField} variant="outline" className="text-xs" role="listitem">
-                                {ofxInfo?.label}
-                              </Badge>
-                            );
-                          })}
-                        </div>
+                    <div className="flex items-center gap-2">
+                      <div id={`app-field-${appField.key}`} className="font-medium text-sm">{appField.label}</div>
+                      {isRequired && (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0.5" aria-label="Campo obrigatório">
+                          Obrigatório
+                        </Badge>
+                      )}
+                      {hasDefaultValue && (
+                        <Badge variant="outline" className="text-xs px-1.5 py-0.5" aria-label="Valor padrão definido">
+                          <RiSettings4Line className="h-3 w-3 mr-1" />
+                          Padrão
+                        </Badge>
                       )}
                     </div>
+                    <div className="text-xs text-muted-foreground">{appField.description}</div>
+                    {mappedFrom.length > 0 && (
+                      <div className="flex flex-wrap gap-1" role="list" aria-label="Campos OFX mapeados">
+                        {mappedFrom.map((ofxField) => {
+                          const ofxInfo = getOfxFieldInfo(ofxField);
+                          return (
+                            <Badge key={ofxField} variant="outline" className="text-xs" role="listitem">
+                              {ofxInfo?.label}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {isEditing && (
+                      <div className="space-y-2 pt-2 border-t">
+                        <label className="text-xs font-medium text-muted-foreground">
+                          Valor Padrão (usado quando não há mapeamento)
+                        </label>
+                        <Input
+                          value={defaultValues[appField.key] || ""}
+                          onChange={(e) => handleDefaultValueChange(appField.key, e.target.value)}
+                          placeholder={`Digite o valor padrão para ${appField.label.toLowerCase()}...`}
+                          className="h-8 text-sm"
+                          aria-label={`Valor padrão para o campo ${appField.label}`}
+                        />
+                      </div>
+                    )}
+                    {!isEditing && hasDefaultValue && (
+                      <div className="text-xs text-muted-foreground pt-1">
+                        <span className="font-medium">Padrão:</span> "{defaultValues[appField.key]}"
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -229,7 +264,7 @@ export function FieldMappingStep({
           {/* Mapping summary */}
           <div className="space-y-3">
             <h4 className="font-medium text-sm">Resumo do Mapeamento</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div className="text-center" role="region" aria-labelledby="mapped-fields">
                 <div id="mapped-fields" className="text-2xl font-bold text-primary">
                   {Object.values(mappings).filter(Boolean).length}
@@ -248,9 +283,15 @@ export function FieldMappingStep({
                 </div>
                 <div className="text-muted-foreground">Opcionais mapeados</div>
               </div>
+              <div className="text-center" role="region" aria-labelledby="default-values">
+                <div id="default-values" className="text-2xl font-bold text-blue-600">
+                  {Object.values(defaultValues).filter(value => value && value.trim() !== "").length}
+                </div>
+                <div className="text-muted-foreground">Valores padrão</div>
+              </div>
               <div className="text-center" role="region" aria-labelledby="missing-required">
                 <div id="missing-required" className="text-2xl font-bold text-red-600">
-                  {APP_FIELDS.filter(field => field.required && getMappedFields(field.key).length === 0).length}
+                  {APP_FIELDS.filter(field => field.required && getMappedFields(field.key).length === 0 && (!defaultValues[field.key] || defaultValues[field.key].trim() === "")).length}
                 </div>
                 <div className="text-muted-foreground">Faltando obrigatórios</div>
               </div>

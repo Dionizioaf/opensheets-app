@@ -63,7 +63,7 @@ function DialogContent({
     const hasTitle = el.querySelector('[data-slot="dialog-title"]')
     if (!hasTitle) {
       // Dev-only warning to encourage accessible dialogs
-      // eslint-disable-next-line no-console
+       
       console.warn(
         "DialogContent is missing a DialogTitle. Add <DialogTitle> for accessibility."
       )

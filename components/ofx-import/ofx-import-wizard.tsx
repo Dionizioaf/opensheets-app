@@ -93,6 +93,11 @@ export function OFXImportWizard({
 
   const canGoPrevious = currentStepIndex > 0;
 
+  // Memoize the onDataChange function to prevent infinite loops
+  const stepDataChangeHandler = React.useCallback((data: any) => {
+    handleStepDataChange(currentStep.id, data);
+  }, [currentStep.id, handleStepDataChange]);
+
   return (
     <Dialog
       open={open}
@@ -164,7 +169,7 @@ export function OFXImportWizard({
               accountName={accountName}
               userId={userId}
               wizardData={wizardData}
-              onDataChange={(data: any) => handleStepDataChange(currentStep.id, data)}
+              onDataChange={stepDataChangeHandler}
             />
           </React.Suspense>
         </div>
