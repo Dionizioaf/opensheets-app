@@ -15,6 +15,7 @@ import { RiCloseLine } from "@remixicon/react";
 import { toast } from "sonner";
 import { parseOfxFile } from "@/lib/ofx/parser";
 import { mapOfxTransactionsToLancamentos } from "@/lib/ofx/mapper";
+import { importOfxTransactionsAction } from "@/app/(dashboard)/contas/[contaId]/extrato/actions";
 import { UploadStep } from "./upload-step";
 import { ReviewStep } from "./review-step";
 import { ConfirmStep } from "./confirm-step";
@@ -320,17 +321,54 @@ export function OfxImportDialog({
                 (t) => t.isSelected && !t.isDuplicate
             );
 
-            // TODO: Call server action to import transactions
-            // For now, simulate progress
-            for (let i = 0; i <= 100; i += 10) {
-                setImportProgress(i);
-                await new Promise((resolve) => setTimeout(resolve, 100));
+            if (selectedTransactions.length === 0) {
+                toast.error("Nenhuma transação selecionada para importar");
+                return;
             }
 
-            toast.success(
-                `${selectedTransactions.length} transações importadas com sucesso`
+            // Transform transactions to the format expected by the action
+            const transactionsToImport = selectedTransactions.map((t) => ({
+                nome: t.nome,
+                valor: t.valor,
+                data_compra: t.data_compra,
+                tipo_transacao: t.tipo_transacao,
+                forma_pagamento: t.forma_pagamento,
+                condicao: "À vista",
+                periodo: t.periodo,
+                anotacao: t.anotacao,
+                fitId: t.fitId,
+                categoriaId: t.categoriaId,
+                pagadorId: undefined, // Pagador not used in OFX imports
+            }));
+
+            // Simulate progress during import
+            const progressInterval = setInterval(() => {
+                setImportProgress((prev) => Math.min(prev + 10, 90));
+            }, 100);
+
+            // Call server action to import transactions
+            const result = await importOfxTransactionsAction(
+                contaId,
+                transactionsToImport,
+                {
+                    categoriaId: undefined,
+                    pagadorId: undefined,
+                    metodoPagamento: undefined,
+                }
             );
-            onImportComplete?.(selectedTransactions.length);
+
+            clearInterval(progressInterval);
+            setImportProgress(100);
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+
+            toast.success(result.message);
+            onImportComplete?.(result.data?.importedCount ?? 0);
+
+            // Small delay to show 100% progress before closing
+            await new Promise((resolve) => setTimeout(resolve, 500));
             handleClose();
         } catch (error) {
             const errorMessage =
@@ -343,7 +381,7 @@ export function OfxImportDialog({
             setIsImporting(false);
             setImportProgress(0);
         }
-    }, [transactions, onImportComplete]);
+    }, [transactions, contaId, onImportComplete]);
 
     /**
      * Close dialog and reset state
