@@ -70,7 +70,7 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 4.6 Write tests for category suggester with mock lancamentos data
   - [ ] 4.7 Write tests for duplicate detector with various edge cases (same date, different amounts, similar descriptions)
 
-- [ ] 5.0 Create Server Actions and Database Integration
+- [x] 5.0 Create Server Actions and Database Integration
 
   - [x] 5.1 Create `app/(dashboard)/contas/[contaId]/extrato/actions.ts` if it doesn't exist, or add to existing actions file
   - [x] 5.2 Implement `parseOfxFileAction()` server action - Add "use server" directive, validate user authentication with `getUserId()`, accept File input from client, call OFX parser, handle parsing errors with try/catch, return parsed transactions array or error message, and validate file on server-side (size, type)
