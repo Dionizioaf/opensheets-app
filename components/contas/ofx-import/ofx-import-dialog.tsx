@@ -483,7 +483,7 @@ export function OfxImportDialog({
 
     // Prevent hydration issues by only rendering on client
     if (!mounted) {
-        return null;
+        return trigger || null;
     }
 
     return (

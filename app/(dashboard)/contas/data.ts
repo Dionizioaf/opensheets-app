@@ -56,7 +56,7 @@ export async function fetchAccountsForUser(
       .where(
         and(
           eq(contas.userId, userId),
-          sql`(${lancamentos.id} IS NULL OR ${pagadores.role} = ${PAGADOR_ROLE_ADMIN})`
+          sql`(${lancamentos.id} IS NOT NULL OR ${pagadores.role} = ${PAGADOR_ROLE_ADMIN})`
         )
       )
       .groupBy(
