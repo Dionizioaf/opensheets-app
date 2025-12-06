@@ -1,7 +1,5 @@
 import { PrivacyProvider } from "@/components/privacy-provider";
-import { SiteHeader } from "@/components/header-dashboard";
-import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarLayout } from "@/components/sidebar/sidebar-layout";
 import { getUserSession } from "@/lib/auth/server";
 import { fetchDashboardNotifications } from "@/lib/dashboard/notifications";
 import { fetchPagadoresWithAccess } from "@/lib/pagadores/access";
@@ -30,8 +28,8 @@ export default async function DashboardLayout({
     typeof periodoParam === "string"
       ? periodoParam
       : Array.isArray(periodoParam)
-      ? periodoParam[0]
-      : null;
+        ? periodoParam[0]
+        : null;
   const { period: currentPeriod } = parsePeriodParam(
     singlePeriodoParam ?? null
   );
@@ -42,29 +40,19 @@ export default async function DashboardLayout({
 
   return (
     <PrivacyProvider>
-      <SidebarProvider>
-        <AppSidebar
-          user={{ ...session.user, image: session.user.image ?? null }}
-          pagadorAvatarUrl={adminPagador?.avatarUrl ?? null}
-          pagadores={pagadoresList.map((item) => ({
-            id: item.id,
-            name: item.name,
-            avatarUrl: item.avatarUrl,
-            canEdit: item.canEdit,
-          }))}
-          variant="inset"
-        />
-        <SidebarInset>
-          <SiteHeader notificationsSnapshot={notificationsSnapshot} />
-          <div className="flex flex-1 flex-col">
-            <div className="@container/main flex flex-1 flex-col gap-2">
-              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                {children}
-              </div>
-            </div>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <SidebarLayout
+        user={{ ...session.user, image: session.user.image ?? null }}
+        pagadorAvatarUrl={adminPagador?.avatarUrl ?? null}
+        pagadores={pagadoresList.map((item) => ({
+          id: item.id,
+          name: item.name,
+          avatarUrl: item.avatarUrl,
+          canEdit: item.canEdit,
+        }))}
+        notificationsSnapshot={notificationsSnapshot}
+      >
+        {children}
+      </SidebarLayout>
     </PrivacyProvider>
   );
 }

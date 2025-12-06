@@ -12,7 +12,7 @@ import type React from "react";
 import MoneyValues from "../money-values";
 import { Card, CardContent, CardFooter } from "../ui/card";
 
-interface AccountCardProps {
+export interface AccountCardProps {
   accountName: string;
   accountType: string;
   balance: number;
@@ -23,6 +23,7 @@ interface AccountCardProps {
   onEdit?: () => void;
   onRemove?: () => void;
   onTransfer?: () => void;
+  extraActions?: React.ReactNode;
   className?: string;
 }
 
@@ -37,6 +38,7 @@ export function AccountCard({
   onEdit,
   onRemove,
   onTransfer,
+  extraActions,
   className,
 }: AccountCardProps) {
   const isInactive = status?.toLowerCase() === "inativa";
@@ -104,7 +106,7 @@ export function AccountCard({
         </div>
       </CardContent>
 
-      {actions.length > 0 ? (
+      {actions.length > 0 || extraActions ? (
         <CardFooter className="flex flex-wrap gap-3 px-6 pt-6 text-sm">
           {actions.map(({ label, icon, onClick, variant }) => (
             <button
@@ -121,6 +123,7 @@ export function AccountCard({
               {label}
             </button>
           ))}
+          {extraActions}
         </CardFooter>
       ) : null}
     </Card>

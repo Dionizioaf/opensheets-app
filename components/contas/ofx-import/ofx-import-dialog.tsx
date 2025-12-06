@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,9 +49,17 @@ export function OfxImportDialog({
     pagadores,
     defaultCategoriaId,
     defaultPagadorId,
+    trigger,
     onImportComplete,
     onCancel,
 }: OfxImportDialogProps) {
+    // Client-side only rendering to avoid hydration issues
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Dialog state
     const [open, setOpen] = useState(false);
     const [currentStep, setCurrentStep] = useState<WizardStep>("upload");
@@ -370,8 +379,14 @@ export function OfxImportDialog({
         return transactions.filter((t) => t.isDuplicate).length;
     }, [transactions]);
 
+    // Prevent hydration issues by only rendering on client
+    if (!mounted) {
+        return null;
+    }
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
+            {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent
                 className="max-w-4xl max-h-[90vh] overflow-hidden p-0"
                 showCloseButton={false}
@@ -417,8 +432,8 @@ export function OfxImportDialog({
                                     <div className="flex-1 min-w-0">
                                         <p
                                             className={`text-xs font-medium truncate ${index <= currentStepIndex
-                                                    ? "text-foreground"
-                                                    : "text-muted-foreground"
+                                                ? "text-foreground"
+                                                : "text-muted-foreground"
                                                 }`}
                                         >
                                             {step.title}
@@ -428,8 +443,8 @@ export function OfxImportDialog({
                                 {index < WIZARD_STEPS.length - 1 && (
                                     <div
                                         className={`h-[2px] w-full mx-2 ${index < currentStepIndex
-                                                ? "bg-primary"
-                                                : "bg-muted"
+                                            ? "bg-primary"
+                                            : "bg-muted"
                                             }`}
                                     />
                                 )}

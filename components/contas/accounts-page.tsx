@@ -6,7 +6,8 @@ import { AccountCard } from "@/components/contas/account-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { getCurrentPeriod } from "@/lib/utils/period";
-import { RiAddCircleLine, RiBankLine } from "@remixicon/react";
+import type { SelectOption } from "@/components/lancamentos/types";
+import { RiAddCircleLine, RiBankLine, RiFileUploadLine } from "@remixicon/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -14,11 +15,14 @@ import { toast } from "sonner";
 import { Card } from "../ui/card";
 import { AccountDialog } from "./account-dialog";
 import { TransferDialog } from "./transfer-dialog";
+import { OfxImportDialog } from "./ofx-import/ofx-import-dialog";
 import type { Account } from "./types";
 
 interface AccountsPageProps {
   accounts: Account[];
   logoOptions: string[];
+  categoriaOptions: SelectOption[];
+  pagadorOptions: SelectOption[];
 }
 
 const resolveLogoSrc = (logo: string | null) => {
@@ -30,7 +34,12 @@ const resolveLogoSrc = (logo: string | null) => {
   return `/logos/${fileName}`;
 };
 
-export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
+export function AccountsPage({
+  accounts,
+  logoOptions,
+  categoriaOptions,
+  pagadorOptions,
+}: AccountsPageProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
@@ -132,33 +141,62 @@ export function AccountsPage({ accounts, logoOptions }: AccountsPageProps) {
           <div className="flex flex-wrap gap-4">
             {orderedAccounts.map((account) => {
               const logoSrc = resolveLogoSrc(account.logo);
+              const isActive = account.status.toLowerCase() === "ativa";
 
               return (
-                <AccountCard
-                  key={account.id}
-                  accountName={account.name}
-                  accountType={`${account.accountType} - ${account.status}`}
-                  balance={account.balance ?? account.initialBalance ?? 0}
-                  status={account.status}
-                  excludeFromBalance={account.excludeFromBalance}
-                  icon={
-                    logoSrc ? (
-                      <Image
-                        src={logoSrc}
-                        alt={`Logo da conta ${account.name}`}
-                        width={42}
-                        height={42}
-                        className="rounded-lg"
-                      />
-                    ) : undefined
-                  }
-                  onEdit={() => handleEdit(account)}
-                  onRemove={() => handleRemoveRequest(account)}
-                  onTransfer={() => handleTransferRequest(account)}
-                  onViewStatement={() =>
-                    router.push(`/contas/${account.id}/extrato`)
-                  }
-                />
+                <div key={account.id}>
+                  <AccountCard
+                    accountName={account.name}
+                    accountType={`${account.accountType} - ${account.status}`}
+                    balance={account.balance ?? account.initialBalance ?? 0}
+                    status={account.status}
+                    excludeFromBalance={account.excludeFromBalance}
+                    icon={
+                      logoSrc ? (
+                        <Image
+                          src={logoSrc}
+                          alt={`Logo da conta ${account.name}`}
+                          width={42}
+                          height={42}
+                          className="rounded-lg"
+                        />
+                      ) : undefined
+                    }
+                    onEdit={() => handleEdit(account)}
+                    onRemove={() => handleRemoveRequest(account)}
+                    onTransfer={() => handleTransferRequest(account)}
+                    onViewStatement={() =>
+                      router.push(`/contas/${account.id}/extrato`)
+                    }
+                    extraActions={
+                      isActive ? (
+                        <OfxImportDialog
+                          contaId={account.id}
+                          categorias={categoriaOptions.map((c) => ({
+                            id: c.value,
+                            nome: c.label,
+                            icone: c.icon ?? undefined,
+                          }))}
+                          pagadores={pagadorOptions.map((p) => ({
+                            id: p.value,
+                            nome: p.label,
+                            logo: p.icon ?? undefined,
+                          }))}
+                          trigger={
+                            <button
+                              type="button"
+                              className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-80 text-primary"
+                              aria-label="importar OFX"
+                            >
+                              <RiFileUploadLine className="size-4" aria-hidden />
+                              importar OFX
+                            </button>
+                          }
+                        />
+                      ) : undefined
+                    }
+                  />
+                </div>
               );
             })}
           </div>

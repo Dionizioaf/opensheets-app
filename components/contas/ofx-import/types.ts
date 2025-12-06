@@ -180,6 +180,7 @@ export interface OfxImportDialogProps {
     pagadores: PagadorOption[];
     defaultCategoriaId?: string;
     defaultPagadorId?: string;
+    trigger?: React.ReactNode;
     onImportComplete?: (importedCount: number) => void;
     onCancel?: () => void;
 }
