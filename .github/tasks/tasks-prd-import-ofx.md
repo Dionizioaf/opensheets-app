@@ -50,7 +50,7 @@ Based on PRD: `prd-import-ofx.md`
   - [x] 2.6 Write unit tests for parser with sample OFX data (test with provided Itaú file structure)
   - [x] 2.7 Write unit tests for mapper to verify correct field transformations
 
-- [ ] 3.0 Build Import Dialog UI Components
+- [x] 3.0 Build Import Dialog UI Components
 
   - [x] 3.1 Create `components/contas/ofx-import/types.ts` - Define types for wizard steps, form state, parsed transaction with UI metadata (selected, isDuplicate, suggestedCategory), and step navigation
   - [x] 3.2 Implement `components/contas/ofx-import/upload-step.tsx` - Create file upload UI with drag-and-drop zone using shadcn/ui Input (file type), display file validation messages (5MB limit, .ofx extension), show file info (name, size) after selection, and loading state during parsing
@@ -191,3 +191,88 @@ The OFX parsing and data mapping layer is now complete:
    const parsed = mapOfxToLancamento(ofxTransaction);
    // Returns: ParsedOfxTransaction ready for import
    ```
+
+### OFX Import UI Components (Task 3.0)
+
+The complete wizard interface for importing OFX files is now implemented:
+
+1. **Component Structure** (`components/contas/ofx-import/`):
+
+   - `types.ts` - UI type definitions (ImportTransaction, WizardStep, ImportSummary)
+   - `upload-step.tsx` - File upload with drag-and-drop
+   - `review-step.tsx` - Transaction review and editing table
+   - `confirm-step.tsx` - Final confirmation with summary
+   - `ofx-import-dialog.tsx` - Main wizard orchestrator
+
+2. **Upload Step Features**:
+
+   - Drag-and-drop file upload zone
+   - Click to browse file selection
+   - File validation (max 5MB, .ofx extension)
+   - Visual feedback for drag-over state
+   - Loading spinner during parsing
+   - Error display for validation failures
+   - File info display (name, size)
+
+3. **Review Step Features**:
+
+   - Transaction table with all parsed transactions
+   - Checkbox column for selection (select/deselect all)
+   - Inline editing for transaction names (click to edit)
+   - Category dropdown with icons
+   - Duplicate warning badges with detailed tooltips
+   - Confidence indicators for AI suggestions (high/medium/low)
+   - Bulk category editor (select multiple, apply category)
+   - Show/hide duplicates toggle
+   - Summary bar showing selected count and duplicates
+
+4. **Confirm Step Features**:
+
+   - Import summary card with key metrics
+   - Selected count and total count
+   - Total amount calculation
+   - Date range display
+   - Type breakdown (despesas vs receitas)
+   - Top 5 categories breakdown
+   - Scrollable transaction list (max 300px)
+   - Progress bar during import
+   - Error display if import fails
+   - "Go Back" and "Confirm Import" buttons
+
+5. **Main Dialog Features**:
+
+   - Three-step wizard with visual progress indicator
+   - Step navigation (Upload → Review → Confirm)
+   - State management for all transactions
+   - Validation before advancing steps
+   - Cancel button that resets state
+   - Portuguese interface throughout
+   - Responsive design (max-w-4xl)
+   - Proper loading and disabled states
+
+6. **How to Use the Import Wizard**:
+
+   ```typescript
+   import { OfxImportDialog } from "@/components/contas/ofx-import/ofx-import-dialog";
+
+   // In your component:
+   <OfxImportDialog
+     contaId="account-123"
+     categorias={categoriaOptions}
+     pagadores={pagadorOptions}
+     defaultCategoriaId="cat-123"
+     onImportComplete={(count) => {
+       console.log(`${count} transactions imported`);
+     }}
+     onCancel={() => console.log("Import cancelled")}
+   />;
+   ```
+
+7. **Styling and Design**:
+   - Consistent with Opensheets design system
+   - shadcn/ui components (Dialog, Table, Button, Badge, etc.)
+   - Tailwind CSS utility classes
+   - Proper spacing (space-y-6, gap-4, p-6)
+   - Color system (muted, accent, destructive, primary)
+   - Responsive breakpoints (sm:, md:)
+   - Accessible with proper ARIA labels
