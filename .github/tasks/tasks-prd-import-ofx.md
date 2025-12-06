@@ -32,6 +32,7 @@ Based on PRD: `prd-import-ofx.md`
 ## Tasks
 
 - [x] 1.0 Setup Dependencies and Base Infrastructure
+
   - [x] 1.1 Install `node-ofx-parser` package: `pnpm add node-ofx-parser`
   - [x] 1.2 Install `fuzzysort` package for fuzzy string matching: `pnpm add fuzzysort`
   - [x] 1.3 Install type definitions if needed: `pnpm add -D @types/node-ofx-parser`
@@ -40,6 +41,7 @@ Based on PRD: `prd-import-ofx.md`
   - [x] 1.6 Verify packages are installed correctly by checking `package.json` and running `pnpm install`
 
 - [ ] 2.0 Implement OFX Parsing and Data Mapping
+
   - [ ] 2.1 Create `lib/ofx/types.ts` - Define TypeScript interfaces for OFX transaction data, parsed transaction, and import configuration
   - [ ] 2.2 Implement `lib/ofx/parser.ts` - Create `parseOfxFile()` function that accepts File/string, uses node-ofx-parser, handles both SGML and XML formats, extracts BANKACCTFROM data, and returns array of parsed transactions with error handling
   - [ ] 2.3 Implement `lib/ofx/mapper.ts` - Create `mapOfxToLancamento()` function that converts OFX transaction to lancamento schema, maps TRNTYPE to Despesa/Receita, converts TRNAMT to absolute decimal string, formats DTPOSTED to Date object and period string, and sets default payment method to "Débito"
@@ -49,6 +51,7 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 2.7 Write unit tests for mapper to verify correct field transformations
 
 - [ ] 3.0 Build Import Dialog UI Components
+
   - [ ] 3.1 Create `components/contas/ofx-import/types.ts` - Define types for wizard steps, form state, parsed transaction with UI metadata (selected, isDuplicate, suggestedCategory), and step navigation
   - [ ] 3.2 Implement `components/contas/ofx-import/upload-step.tsx` - Create file upload UI with drag-and-drop zone using shadcn/ui Input (file type), display file validation messages (5MB limit, .ofx extension), show file info (name, size) after selection, and loading state during parsing
   - [ ] 3.3 Implement `components/contas/ofx-import/review-step.tsx` - Create transaction review table with shadcn/ui Table, add columns: checkbox, date, description (editable Input), amount (read-only), category (editable Combobox), duplicate warning icon, implement select/deselect all checkbox, add inline editing for transaction name and category, show duplicate warning badges with tooltip, display confidence indicators for suggested categories, and include bulk actions section
@@ -58,6 +61,7 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 3.7 Style components to match existing Opensheets design - Use consistent spacing, colors, and typography from shadcn/ui theme
 
 - [ ] 4.0 Implement Smart Features (Category Suggestion & Duplicate Detection)
+
   - [ ] 4.1 Create `lib/ofx/category-suggester.ts` - Implement `suggestCategory()` function that queries lancamentos table for similar transaction names, uses fuzzysort for fuzzy matching (threshold >70%), considers transaction amount patterns, returns category ID with confidence score (high >90%, medium 70-90%, low <70%), and handles case when no match found
   - [ ] 4.2 Add `suggestCategoriesForTransactions()` batch function that processes multiple transactions efficiently with single DB query for historical data and returns Map of transaction FITID to suggested category
   - [ ] 4.3 Implement `lib/ofx/duplicate-detector.ts` - Create `detectDuplicates()` function that queries existing lancamentos for same account, checks for same date + same amount + similar description (>80% similarity using fuzzysort), checks for same FITID in transaction notes, returns array of potential duplicate IDs with match reason, and handles date range (±3 days consideration)
@@ -67,6 +71,7 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 4.7 Write tests for duplicate detector with various edge cases (same date, different amounts, similar descriptions)
 
 - [ ] 5.0 Create Server Actions and Database Integration
+
   - [ ] 5.1 Create `app/(dashboard)/contas/[contaId]/extrato/actions.ts` if it doesn't exist, or add to existing actions file
   - [ ] 5.2 Implement `parseOfxFileAction()` server action - Add "use server" directive, validate user authentication with `getUserId()`, accept File input from client, call OFX parser, handle parsing errors with try/catch, return parsed transactions array or error message, and validate file on server-side (size, type)
   - [ ] 5.3 Implement `suggestCategoriesForOfxAction()` server action - Accept account ID and array of transactions, verify user owns the account, call category suggester for each transaction, return suggestions map, and handle errors gracefully
@@ -77,6 +82,7 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 5.8 Add validation to prevent importing duplicate FITIDs (check notes field for existing imports)
 
 - [ ] 6.0 Integrate Import Button into Account Statement Page
+
   - [ ] 6.1 Update `app/(dashboard)/contas/[contaId]/extrato/page.tsx` - Import OfxImportDialog component and pass required props (accountId, categoriaOptions, pagadorOptions, selectedPeriod)
   - [ ] 6.2 Update `components/contas/account-statement-card.tsx` - Add "Importar OFX" button to actions prop alongside edit button, use RiDownloadLine or RiFileUploadLine icon from remixicon, style as secondary button to differentiate from primary actions, and pass button as trigger to OfxImportDialog
   - [ ] 6.3 Create import button component if needed or add inline to AccountStatementCard actions section
@@ -105,17 +111,20 @@ Based on PRD: `prd-import-ofx.md`
 The infrastructure for the OFX import feature has been set up:
 
 1. **Packages Installed:**
+
    - `node-ofx-parser` (v0.5.1) - For parsing OFX files
    - `fuzzysort` (v3.1.0) - For fuzzy string matching in category suggestions
 
 2. **Directory Structure Created:**
+
    - `lib/ofx/` - Contains all OFX-related business logic
+
      - `types.ts` - Type definitions
      - `parser.ts` - OFX file parsing
      - `mapper.ts` - Data transformation
      - `duplicate-detector.ts` - Duplicate detection
      - `category-suggester.ts` - Smart category suggestions
-   
+
    - `components/contas/ofx-import/` - Contains UI components
      - `types.ts` - Component type definitions
      - `ofx-import-dialog.tsx` - Main wizard dialog

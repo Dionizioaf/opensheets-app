@@ -34,11 +34,13 @@ The OFX Import feature enables users to import bank transactions from OFX (Open 
 ## Functional Requirements
 
 ### FR1: Import Button Location
+
 - Each account card in `/contas/{contaId}/extrato` must have an "Importar OFX" button
 - The button should be visually accessible next to other account actions (edit, transfer, remove)
 - Button should only be enabled for active accounts
 
 ### FR2: OFX File Upload & Parsing
+
 - System must accept OFX files in both 1.x (SGML) and 2.x (XML) formats
 - System must parse the following OFX fields:
   - `TRNTYPE` (transaction type: DEBIT/CREDIT)
@@ -51,14 +53,17 @@ The OFX Import feature enables users to import bank transactions from OFX (Open 
 - System must attempt to fix common format issues automatically (missing closing tags, encoding issues)
 
 ### FR3: Wizard-Based Import Flow
+
 The import process must follow these steps:
 
 **Step 1: Upload File**
+
 - File picker component with drag-and-drop support
 - File validation (size limit: 5MB, format validation)
 - Parse file and show summary (date range, transaction count)
 
 **Step 2: Configure Defaults**
+
 - Allow user to set default values for:
   - Transaction type (Despesa/Receita) - auto-detect from TRNTYPE
   - Payment method (always "Débito" for bank accounts)
@@ -67,6 +72,7 @@ The import process must follow these steps:
 - Show preview of how defaults will be applied
 
 **Step 3: Map & Review Transactions**
+
 - Display table with all transactions from OFX
 - For each transaction show:
   - Checkbox (checked by default, unchecked for suspected duplicates)
@@ -84,12 +90,14 @@ The import process must follow these steps:
 - Show duplicate detection warnings with explanation
 
 **Step 4: Confirm & Import**
+
 - Summary of transactions to be imported
 - Count of selected vs. total transactions
 - Option to go back and adjust
 - Import button with progress indicator
 
 ### FR4: Intelligent Category Mapping
+
 - System must analyze past transactions (`lancamentos` table) to suggest categories
 - Matching algorithm:
   1. Exact match on transaction description (case-insensitive)
@@ -99,6 +107,7 @@ The import process must follow these steps:
 - If no match found, leave category empty for user to select
 
 ### FR5: Duplicate Detection
+
 - Detect potential duplicates using:
   - Same date + same amount + similar description (>80% similarity)
   - Same `FITID` if previously imported
@@ -109,6 +118,7 @@ The import process must follow these steps:
 - Allow user to override and import anyway
 
 ### FR6: Default Values Configuration
+
 - Mandatory fields that may be missing from OFX:
   - `categoriaId` - allow user to set default or leave blank
   - `pagadorId` - default to authenticated user's primary pagador
@@ -119,6 +129,7 @@ The import process must follow these steps:
 - Allow per-transaction override during review step
 
 ### FR7: Transaction Import & Persistence
+
 - Create new `lancamentos` records for selected transactions
 - Map OFX fields to database schema:
   ```
@@ -138,6 +149,7 @@ The import process must follow these steps:
 - Revalidate account page after successful import
 
 ### FR8: Error Handling & User Feedback
+
 - Show clear error messages for:
   - Invalid OFX file format
   - Parsing errors with line/column information
@@ -153,6 +165,7 @@ The import process must follow these steps:
   - Refresh account statement to show new transactions
 
 ### FR9: Import History Tracking
+
 - Add standardized note to each imported transaction
 - Note format: `"Importado de OFX em {DD/MM/YYYY às HH:mm}"`
 - This allows users to:
@@ -176,17 +189,20 @@ The import process must follow these steps:
 ### UI/UX Requirements
 
 **Modal/Dialog Structure:**
+
 - Use shadcn/ui Dialog component with max-width of 1200px for review step
 - Wizard should be non-dismissible (requires explicit cancel action)
 - Progress indicator showing current step (1/4, 2/4, etc.)
 
 **Import Button:**
+
 - Location: Account statement page (`/contas/{contaId}/extrato`)
 - Style: Secondary button with download icon
 - Label: "Importar OFX"
 - Position: Next to edit button in account actions area
 
 **Transaction Table (Review Step):**
+
 - Use shadcn/ui Table component
 - Columns: Checkbox, Date, Description, Amount, Category (editable), Duplicate Warning
 - Sortable by date and amount
@@ -194,6 +210,7 @@ The import process must follow these steps:
 - Max height: 60vh with scroll
 
 **Category Selector:**
+
 - Use shadcn/ui Combobox for searchable category selection
 - Show confidence indicator next to suggested categories:
   - High: Green checkmark
@@ -202,11 +219,13 @@ The import process must follow these steps:
 - Allow "None" selection (empty category)
 
 **Duplicate Warning:**
+
 - Use Alert component with warning variant
 - Show comparison: "Similar to: [Transaction Name] on [Date] with [Amount]"
 - Link to view existing transaction (opens in new tab)
 
 ### Accessibility
+
 - Full keyboard navigation support
 - ARIA labels for all interactive elements
 - Focus management when wizard opens/closes
@@ -215,7 +234,9 @@ The import process must follow these steps:
 ## Technical Considerations
 
 ### Dependencies
+
 - **OFX Parser**: Use `node-ofx-parser` npm package for parsing OFX files
+
   - Install: `pnpm add node-ofx-parser`
   - Handles both OFX 1.x and 2.x formats
   - TypeScript support available
@@ -226,6 +247,7 @@ The import process must follow these steps:
   - No configuration needed
 
 ### File Structure
+
 ```
 app/(dashboard)/contas/[contaId]/extrato/
   └── actions.ts                    # Server actions for OFX import
@@ -246,23 +268,29 @@ components/contas/
 ```
 
 ### Server Actions
+
 Create new server action in `app/(dashboard)/contas/[contaId]/extrato/actions.ts`:
+
 - `parseOfxFileAction(file: File)` - Parse OFX and return transactions
 - `importOfxTransactionsAction(accountId, transactions, defaults)` - Import transactions to DB
 
 ### Database Schema
+
 No changes required to existing schema. Use existing `lancamentos` table with these conventions:
+
 - `note` field includes import timestamp
 - `isSettled` always `true` for imported transactions
 - `contaId` links to the account being imported to
 
 ### Performance
+
 - Stream large OFX files instead of loading entire file into memory
 - Batch database inserts (use Drizzle's batch insert)
 - Limit OFX file size to 5MB (approximately 10,000 transactions)
 - Use pagination in review step if >200 transactions
 
 ### Security
+
 - Validate file type on server-side (not just client-side)
 - Sanitize all OFX data before displaying (prevent XSS)
 - Use authenticated user's ID for all database operations
@@ -303,27 +331,32 @@ No changes required to existing schema. Use existing `lancamentos` table with th
 ## Implementation Notes
 
 ### Phase 1: Foundation (Week 1)
+
 - Set up OFX parser and test with provided Itaú file
 - Create data mapping functions (OFX → lancamento schema)
 - Build basic duplicate detection algorithm
 
 ### Phase 2: UI Components (Week 1-2)
+
 - Implement wizard dialog shell with step navigation
 - Create upload step with file validation
 - Build transaction review table with inline editing
 
 ### Phase 3: Smart Features (Week 2)
+
 - Implement category suggestion algorithm
 - Add duplicate detection with visual warnings
 - Create bulk edit actions
 
 ### Phase 4: Integration & Polish (Week 3)
+
 - Connect UI to server actions
 - Add loading states and error handling
 - Implement success feedback and page refresh
 - Write comprehensive tests
 
 ### Testing Strategy
+
 - Unit tests for parser, mapper, and duplicate detector
 - Integration tests for complete import flow
 - Test with real OFX files from multiple banks (Itaú, Bradesco, Banco do Brasil)
