@@ -4,20 +4,20 @@ Based on PRD: `prd-import-ofx.md`
 
 ## Relevant Files
 
-- `lib/ofx/parser.ts` - OFX file parsing logic (handles both SGML 1.x and XML 2.x formats)
-- `lib/ofx/types.ts` - TypeScript types for OFX data structures
-- `lib/ofx/mapper.ts` - Maps OFX transactions to lancamento schema
-- `lib/ofx/duplicate-detector.ts` - Detects potential duplicate transactions
-- `lib/ofx/category-suggester.ts` - Suggests categories based on historical data
-- `app/(dashboard)/contas/[contaId]/extrato/actions.ts` - Server actions for OFX import
-- `components/contas/ofx-import/ofx-import-dialog.tsx` - Main wizard dialog component
-- `components/contas/ofx-import/upload-step.tsx` - File upload step UI
-- `components/contas/ofx-import/review-step.tsx` - Transaction review and mapping step UI
-- `components/contas/ofx-import/confirm-step.tsx` - Final confirmation step UI
-- `components/contas/ofx-import/types.ts` - TypeScript types for import flow
-- `app/(dashboard)/contas/[contaId]/extrato/page.tsx` - Add import button to statement page
-- `components/contas/account-statement-card.tsx` - Update to include import action
-- `package.json` - Add required dependencies (node-ofx-parser, fuzzysort)
+- `lib/ofx/parser.ts` - OFX file parsing logic (handles both SGML 1.x and XML 2.x formats) [Created]
+- `lib/ofx/types.ts` - TypeScript types for OFX data structures [Created]
+- `lib/ofx/mapper.ts` - Maps OFX transactions to lancamento schema [Created]
+- `lib/ofx/duplicate-detector.ts` - Detects potential duplicate transactions [Created]
+- `lib/ofx/category-suggester.ts` - Suggests categories based on historical data [Created]
+- `components/contas/ofx-import/ofx-import-dialog.tsx` - Main wizard dialog component [Created]
+- `components/contas/ofx-import/upload-step.tsx` - File upload step UI [Created]
+- `components/contas/ofx-import/review-step.tsx` - Transaction review and mapping step UI [Created]
+- `components/contas/ofx-import/confirm-step.tsx` - Final confirmation step UI [Created]
+- `components/contas/ofx-import/types.ts` - TypeScript types for import flow [Created]
+- `package.json` - Added node-ofx-parser and fuzzysort dependencies [Modified]
+- `app/(dashboard)/contas/[contaId]/extrato/actions.ts` - Server actions for OFX import (to be created)
+- `app/(dashboard)/contas/[contaId]/extrato/page.tsx` - Add import button to statement page (to be modified)
+- `components/contas/account-statement-card.tsx` - Update to include import action (to be modified)
 
 ### Notes
 
@@ -31,7 +31,7 @@ Based on PRD: `prd-import-ofx.md`
 
 ## Tasks
 
-- [ ] 1.0 Setup Dependencies and Base Infrastructure
+- [x] 1.0 Setup Dependencies and Base Infrastructure
   - [x] 1.1 Install `node-ofx-parser` package: `pnpm add node-ofx-parser`
   - [x] 1.2 Install `fuzzysort` package for fuzzy string matching: `pnpm add fuzzysort`
   - [x] 1.3 Install type definitions if needed: `pnpm add -D @types/node-ofx-parser`
@@ -97,3 +97,35 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 7.9 Verify mobile responsiveness of dialog and table components
   - [ ] 7.10 Final code review - Check for console errors, verify all TypeScript types are correct, ensure error boundaries are in place, confirm revalidation works correctly, and verify no memory leaks in dialog state
   - [ ] 7.11 Update documentation if needed - Add comments to complex functions and document any assumptions or limitations
+
+## Tutorial: OFX Import Feature
+
+### Setup Complete (Task 1.0)
+
+The infrastructure for the OFX import feature has been set up:
+
+1. **Packages Installed:**
+   - `node-ofx-parser` (v0.5.1) - For parsing OFX files
+   - `fuzzysort` (v3.1.0) - For fuzzy string matching in category suggestions
+
+2. **Directory Structure Created:**
+   - `lib/ofx/` - Contains all OFX-related business logic
+     - `types.ts` - Type definitions
+     - `parser.ts` - OFX file parsing
+     - `mapper.ts` - Data transformation
+     - `duplicate-detector.ts` - Duplicate detection
+     - `category-suggester.ts` - Smart category suggestions
+   
+   - `components/contas/ofx-import/` - Contains UI components
+     - `types.ts` - Component type definitions
+     - `ofx-import-dialog.tsx` - Main wizard dialog
+     - `upload-step.tsx` - File upload interface
+     - `review-step.tsx` - Transaction review table
+     - `confirm-step.tsx` - Final confirmation screen
+
+3. **Next Steps:**
+   - Implement OFX parsing logic (Task 2.0)
+   - Build UI components (Task 3.0)
+   - Add smart features (Task 4.0)
+   - Create server actions (Task 5.0)
+   - Integrate with account pages (Task 6.0)
