@@ -40,15 +40,15 @@ Based on PRD: `prd-import-ofx.md`
   - [x] 1.5 Create directory structure: `components/contas/ofx-import/` with empty component files
   - [x] 1.6 Verify packages are installed correctly by checking `package.json` and running `pnpm install`
 
-- [ ] 2.0 Implement OFX Parsing and Data Mapping
+- [x] 2.0 Implement OFX Parsing and Data Mapping
 
-  - [ ] 2.1 Create `lib/ofx/types.ts` - Define TypeScript interfaces for OFX transaction data, parsed transaction, and import configuration
-  - [ ] 2.2 Implement `lib/ofx/parser.ts` - Create `parseOfxFile()` function that accepts File/string, uses node-ofx-parser, handles both SGML and XML formats, extracts BANKACCTFROM data, and returns array of parsed transactions with error handling
-  - [ ] 2.3 Implement `lib/ofx/mapper.ts` - Create `mapOfxToLancamento()` function that converts OFX transaction to lancamento schema, maps TRNTYPE to Despesa/Receita, converts TRNAMT to absolute decimal string, formats DTPOSTED to Date object and period string, and sets default payment method to "Débito"
-  - [ ] 2.4 Add utility function `sanitizeOfxDescription()` in mapper to clean up MEMO field by removing extra spaces, truncating if too long (max 255 chars), and handling special characters
-  - [ ] 2.5 Add `generateImportNote()` helper that creates standardized note text with current timestamp
-  - [ ] 2.6 Write unit tests for parser with sample OFX data (test with provided Itaú file structure)
-  - [ ] 2.7 Write unit tests for mapper to verify correct field transformations
+  - [x] 2.1 Create `lib/ofx/types.ts` - Define TypeScript interfaces for OFX transaction data, parsed transaction, and import configuration
+  - [x] 2.2 Implement `lib/ofx/parser.ts` - Create `parseOfxFile()` function that accepts File/string, uses node-ofx-parser, handles both SGML and XML formats, extracts BANKACCTFROM data, and returns array of parsed transactions with error handling
+  - [x] 2.3 Implement `lib/ofx/mapper.ts` - Create `mapOfxToLancamento()` function that converts OFX transaction to lancamento schema, maps TRNTYPE to Despesa/Receita, converts TRNAMT to absolute decimal string, formats DTPOSTED to Date object and period string, and sets default payment method to "Débito"
+  - [x] 2.4 Add utility function `sanitizeOfxDescription()` in mapper to clean up MEMO field by removing extra spaces, truncating if too long (max 255 chars), and handling special characters
+  - [x] 2.5 Add `generateImportNote()` helper that creates standardized note text with current timestamp
+  - [x] 2.6 Write unit tests for parser with sample OFX data (test with provided Itaú file structure)
+  - [x] 2.7 Write unit tests for mapper to verify correct field transformations
 
 - [ ] 3.0 Build Import Dialog UI Components
 
@@ -133,8 +133,61 @@ The infrastructure for the OFX import feature has been set up:
      - `confirm-step.tsx` - Final confirmation screen
 
 3. **Next Steps:**
-   - Implement OFX parsing logic (Task 2.0)
    - Build UI components (Task 3.0)
    - Add smart features (Task 4.0)
    - Create server actions (Task 5.0)
    - Integrate with account pages (Task 6.0)
+
+### OFX Parsing and Data Mapping (Task 2.0)
+
+The OFX parsing and data mapping layer is now complete:
+
+1. **Type Definitions** (`lib/ofx/types.ts`):
+
+   - `OfxTransactionType` - All OFX transaction types (DEBIT, CREDIT, ATM, POS, etc.)
+   - `OfxBankAccount` - Bank account information from OFX files
+   - `OfxTransaction` - Raw OFX transaction data structure
+   - `OfxStatement` - Complete statement with account and transactions
+   - `ParsedOfxTransaction` - Intermediate format with mapped lancamento fields
+   - `OfxImportConfig` - Import settings and configuration
+   - `OfxImportResult` - Import operation result summary
+   - `OfxParsingError` - Custom error type for OFX operations
+
+2. **OFX Parser** (`lib/ofx/parser.ts`):
+
+   - `parseOfxFile()` - Main parsing function supporting both SGML and XML formats
+   - Extracts bank account information (BANKACCTFROM)
+   - Parses transaction list (BANKTRANLIST/STMTTRN)
+   - Handles date parsing from OFX format (YYYYMMDDHHMMSS)
+   - Comprehensive error handling with specific error codes
+   - Works with Itaú and other Brazilian banks
+
+3. **Data Mapper** (`lib/ofx/mapper.ts`):
+
+   - `mapOfxToLancamento()` - Converts OFX transactions to lancamento schema
+   - Maps TRNTYPE to "Despesa" or "Receita" based on amount sign
+   - Converts amounts to absolute decimal strings
+   - Determines appropriate payment method (Cartão de débito, Pix, Dinheiro, Boleto)
+   - `sanitizeOfxDescription()` - Cleans transaction descriptions (removes bank prefixes, normalizes whitespace)
+   - `generateImportNote()` - Creates import metadata with FITID and timestamp
+   - `mapOfxTransactionsToLancamentos()` - Batch mapping utility
+
+4. **Testing** (`lib/ofx/__tests__/`):
+
+   - Jest configured with Next.js integration
+   - 51 passing tests covering parser and mapper functionality
+   - Sample Itaú OFX file structure for testing
+   - Tests for valid/invalid files, date parsing, type mapping, amount conversion
+   - Type declarations for node-ofx-parser package
+
+5. **How the Parsing Works:**
+
+   ```typescript
+   // Parse an OFX file
+   const statement = await parseOfxFile(fileContent);
+   // Returns: { account, transactions, currency, startDate, endDate }
+
+   // Map transactions to lancamento format
+   const parsed = mapOfxToLancamento(ofxTransaction);
+   // Returns: ParsedOfxTransaction ready for import
+   ```
