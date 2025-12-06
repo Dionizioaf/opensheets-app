@@ -162,8 +162,8 @@ const detectDuplicatesSchema = z.object({
         .array(
             z.object({
                 id: z.string(),
-                nome: z.string(),
-                valor: z.string(),
+                name: z.string(),
+                amount: z.string(),
                 data_compra: z.date(),
                 fitId: z.string().optional(),
             })
@@ -353,8 +353,8 @@ export async function detectOfxDuplicatesAction(
     contaId: string,
     transactions: Array<{
         id: string;
-        nome: string;
-        valor: string;
+        name: string;
+        amount: string;
         data_compra: Date;
         fitId?: string;
     }>
@@ -404,8 +404,8 @@ export async function detectOfxDuplicatesAction(
             contaId,
             transactions.map((t) => ({
                 id: t.id,
-                nome: t.nome,
-                valor: t.valor,
+                name: t.name,
+                amount: t.amount,
                 purchaseDate: t.data_compra,
                 fitId: t.fitId,
             }))

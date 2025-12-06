@@ -51,6 +51,7 @@ interface ReviewStepProps {
     onBulkCategorySet: (ids: string[], categoriaId: string) => void;
     showDuplicates: boolean;
     onToggleDuplicates: (show: boolean) => void;
+    isDetectingDuplicates?: boolean;
 }
 
 export function ReviewStep({
@@ -64,6 +65,7 @@ export function ReviewStep({
     onBulkCategorySet,
     showDuplicates,
     onToggleDuplicates,
+    isDetectingDuplicates = false,
 }: ReviewStepProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [bulkCategoryMode, setBulkCategoryMode] = useState(false);
@@ -199,8 +201,8 @@ export function ReviewStep({
             </div>
 
             {/* Summary and Actions */}
-            <div className="flex items-center justify-between gap-4 p-4 rounded-lg border bg-muted/50">
-                <div className="flex items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-muted/50">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                     <div>
                         <p className="text-sm font-medium">{selectedCount} selecionadas</p>
                         <p className="text-xs text-muted-foreground">
@@ -208,7 +210,15 @@ export function ReviewStep({
                         </p>
                     </div>
 
-                    {duplicateCount > 0 && (
+                    {isDetectingDuplicates ? (
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />
+                            <div>
+                                <p className="text-sm font-medium">Detectando duplicatas...</p>
+                                <p className="text-xs text-muted-foreground">Aguarde</p>
+                            </div>
+                        </div>
+                    ) : duplicateCount > 0 ? (
                         <div className="flex items-center gap-2">
                             <RiAlertLine className="w-4 h-4 text-warning" />
                             <div>
@@ -220,25 +230,28 @@ export function ReviewStep({
                                 </p>
                             </div>
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     {duplicateCount > 0 && (
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onToggleDuplicates(!showDuplicates)}
+                            className="flex-1 sm:flex-none"
                         >
                             {showDuplicates ? (
                                 <>
                                     <RiEyeOffLine className="w-4 h-4 mr-2" />
-                                    Ocultar duplicadas
+                                    <span className="hidden sm:inline">Ocultar duplicadas</span>
+                                    <span className="sm:hidden">Ocultar</span>
                                 </>
                             ) : (
                                 <>
                                     <RiEyeLine className="w-4 h-4 mr-2" />
-                                    Mostrar duplicadas
+                                    <span className="hidden sm:inline">Mostrar duplicadas</span>
+                                    <span className="sm:hidden">Mostrar</span>
                                 </>
                             )}
                         </Button>
@@ -248,8 +261,10 @@ export function ReviewStep({
                         variant="outline"
                         size="sm"
                         onClick={toggleBulkMode}
+                        className="flex-1 sm:flex-none text-xs sm:text-sm"
                     >
-                        {bulkCategoryMode ? "Cancelar edição em massa" : "Editar categorias em massa"}
+                        <span className="hidden sm:inline">{bulkCategoryMode ? "Cancelar edição em massa" : "Editar categorias em massa"}</span>
+                        <span className="sm:hidden">{bulkCategoryMode ? "Cancelar" : "Editar massa"}</span>
                     </Button>
                 </div>
             </div>
@@ -283,11 +298,11 @@ export function ReviewStep({
             )}
 
             {/* Transactions Table */}
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-12">
+                            <TableHead className="w-12 min-w-[48px]">
                                 {!bulkCategoryMode && (
                                     <Checkbox
                                         checked={allSelected}
@@ -296,11 +311,11 @@ export function ReviewStep({
                                     />
                                 )}
                             </TableHead>
-                            <TableHead>Data</TableHead>
-                            <TableHead>Descrição</TableHead>
-                            <TableHead className="text-right">Valor</TableHead>
-                            <TableHead>Categoria</TableHead>
-                            <TableHead className="w-12"></TableHead>
+                            <TableHead className="min-w-[100px]">Data</TableHead>
+                            <TableHead className="min-w-[200px]">Descrição</TableHead>
+                            <TableHead className="text-right min-w-[120px]">Valor</TableHead>
+                            <TableHead className="min-w-[180px]">Categoria</TableHead>
+                            <TableHead className="w-12 min-w-[48px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

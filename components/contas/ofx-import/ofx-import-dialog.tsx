@@ -76,6 +76,7 @@ export function OfxImportDialog({
     // Transactions state
     const [transactions, setTransactions] = useState<ImportTransaction[]>([]);
     const [showDuplicates, setShowDuplicates] = useState(true);
+    const [isDetectingDuplicates, setIsDetectingDuplicates] = useState(false);
 
     // Import step state
     const [isImporting, setIsImporting] = useState(false);
@@ -222,29 +223,22 @@ export function OfxImportDialog({
                     })
                 );
 
-                // Detect duplicates for all transactions
-                console.log("[OFX Import Dialog] Detecting duplicates", {
-                    contaId,
-                    transactionCount: importTransactions.length,
-                    sampleTransaction: importTransactions[0]
-                });
+                setTransactions(importTransactions);
+                setCurrentStep("review");
+
+                // Detect duplicates in background
+                setIsDetectingDuplicates(true);
 
                 const duplicateResult = await detectOfxDuplicatesAction(
                     contaId,
                     importTransactions.map((t) => ({
                         id: t.id,
-                        nome: t.nome,
-                        valor: t.valor,
+                        name: t.nome,
+                        amount: t.valor,
                         data_compra: t.data_compra,
                         fitId: t.fitId,
                     }))
                 );
-
-                console.log("[OFX Import Dialog] Duplicate detection result", {
-                    success: duplicateResult.success,
-                    message: duplicateResult.success ? (duplicateResult as any).message : (duplicateResult as any).error,
-                    dataSize: duplicateResult.success && duplicateResult.data ? duplicateResult.data.size : undefined,
-                });
 
                 // Mark transactions as duplicates based on detection results
                 if (duplicateResult.success && duplicateResult.data) {
@@ -252,12 +246,6 @@ export function OfxImportDialog({
                     importTransactions.forEach((t) => {
                         const matches = duplicatesMap.get(t.id);
                         if (matches && matches.length > 0) {
-                            console.log("[OFX Import Dialog] Found duplicate", {
-                                transactionId: t.id,
-                                transactionName: t.nome,
-                                matchCount: matches.length,
-                                firstMatch: matches[0]
-                            });
                             t.isDuplicate = true;
                             t.duplicateOf = matches[0].lancamentoId;
                             t.duplicateSimilarity = matches[0].similarity * 100; // Convert to 0-100
@@ -275,8 +263,7 @@ export function OfxImportDialog({
                     });
                 }
 
-                setTransactions(importTransactions);
-                setCurrentStep("review");
+                setIsDetectingDuplicates(false);
 
                 // Show summary message
                 const duplicateCount = importTransactions.filter((t) => t.isDuplicate).length;
@@ -414,12 +401,6 @@ export function OfxImportDialog({
                 ...(t.categoriaId && { categoriaId: t.categoriaId }),
             }));
 
-            console.log("[OFX Import Dialog] Submitting import", {
-                contaId,
-                transactionCount: transactionsToImport.length,
-                sampleTransaction: transactionsToImport[0]
-            });
-
             // Simulate progress during import
             const progressInterval = setInterval(() => {
                 setImportProgress((prev) => Math.min(prev + 10, 90));
@@ -435,17 +416,9 @@ export function OfxImportDialog({
             clearInterval(progressInterval);
             setImportProgress(100);
 
-            console.log("[OFX Import Dialog] Server response", result);
-
             if (!result.success) {
-                console.error("[OFX Import Dialog] Import failed", result.error);
                 throw new Error(result.error);
             }
-
-            console.log("[OFX Import Dialog] Import successful", {
-                importedCount: result.data?.importedCount,
-                message: result.message
-            });
 
             toast.success(result.message);
             onImportComplete?.(result.data?.importedCount ?? 0);
@@ -454,7 +427,6 @@ export function OfxImportDialog({
             await new Promise((resolve) => setTimeout(resolve, 500));
             handleClose();
         } catch (error) {
-            console.error("[OFX Import Dialog] Exception caught", error);
             const errorMessage =
                 error instanceof Error
                     ? error.message
@@ -509,15 +481,15 @@ export function OfxImportDialog({
         <Dialog open={open} onOpenChange={setOpen}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent
-                className="max-w-8xl max-h-[90vh] flex flex-col overflow-hidden p-0"
+                className="w-full max-w-[95vw] sm:max-w-5xl lg:max-w-8xl h-[95vh] sm:h-[90vh] flex flex-col overflow-hidden p-0"
                 showCloseButton={false}
             >
                 {/* Header with Progress Indicator */}
-                <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <DialogTitle>Importar arquivo OFX</DialogTitle>
-                            <DialogDescription>
+                <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b shrink-0">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                            <DialogTitle className="text-base sm:text-lg truncate">Importar arquivo OFX</DialogTitle>
+                            <DialogDescription className="text-xs sm:text-sm truncate">
                                 Importe transações do seu banco para o Opensheets
                             </DialogDescription>
                         </div>
@@ -534,10 +506,10 @@ export function OfxImportDialog({
                     </div>
 
                     {/* Step Progress Indicator */}
-                    <div className="flex items-center gap-2 mt-4">
+                    <div className="flex items-center gap-1 sm:gap-2 mt-4 overflow-x-auto pb-2">
                         {WIZARD_STEPS.map((step, index) => (
-                            <div key={step.id} className="flex items-center flex-1">
-                                <div className="flex items-center gap-2 flex-1">
+                            <div key={step.id} className="flex items-center flex-1 min-w-[80px] sm:min-w-0">
+                                <div className="flex items-center gap-1 sm:gap-2 flex-1">
                                     <Badge
                                         variant={
                                             index < currentStepIndex
@@ -546,11 +518,11 @@ export function OfxImportDialog({
                                                     ? "default"
                                                     : "outline"
                                         }
-                                        className="shrink-0"
+                                        className="shrink-0 text-xs"
                                     >
                                         {index + 1}
                                     </Badge>
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 hidden sm:block">
                                         <p
                                             className={`text-xs font-medium truncate ${index <= currentStepIndex
                                                 ? "text-foreground"
@@ -563,7 +535,7 @@ export function OfxImportDialog({
                                 </div>
                                 {index < WIZARD_STEPS.length - 1 && (
                                     <div
-                                        className={`h-[2px] w-full mx-2 ${index < currentStepIndex
+                                        className={`h-[2px] w-8 sm:w-full mx-1 sm:mx-2 ${index < currentStepIndex
                                             ? "bg-primary"
                                             : "bg-muted"
                                             }`}
@@ -575,7 +547,7 @@ export function OfxImportDialog({
                 </DialogHeader>
 
                 {/* Step Content */}
-                <div className="px-6 py-6 overflow-y-auto min-h-0 flex-1">
+                <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto min-h-0 flex-1">
                     {currentStep === "upload" && (
                         <UploadStep
                             onFileSelected={handleFileSelected}
@@ -596,6 +568,7 @@ export function OfxImportDialog({
                             onBulkCategorySet={handleBulkCategorySet}
                             showDuplicates={showDuplicates}
                             onToggleDuplicates={setShowDuplicates}
+                            isDetectingDuplicates={isDetectingDuplicates}
                         />
                     )}
 
@@ -614,11 +587,12 @@ export function OfxImportDialog({
 
                 {/* Footer with Navigation (only for upload and review steps) */}
                 {currentStep !== "confirm" && (
-                    <div className="px-6 py-4 border-t flex items-center justify-between shrink-0">
+                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-t flex items-center justify-between gap-2 shrink-0">
                         <Button
                             variant="outline"
                             onClick={handleBack}
                             disabled={currentStep === "upload" || isParsingFile}
+                            className="min-w-[80px] text-sm"
                         >
                             Voltar
                         </Button>
@@ -630,6 +604,7 @@ export function OfxImportDialog({
                                 isParsingFile ||
                                 (currentStep === "review" && selectedCount === 0)
                             }
+                            className="min-w-[100px] text-sm"
                         >
                             {currentStep === "review" ? "Continuar" : "Próximo"}
                         </Button>

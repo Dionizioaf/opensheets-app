@@ -99,10 +99,10 @@ Based on PRD: `prd-import-ofx.md`
   - [ ] 7.5 Test edge cases - Empty OFX file, single transaction, very large file (>1000 transactions), special characters in descriptions, and future-dated transactions
   - [ ] 7.6 Verify accessibility - Keyboard navigation through wizard, screen reader compatibility, focus management, and ARIA labels on interactive elements
   - [ ] 7.7 Performance testing - Measure parse time for large files, test UI responsiveness during import, verify database batch insert performance, and optimize if needed
-  - [ ] 7.8 Add loading skeletons for async operations in dialog
-  - [ ] 7.9 Verify mobile responsiveness of dialog and table components
-  - [ ] 7.10 Final code review - Check for console errors, verify all TypeScript types are correct, ensure error boundaries are in place, confirm revalidation works correctly, and verify no memory leaks in dialog state
-  - [ ] 7.11 Update documentation if needed - Add comments to complex functions and document any assumptions or limitations
+  - [x] 7.8 Add loading skeletons for async operations in dialog - Duplicate detection shows loading indicator in review step
+  - [x] 7.9 Verify mobile responsiveness of dialog and table components - Dialog is responsive (w-full max-w-[95vw] sm:max-w-5xl), table scrolls horizontally, buttons have min widths, header/footer padding adjusts for mobile
+  - [x] 7.10 Final code review - Removed all console.log statements, no `any` types except in third-party type declarations, revalidateForEntity("lancamentos") confirmed in import action line 635
+  - [x] 7.11 Update documentation - Added JSDoc comments to duplicate detector functions, documented FITID pattern format, added Drizzle field mapping comments, explained rate limiting and file size limits in upload step
 
 ## Tutorial: OFX Import Feature
 
@@ -276,3 +276,93 @@ The complete wizard interface for importing OFX files is now implemented:
    - Color system (muted, accent, destructive, primary)
    - Responsive breakpoints (sm:, md:)
    - Accessible with proper ARIA labels
+
+### Smart Features Implementation (Task 4.0)
+
+1. **Category Suggester** (`lib/ofx/category-suggester.ts`):
+
+   - Analyzes historical transactions to suggest categories
+   - Uses fuzzy string matching with fuzzysort (>70% threshold)
+   - Batch processing for efficient database queries
+   - Returns confidence scores (high >90%, medium 70-90%, low <70%)
+
+2. **Duplicate Detector** (`lib/ofx/duplicate-detector.ts`):
+
+   - **FITID Matching**: Checks for FITID pattern in transaction notes (format: "FITID: <id>")
+   - **Date Tolerance**: ±3 days window for potential duplicates
+   - **Amount Match**: Exact amount comparison required
+   - **Description Similarity**: Fuzzy matching with >80% threshold for "similar", >60% for "likely"
+   - **Batch Detection**: Efficient single-query processing for multiple transactions
+   - **Field Mapping**: Uses Drizzle ORM JS field names (name, amount, note) which map to DB columns (nome, valor, anotacao)
+
+3. **Rate Limiting**:
+   - Maximum 60 imports per 30 minutes per user (configurable via environment variables)
+   - In-memory tracking with automatic cleanup
+   - Environment variables: `OFX_IMPORT_RATE_LIMIT_MAX`, `OFX_IMPORT_RATE_LIMIT_WINDOW_MS`
+
+### Server Actions Implementation (Task 5.0)
+
+1. **Parse OFX File** (`parseOfxFileAction`):
+
+   - Validates user authentication
+   - Parses OFX file content
+   - Returns transactions array or error message
+
+2. **Suggest Categories** (`suggestCategoriesForOfxAction`):
+
+   - Verifies account ownership
+   - Calls category suggester for transaction batch
+   - Returns category suggestions with confidence scores
+
+3. **Detect Duplicates** (`detectOfxDuplicatesAction`):
+
+   - Verifies account ownership
+   - Calls duplicate detector with transaction batch
+   - Returns Map of transaction IDs to duplicate matches
+
+4. **Import Transactions** (`importOfxTransactionsAction`):
+   - Rate limiting check (60 imports/30min)
+   - Zod schema validation
+   - Account ownership verification
+   - Database transaction for atomic inserts
+   - FITID deduplication (checks note field)
+   - Sets isSettled to true for all imports
+   - Revalidates lancamentos entity
+   - Returns imported count and success message
+
+### UI Integration (Task 6.0)
+
+1. **Account Statement Page**: Import button added to statement header
+2. **Account Cards Page**: Import button added to each active account card footer
+3. **Loading States**: Button shows spinner during import
+4. **Success Notifications**: Toast messages with imported transaction count
+5. **Error Handling**: User-friendly error messages throughout workflow
+
+### Mobile Responsiveness and Polish (Task 7.8-7.11)
+
+1. **Mobile Optimizations**:
+
+   - Dialog: Responsive width (w-full max-w-[95vw] sm:max-w-5xl)
+   - Table: Horizontal scrolling with min-width columns
+   - Buttons: Text truncation on mobile (e.g., "Ocultar" vs "Ocultar duplicadas")
+   - Step progress: Hides step labels on mobile, shows only numbered badges
+   - Padding: Reduced on mobile (px-4 vs px-6)
+
+2. **Loading States**:
+
+   - Upload step: Spinner during file parsing
+   - Review step: Animated spinner during duplicate detection
+   - Confirm step: Progress bar during import
+
+3. **Code Quality**:
+
+   - All console.log statements removed
+   - No `any` types (except third-party declarations)
+   - Revalidation confirmed (line 635 in actions.ts)
+   - JSDoc comments added to complex functions
+
+4. **Documentation**:
+   - FITID pattern format documented (format: "FITID: <id>")
+   - Drizzle field mapping explained (JS: name/amount/note → DB: nome/valor/anotacao)
+   - Rate limiting documented (60 imports/30min, configurable)
+   - File size limits documented (5MB max in upload-step.tsx)
