@@ -391,6 +391,13 @@ export async function detectOfxDuplicatesAction(
             ) as ActionResult<Map<string, DuplicateMatch[]>>;
         }
 
+        console.log("[Detect Duplicates] Starting duplicate detection", {
+            userId: user.id,
+            contaId,
+            transactionCount: transactions.length,
+            sampleTransaction: transactions[0]
+        });
+
         // Detect duplicates for all transactions in batch
         const duplicates = await detectDuplicatesBatch(
             user.id,
@@ -403,6 +410,15 @@ export async function detectOfxDuplicatesAction(
                 fitId: t.fitId,
             }))
         );
+
+        console.log("[Detect Duplicates] Detection complete", {
+            duplicatesMapSize: duplicates.size,
+            duplicatesArray: Array.from(duplicates.entries()).map(([id, matches]) => ({
+                transactionId: id,
+                matchCount: matches.length,
+                firstMatch: matches[0]
+            }))
+        });
 
         // Count transactions with duplicates
         const duplicateCount = Array.from(duplicates.values()).filter(

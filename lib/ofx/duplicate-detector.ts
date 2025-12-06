@@ -241,10 +241,10 @@ export async function detectDuplicatesBatch(
     const existingTransactions = await db.query.lancamentos.findMany({
         columns: {
             id: true,
-            nome: true,
-            valor: true,
+            name: true,
+            amount: true,
             purchaseDate: true,
-            anotacao: true,
+            note: true,
         },
         where: and(
             eq(lancamentos.userId, userId),
@@ -255,10 +255,23 @@ export async function detectDuplicatesBatch(
         limit: 500, // Reasonable limit for batch checking
     });
 
+    console.log("[Duplicate Detector] Query results", {
+        userId,
+        contaId,
+        dateRange: { minDate, maxDate },
+        amounts,
+        existingCount: existingTransactions.length,
+        sampleExisting: existingTransactions[0]
+    });
+
     // Filter by amounts (since we can't use IN clause easily with Drizzle)
     const filteredTransactions = existingTransactions.filter(
-        (t: typeof existingTransactions[0]) => amounts.includes(t.valor)
+        (t: typeof existingTransactions[0]) => amounts.includes(t.amount)
     );
+
+    console.log("[Duplicate Detector] After amount filter", {
+        filteredCount: filteredTransactions.length
+    });
 
     // Check each input transaction against existing ones
     for (const transaction of transactions) {
@@ -274,7 +287,7 @@ export async function detectDuplicatesBatch(
 
         for (const existing of filteredTransactions) {
             // Skip if amount doesn't match
-            if (existing.valor !== transaction.valor) continue;
+            if (existing.amount !== transaction.valor) continue;
 
             // Calculate date difference
             const daysDifference = Math.abs(
@@ -288,12 +301,26 @@ export async function detectDuplicatesBatch(
             if (daysDifference > DATE_TOLERANCE_DAYS) continue;
 
             // Check for FITID match
-            if (transaction.fitId && existing.anotacao) {
+            if (transaction.fitId && existing.note) {
                 const fitIdPattern = new RegExp(
                     `FITID:\\s*${transaction.fitId}`,
                     "i"
                 );
-                if (fitIdPattern.test(existing.anotacao)) {
+
+                console.log("[Duplicate Detector] Checking FITID", {
+                    transactionId: transaction.id,
+                    transactionName: transaction.nome,
+                    fitId: transaction.fitId,
+                    existingId: existing.id,
+                    existingNote: existing.note,
+                    patternMatches: fitIdPattern.test(existing.note)
+                });
+
+                if (fitIdPattern.test(existing.note)) {
+                    console.log("[Duplicate Detector] FITID match found!", {
+                        transactionId: transaction.id,
+                        existingId: existing.id
+                    });
                     matches.push({
                         lancamentoId: existing.id,
                         matchReason: "fitid",
@@ -309,7 +336,7 @@ export async function detectDuplicatesBatch(
                 }
             }
 
-            const existingNormalized = existing.nome.trim().toLowerCase();
+            const existingNormalized = existing.name.trim().toLowerCase();
 
             // Check for exact match
             if (daysDifference === 0 && normalizedName === existingNormalized) {
@@ -377,6 +404,12 @@ export async function detectDuplicatesBatch(
 
         results.set(transaction.id, matches);
     }
+
+    console.log("[Duplicate Detector] Batch detection complete", {
+        totalTransactions: transactions.length,
+        resultsSize: results.size,
+        transactionsWithDuplicates: Array.from(results.values()).filter(m => m.length > 0).length
+    });
 
     return results;
 }

@@ -87,9 +87,9 @@ Based on PRD: `prd-import-ofx.md`
   - [x] 6.2 Update `components/contas/account-statement-card.tsx` - Add "Importar OFX" button to actions prop alongside edit button, use RiDownloadLine or RiFileUploadLine icon from remixicon, style as secondary button to differentiate from primary actions, and pass button as trigger to OfxImportDialog
   - [x] 6.3 Create import button component if needed or add inline to AccountStatementCard actions section
   - [x] 6.4 Ensure button is only visible for active accounts (check status prop)
-  - [ ] 6.5 Test navigation flow: click import button → dialog opens → complete wizard → dialog closes → transactions appear in table
-  - [ ] 6.6 Add loading state to button while import is processing
-  - [ ] 6.7 Show success toast notification after successful import with count of imported transactions
+  - [x] 6.5 Test navigation flow: click import button → dialog opens → complete wizard → dialog closes → transactions appear in table
+  - [x] 6.6 Add loading state to button while import is processing
+  - [x] 6.7 Show success toast notification after successful import with count of imported transactions
 
 - [ ] 7.0 Testing and Polish
   - [ ] 7.1 Test complete import flow with provided Itaú OFX file - Upload file, verify parsing, check category suggestions, review duplicate detection, complete import, and verify transactions in database

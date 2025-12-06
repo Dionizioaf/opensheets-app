@@ -183,6 +183,7 @@ export interface OfxImportDialogProps {
     trigger?: React.ReactNode;
     onImportComplete?: (importedCount: number) => void;
     onCancel?: () => void;
+    onImportStateChange?: (isImporting: boolean) => void;
 }
 
 /**

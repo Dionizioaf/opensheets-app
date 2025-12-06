@@ -15,7 +15,10 @@ import { RiCloseLine } from "@remixicon/react";
 import { toast } from "sonner";
 import { parseOfxFile } from "@/lib/ofx/parser";
 import { mapOfxTransactionsToLancamentos } from "@/lib/ofx/mapper";
-import { importOfxTransactionsAction } from "@/app/(dashboard)/contas/[contaId]/extrato/actions";
+import {
+    importOfxTransactionsAction,
+    detectOfxDuplicatesAction,
+} from "@/app/(dashboard)/contas/[contaId]/extrato/actions";
 import { UploadStep } from "./upload-step";
 import { ReviewStep } from "./review-step";
 import { ConfirmStep } from "./confirm-step";
@@ -53,6 +56,7 @@ export function OfxImportDialog({
     trigger,
     onImportComplete,
     onCancel,
+    onImportStateChange,
 }: OfxImportDialogProps) {
     // Client-side only rendering to avoid hydration issues
     const [mounted, setMounted] = useState(false);
@@ -77,6 +81,13 @@ export function OfxImportDialog({
     const [isImporting, setIsImporting] = useState(false);
     const [importProgress, setImportProgress] = useState(0);
     const [importError, setImportError] = useState<string | null>(null);
+
+    /**
+     * Notify parent component of import state changes
+     */
+    useEffect(() => {
+        onImportStateChange?.(isImporting);
+    }, [isImporting, onImportStateChange]);
 
     /**
      * Get current step index
@@ -211,9 +222,71 @@ export function OfxImportDialog({
                     })
                 );
 
+                // Detect duplicates for all transactions
+                console.log("[OFX Import Dialog] Detecting duplicates", {
+                    contaId,
+                    transactionCount: importTransactions.length,
+                    sampleTransaction: importTransactions[0]
+                });
+
+                const duplicateResult = await detectOfxDuplicatesAction(
+                    contaId,
+                    importTransactions.map((t) => ({
+                        id: t.id,
+                        nome: t.nome,
+                        valor: t.valor,
+                        data_compra: t.data_compra,
+                        fitId: t.fitId,
+                    }))
+                );
+
+                console.log("[OFX Import Dialog] Duplicate detection result", {
+                    success: duplicateResult.success,
+                    message: duplicateResult.message,
+                    dataSize: duplicateResult.data?.size,
+                });
+
+                // Mark transactions as duplicates based on detection results
+                if (duplicateResult.success && duplicateResult.data) {
+                    const duplicatesMap = duplicateResult.data;
+                    importTransactions.forEach((t) => {
+                        const matches = duplicatesMap.get(t.id);
+                        if (matches && matches.length > 0) {
+                            console.log("[OFX Import Dialog] Found duplicate", {
+                                transactionId: t.id,
+                                transactionName: t.nome,
+                                matchCount: matches.length,
+                                firstMatch: matches[0]
+                            });
+                            t.isDuplicate = true;
+                            t.duplicateOf = matches[0].lancamentoId;
+                            t.duplicateSimilarity = matches[0].similarity * 100; // Convert to 0-100
+                            t.duplicateDetails = {
+                                existingLancamentoId: matches[0].lancamentoId,
+                                existingTransactionName: matches[0].existingTransaction.nome,
+                                existingTransactionDate: matches[0].existingTransaction.purchaseDate,
+                                existingTransactionAmount: matches[0].existingTransaction.valor,
+                                matchReason: matches[0].matchReason as "fitid" | "date-amount-description" | "date-amount",
+                                similarityScore: matches[0].similarity * 100, // Convert to 0-100
+                            };
+                            // Deselect duplicates by default
+                            t.isSelected = false;
+                        }
+                    });
+                }
+
                 setTransactions(importTransactions);
                 setCurrentStep("review");
-                toast.success(`${importTransactions.length} transações carregadas`);
+
+                // Show summary message
+                const duplicateCount = importTransactions.filter((t) => t.isDuplicate).length;
+                if (duplicateCount > 0) {
+                    toast.success(
+                        `${importTransactions.length} transações carregadas (${duplicateCount} duplicadas detectadas)`
+                    );
+                } else {
+                    toast.success(`${importTransactions.length} transações carregadas`);
+                }
             } catch (error) {
                 const errorMessage =
                     error instanceof Error

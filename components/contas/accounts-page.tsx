@@ -48,6 +48,9 @@ export function AccountsPage({
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferFromAccount, setTransferFromAccount] =
     useState<Account | null>(null);
+  const [importingAccountId, setImportingAccountId] = useState<string | null>(
+    null
+  );
 
   const hasAccounts = accounts.length > 0;
 
@@ -117,6 +120,18 @@ export function AccountsPage({
     }
   }, []);
 
+  const handleImportStateChange = useCallback(
+    (accountId: string, isImporting: boolean) => {
+      setImportingAccountId(isImporting ? accountId : null);
+    },
+    []
+  );
+
+  const handleImportComplete = useCallback((count: number) => {
+    setImportingAccountId(null);
+    // Data will be revalidated automatically by the server action
+  }, []);
+
   const removeTitle = accountToRemove
     ? `Remover conta "${accountToRemove.name}"?`
     : "Remover conta?";
@@ -182,14 +197,21 @@ export function AccountsPage({
                             nome: p.label,
                             logo: p.icon ?? undefined,
                           }))}
+                          onImportStateChange={(isImporting) =>
+                            handleImportStateChange(account.id, isImporting)
+                          }
+                          onImportComplete={handleImportComplete}
                           trigger={
                             <button
                               type="button"
-                              className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-80 text-primary"
+                              className="flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-80 text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                               aria-label="importar OFX"
+                              disabled={importingAccountId === account.id}
                             >
                               <RiFileUploadLine className="size-4" aria-hidden />
-                              importar OFX
+                              {importingAccountId === account.id
+                                ? "importando..."
+                                : "importar OFX"}
                             </button>
                           }
                         />
