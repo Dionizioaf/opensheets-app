@@ -8,14 +8,14 @@ Based on PRD: `prd-import-ofx.md`
 - `lib/ofx/types.ts` - TypeScript types for OFX data structures [Created]
 - `lib/ofx/mapper.ts` - Maps OFX transactions to lancamento schema [Created]
 - `lib/ofx/duplicate-detector.ts` - Detects potential duplicate transactions [Placeholder]
-- `lib/ofx/category-suggester.ts` - Suggests categories based on historical data [Placeholder]
+- `lib/ofx/category-suggester.ts` - Smart category suggestions with fuzzy matching and batch processing [Created]
 - `components/contas/ofx-import/ofx-import-dialog.tsx` - Main wizard dialog with step navigation and state management [Created]
 - `components/contas/ofx-import/upload-step.tsx` - File upload step UI with drag-and-drop [Created]
 - `components/contas/ofx-import/review-step.tsx` - Transaction review table with inline editing [Created]
 - `components/contas/ofx-import/confirm-step.tsx` - Final confirmation step with summary and scrollable transaction list [Created]
 - `components/contas/ofx-import/types.ts` - TypeScript types for import flow UI [Created]
 - `package.json` - Added node-ofx-parser and fuzzysort dependencies [Modified]
-- `app/(dashboard)/contas/[contaId]/extrato/actions.ts` - Server actions for OFX import (to be created)
+- `app/(dashboard)/contas/[contaId]/extrato/actions.ts` - Server actions for OFX import [Created]
 - `app/(dashboard)/contas/[contaId]/extrato/page.tsx` - Add import button to statement page (to be modified)
 - `components/contas/account-statement-card.tsx` - Update to include import action (to be modified)
 
@@ -62,24 +62,24 @@ Based on PRD: `prd-import-ofx.md`
 
 - [ ] 4.0 Implement Smart Features (Category Suggestion & Duplicate Detection)
 
-  - [ ] 4.1 Create `lib/ofx/category-suggester.ts` - Implement `suggestCategory()` function that queries lancamentos table for similar transaction names, uses fuzzysort for fuzzy matching (threshold >70%), considers transaction amount patterns, returns category ID with confidence score (high >90%, medium 70-90%, low <70%), and handles case when no match found
-  - [ ] 4.2 Add `suggestCategoriesForTransactions()` batch function that processes multiple transactions efficiently with single DB query for historical data and returns Map of transaction FITID to suggested category
-  - [ ] 4.3 Implement `lib/ofx/duplicate-detector.ts` - Create `detectDuplicates()` function that queries existing lancamentos for same account, checks for same date + same amount + similar description (>80% similarity using fuzzysort), checks for same FITID in transaction notes, returns array of potential duplicate IDs with match reason, and handles date range (±3 days consideration)
-  - [ ] 4.4 Add `checkTransactionForDuplicates()` that returns duplicate info for single transaction including existing transaction details and similarity score
-  - [ ] 4.5 Optimize duplicate detection query to use database indexes on contaId, purchaseDate, and amount fields
+  - [x] 4.1 Create `lib/ofx/category-suggester.ts` - Implement `suggestCategory()` function that queries lancamentos table for similar transaction names, uses fuzzysort for fuzzy matching (threshold >70%), considers transaction amount patterns, returns category ID with confidence score (high >90%, medium 70-90%, low <70%), and handles case when no match found
+  - [x] 4.2 Add `suggestCategoriesForTransactions()` batch function that processes multiple transactions efficiently with single DB query for historical data and returns Map of transaction FITID to suggested category
+  - [x] 4.3 Implement `lib/ofx/duplicate-detector.ts` - Create `detectDuplicates()` function that queries existing lancamentos for same account, checks for same date + same amount + similar description (>80% similarity using fuzzysort), checks for same FITID in transaction notes, returns array of potential duplicate IDs with match reason, and handles date range (±3 days consideration)
+  - [x] 4.4 Add `checkTransactionForDuplicates()` that returns duplicate info for single transaction including existing transaction details and similarity score
+  - [x] 4.5 Optimize duplicate detection query to use database indexes on contaId, purchaseDate, and amount fields
   - [ ] 4.6 Write tests for category suggester with mock lancamentos data
   - [ ] 4.7 Write tests for duplicate detector with various edge cases (same date, different amounts, similar descriptions)
 
 - [ ] 5.0 Create Server Actions and Database Integration
 
-  - [ ] 5.1 Create `app/(dashboard)/contas/[contaId]/extrato/actions.ts` if it doesn't exist, or add to existing actions file
-  - [ ] 5.2 Implement `parseOfxFileAction()` server action - Add "use server" directive, validate user authentication with `getUserId()`, accept File input from client, call OFX parser, handle parsing errors with try/catch, return parsed transactions array or error message, and validate file on server-side (size, type)
-  - [ ] 5.3 Implement `suggestCategoriesForOfxAction()` server action - Accept account ID and array of transactions, verify user owns the account, call category suggester for each transaction, return suggestions map, and handle errors gracefully
-  - [ ] 5.4 Implement `detectOfxDuplicatesAction()` server action - Accept account ID and transactions array, verify account ownership, call duplicate detector, return duplicate flags for each transaction, and cache results in action response
-  - [ ] 5.5 Implement `importOfxTransactionsAction()` server action - Add Zod schema validation for import payload (accountId, transactions array, defaults), verify user authentication, validate account ownership, transform OFX data to lancamentos insert format, use database transaction with `db.transaction()`, batch insert with `db.insert(lancamentos).values()`, set isSettled to true for all imports, add import timestamp to note field, revalidate with `revalidateForEntity("lancamentos")`, return success/error result with imported count, and handle partial failures
-  - [ ] 5.6 Add proper error handling with `handleActionError()` utility from existing codebase
-  - [ ] 5.7 Implement rate limiting check (max 10 imports per hour per user) - Store import attempts in memory or simple cache
-  - [ ] 5.8 Add validation to prevent importing duplicate FITIDs (check notes field for existing imports)
+  - [x] 5.1 Create `app/(dashboard)/contas/[contaId]/extrato/actions.ts` if it doesn't exist, or add to existing actions file
+  - [x] 5.2 Implement `parseOfxFileAction()` server action - Add "use server" directive, validate user authentication with `getUserId()`, accept File input from client, call OFX parser, handle parsing errors with try/catch, return parsed transactions array or error message, and validate file on server-side (size, type)
+  - [x] 5.3 Implement `suggestCategoriesForOfxAction()` server action - Accept account ID and array of transactions, verify user owns the account, call category suggester for each transaction, return suggestions map, and handle errors gracefully
+  - [x] 5.4 Implement `detectOfxDuplicatesAction()` server action - Accept account ID and transactions array, verify account ownership, call duplicate detector, return duplicate flags for each transaction, and cache results in action response
+  - [x] 5.5 Implement `importOfxTransactionsAction()` server action - Add Zod schema validation for import payload (accountId, transactions array, defaults), verify user authentication, validate account ownership, transform OFX data to lancamentos insert format, use database transaction with `db.transaction()`, batch insert with `db.insert(lancamentos).values()`, set isSettled to true for all imports, add import timestamp to note field, revalidate with `revalidateForEntity("lancamentos")`, return success/error result with imported count, and handle partial failures
+  - [x] 5.6 Add proper error handling with `handleActionError()` utility from existing codebase
+  - [x] 5.7 Implement rate limiting check (max 10 imports per hour per user) - Store import attempts in memory or simple cache
+  - [x] 5.8 Add validation to prevent importing duplicate FITIDs (check notes field for existing imports)
 
 - [ ] 6.0 Integrate Import Button into Account Statement Page
 
@@ -122,8 +122,8 @@ The infrastructure for the OFX import feature has been set up:
      - `types.ts` - Type definitions
      - `parser.ts` - OFX file parsing
      - `mapper.ts` - Data transformation
-     - `duplicate-detector.ts` - Duplicate detection
-     - `category-suggester.ts` - Smart category suggestions
+     - `duplicate-detector.ts` - Created: Duplicate detection with FITID/date/amount/description matching
+     - `category-suggester.ts` - Created: Smart category suggestions with fuzzy matching
 
    - `components/contas/ofx-import/` - Contains UI components
      - `types.ts` - Component type definitions

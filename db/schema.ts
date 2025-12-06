@@ -334,6 +334,77 @@ export const savedInsights = pgTable(
   })
 );
 
+
+export const lancamentos = pgTable(
+  "lancamentos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    condition: text("condicao").notNull(),
+    name: text("nome").notNull(),
+    paymentMethod: text("forma_pagamento").notNull(),
+    note: text("anotacao"),
+    amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+    purchaseDate: date("data_compra", { mode: "date" }).notNull(),
+    transactionType: text("tipo_transacao").notNull(),
+    installmentCount: smallint("qtde_parcela"),
+    period: text("periodo").notNull(),
+    currentInstallment: smallint("parcela_atual"),
+    recurrenceCount: integer("qtde_recorrencia"),
+    dueDate: date("data_vencimento", { mode: "date" }),
+    boletoPaymentDate: date("dt_pagamento_boleto", { mode: "date" }),
+    isSettled: boolean("realizado").default(false),
+    isDivided: boolean("dividido").default(false),
+    isAnticipated: boolean("antecipado").default(false),
+
+    anticipationId: uuid("antecipacao_id"), // reference added after definition
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    cartaoId: uuid("cartao_id").references(() => cartoes.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    contaId: uuid("conta_id").references(() => contas.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    categoriaId: uuid("categoria_id").references(() => categorias.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    pagadorId: uuid("pagador_id").references(() => pagadores.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    seriesId: uuid("series_id"),
+    transferId: uuid("transfer_id"),
+  },
+  (table) => ({
+    // Composite index for OFX duplicate detection optimization
+    // Optimizes queries filtering by account, date range, and amount
+    duplicateDetectionIdx: index("lancamentos_duplicate_detection_idx").on(
+      table.contaId,
+      table.purchaseDate,
+      table.amount
+    ),
+    // Individual indexes for common query patterns
+    userIdIdx: index("lancamentos_user_id_idx").on(table.userId),
+    periodIdx: index("lancamentos_period_idx").on(table.period),
+    contaIdPeriodIdx: index("lancamentos_conta_id_period_idx").on(
+      table.contaId,
+      table.period
+    ),
+  })
+);
+
 export const installmentAnticipations = pgTable(
   "installment_anticipations",
   {
@@ -379,58 +450,8 @@ export const installmentAnticipations = pgTable(
   })
 );
 
-export const lancamentos = pgTable("lancamentos", {
-  id: uuid("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  condition: text("condicao").notNull(),
-  name: text("nome").notNull(),
-  paymentMethod: text("forma_pagamento").notNull(),
-  note: text("anotacao"),
-  amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
-  purchaseDate: date("data_compra", { mode: "date" }).notNull(),
-  transactionType: text("tipo_transacao").notNull(),
-  installmentCount: smallint("qtde_parcela"),
-  period: text("periodo").notNull(),
-  currentInstallment: smallint("parcela_atual"),
-  recurrenceCount: integer("qtde_recorrencia"),
-  dueDate: date("data_vencimento", { mode: "date" }),
-  boletoPaymentDate: date("dt_pagamento_boleto", { mode: "date" }),
-  isSettled: boolean("realizado").default(false),
-  isDivided: boolean("dividido").default(false),
-  isAnticipated: boolean("antecipado").default(false),
-  anticipationId: uuid("antecipacao_id").references(
-    () => installmentAnticipations.id,
-    { onDelete: "set null" }
-  ),
-  createdAt: timestamp("created_at", {
-    mode: "date",
-    withTimezone: true,
-  })
-    .notNull()
-    .defaultNow(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  cartaoId: uuid("cartao_id").references(() => cartoes.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
-  contaId: uuid("conta_id").references(() => contas.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
-  categoriaId: uuid("categoria_id").references(() => categorias.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
-  pagadorId: uuid("pagador_id").references(() => pagadores.id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
-  seriesId: uuid("series_id"),
-  transferId: uuid("transfer_id"),
-});
+// Add reference for anticipationId now that installmentAnticipations is defined
+
 
 export const userRelations = relations(user, ({ many, one }) => ({
   accounts: many(account),
