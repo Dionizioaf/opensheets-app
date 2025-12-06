@@ -243,30 +243,39 @@ export function OfxImportDialog({
                 // Mark transactions as duplicates based on detection results
                 if (duplicateResult.success && duplicateResult.data) {
                     const duplicatesMap = duplicateResult.data;
-                    importTransactions.forEach((t) => {
+                    // Create a new array with updated duplicate flags
+                    const updatedTransactions = importTransactions.map((t) => {
                         const matches = duplicatesMap.get(t.id);
                         if (matches && matches.length > 0) {
-                            t.isDuplicate = true;
-                            t.duplicateOf = matches[0].lancamentoId;
-                            t.duplicateSimilarity = matches[0].similarity * 100; // Convert to 0-100
-                            t.duplicateDetails = {
-                                existingLancamentoId: matches[0].lancamentoId,
-                                existingTransactionName: matches[0].existingTransaction.nome,
-                                existingTransactionDate: matches[0].existingTransaction.purchaseDate,
-                                existingTransactionAmount: matches[0].existingTransaction.valor,
-                                matchReason: matches[0].matchReason as "fitid" | "date-amount-description" | "date-amount",
-                                similarityScore: matches[0].similarity * 100, // Convert to 0-100
+                            return {
+                                ...t,
+                                isDuplicate: true,
+                                isSelected: false, // Deselect duplicates by default
+                                duplicateOf: matches[0].lancamentoId,
+                                duplicateSimilarity: matches[0].similarity * 100,
+                                duplicateDetails: {
+                                    existingLancamentoId: matches[0].lancamentoId,
+                                    existingTransactionName: matches[0].existingTransaction.nome,
+                                    existingTransactionDate: matches[0].existingTransaction.purchaseDate,
+                                    existingTransactionAmount: matches[0].existingTransaction.valor,
+                                    matchReason: matches[0].matchReason as "fitid" | "date-amount-description" | "date-amount",
+                                    similarityScore: matches[0].similarity * 100,
+                                },
                             };
-                            // Deselect duplicates by default
-                            t.isSelected = false;
                         }
+                        return t;
                     });
+
+                    // Update state with new array
+                    setTransactions(updatedTransactions);
                 }
 
                 setIsDetectingDuplicates(false);
 
                 // Show summary message
-                const duplicateCount = importTransactions.filter((t) => t.isDuplicate).length;
+                const duplicateCount = importTransactions.filter((t) =>
+                    duplicateResult.success && ((duplicateResult.data?.get(t.id)?.length ?? 0) > 0)
+                ).length;
                 if (duplicateCount > 0) {
                     toast.success(
                         `${importTransactions.length} transações carregadas (${duplicateCount} duplicadas detectadas)`
