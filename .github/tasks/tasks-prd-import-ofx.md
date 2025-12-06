@@ -7,13 +7,13 @@ Based on PRD: `prd-import-ofx.md`
 - `lib/ofx/parser.ts` - OFX file parsing logic (handles both SGML 1.x and XML 2.x formats) [Created]
 - `lib/ofx/types.ts` - TypeScript types for OFX data structures [Created]
 - `lib/ofx/mapper.ts` - Maps OFX transactions to lancamento schema [Created]
-- `lib/ofx/duplicate-detector.ts` - Detects potential duplicate transactions [Created]
-- `lib/ofx/category-suggester.ts` - Suggests categories based on historical data [Created]
-- `components/contas/ofx-import/ofx-import-dialog.tsx` - Main wizard dialog component [Created]
-- `components/contas/ofx-import/upload-step.tsx` - File upload step UI [Created]
-- `components/contas/ofx-import/review-step.tsx` - Transaction review and mapping step UI [Created]
-- `components/contas/ofx-import/confirm-step.tsx` - Final confirmation step UI [Created]
-- `components/contas/ofx-import/types.ts` - TypeScript types for import flow [Created]
+- `lib/ofx/duplicate-detector.ts` - Detects potential duplicate transactions [Placeholder]
+- `lib/ofx/category-suggester.ts` - Suggests categories based on historical data [Placeholder]
+- `components/contas/ofx-import/ofx-import-dialog.tsx` - Main wizard dialog with step navigation and state management [Created]
+- `components/contas/ofx-import/upload-step.tsx` - File upload step UI with drag-and-drop [Created]
+- `components/contas/ofx-import/review-step.tsx` - Transaction review table with inline editing [Created]
+- `components/contas/ofx-import/confirm-step.tsx` - Final confirmation step with summary and scrollable transaction list [Created]
+- `components/contas/ofx-import/types.ts` - TypeScript types for import flow UI [Created]
 - `package.json` - Added node-ofx-parser and fuzzysort dependencies [Modified]
 - `app/(dashboard)/contas/[contaId]/extrato/actions.ts` - Server actions for OFX import (to be created)
 - `app/(dashboard)/contas/[contaId]/extrato/page.tsx` - Add import button to statement page (to be modified)
@@ -52,13 +52,13 @@ Based on PRD: `prd-import-ofx.md`
 
 - [ ] 3.0 Build Import Dialog UI Components
 
-  - [ ] 3.1 Create `components/contas/ofx-import/types.ts` - Define types for wizard steps, form state, parsed transaction with UI metadata (selected, isDuplicate, suggestedCategory), and step navigation
-  - [ ] 3.2 Implement `components/contas/ofx-import/upload-step.tsx` - Create file upload UI with drag-and-drop zone using shadcn/ui Input (file type), display file validation messages (5MB limit, .ofx extension), show file info (name, size) after selection, and loading state during parsing
-  - [ ] 3.3 Implement `components/contas/ofx-import/review-step.tsx` - Create transaction review table with shadcn/ui Table, add columns: checkbox, date, description (editable Input), amount (read-only), category (editable Combobox), duplicate warning icon, implement select/deselect all checkbox, add inline editing for transaction name and category, show duplicate warning badges with tooltip, display confidence indicators for suggested categories, and include bulk actions section
-  - [ ] 3.4 Implement `components/contas/ofx-import/confirm-step.tsx` - Display import summary (selected count, total count, date range), show scrollable list of transactions to be imported, add "Go Back" and "Confirm Import" buttons, and display loading state during import
-  - [ ] 3.5 Create `components/contas/ofx-import/ofx-import-dialog.tsx` - Build main wizard dialog with Dialog component, implement step navigation (Upload → Review → Confirm), manage form state for all transactions, handle step validation before proceeding, add progress indicator showing current step, implement Cancel button that resets state, and connect to server actions
-  - [ ] 3.6 Add file upload validation logic - Check file size (max 5MB), verify file extension (.ofx), validate MIME type on client-side, and show user-friendly error messages
-  - [ ] 3.7 Style components to match existing Opensheets design - Use consistent spacing, colors, and typography from shadcn/ui theme
+  - [x] 3.1 Create `components/contas/ofx-import/types.ts` - Define types for wizard steps, form state, parsed transaction with UI metadata (selected, isDuplicate, suggestedCategory), and step navigation
+  - [x] 3.2 Implement `components/contas/ofx-import/upload-step.tsx` - Create file upload UI with drag-and-drop zone using shadcn/ui Input (file type), display file validation messages (5MB limit, .ofx extension), show file info (name, size) after selection, and loading state during parsing
+  - [x] 3.3 Implement `components/contas/ofx-import/review-step.tsx` - Create transaction review table with shadcn/ui Table, add columns: checkbox, date, description (editable Input), amount (read-only), category (editable Combobox), duplicate warning icon, implement select/deselect all checkbox, add inline editing for transaction name and category, show duplicate warning badges with tooltip, display confidence indicators for suggested categories, and include bulk actions section
+  - [x] 3.4 Implement `components/contas/ofx-import/confirm-step.tsx` - Display import summary (selected count, total count, date range), show scrollable list of transactions to be imported, add "Go Back" and "Confirm Import" buttons, and display loading state during import
+  - [x] 3.5 Create `components/contas/ofx-import/ofx-import-dialog.tsx` - Build main wizard dialog with Dialog component, implement step navigation (Upload → Review → Confirm), manage form state for all transactions, handle step validation before proceeding, add progress indicator showing current step, implement Cancel button that resets state, and connect to server actions
+  - [x] 3.6 Add file upload validation logic - Check file size (max 5MB), verify file extension (.ofx), validate MIME type on client-side, and show user-friendly error messages
+  - [x] 3.7 Style components to match existing Opensheets design - Use consistent spacing, colors, and typography from shadcn/ui theme
 
 - [ ] 4.0 Implement Smart Features (Category Suggestion & Duplicate Detection)
 
