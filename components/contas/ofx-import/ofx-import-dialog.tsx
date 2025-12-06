@@ -242,8 +242,8 @@ export function OfxImportDialog({
 
                 console.log("[OFX Import Dialog] Duplicate detection result", {
                     success: duplicateResult.success,
-                    message: duplicateResult.message,
-                    dataSize: duplicateResult.data?.size,
+                    message: duplicateResult.success ? (duplicateResult as any).message : (duplicateResult as any).error,
+                    dataSize: duplicateResult.success && duplicateResult.data ? duplicateResult.data.size : undefined,
                 });
 
                 // Mark transactions as duplicates based on detection results
