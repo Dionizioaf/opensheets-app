@@ -337,9 +337,15 @@ export function OfxImportDialog({
                 periodo: t.periodo,
                 anotacao: t.anotacao,
                 fitId: t.fitId,
-                categoriaId: t.categoriaId,
-                pagadorId: undefined, // Pagador not used in OFX imports
+                // Only include categoriaId if it's a valid string
+                ...(t.categoriaId && { categoriaId: t.categoriaId }),
             }));
+
+            console.log("[OFX Import Dialog] Submitting import", {
+                contaId,
+                transactionCount: transactionsToImport.length,
+                sampleTransaction: transactionsToImport[0]
+            });
 
             // Simulate progress during import
             const progressInterval = setInterval(() => {
@@ -350,19 +356,23 @@ export function OfxImportDialog({
             const result = await importOfxTransactionsAction(
                 contaId,
                 transactionsToImport,
-                {
-                    categoriaId: undefined,
-                    pagadorId: undefined,
-                    metodoPagamento: undefined,
-                }
+                {} // Empty defaults object since we're not using them
             );
 
             clearInterval(progressInterval);
             setImportProgress(100);
 
+            console.log("[OFX Import Dialog] Server response", result);
+
             if (!result.success) {
+                console.error("[OFX Import Dialog] Import failed", result.error);
                 throw new Error(result.error);
             }
+
+            console.log("[OFX Import Dialog] Import successful", {
+                importedCount: result.data?.importedCount,
+                message: result.message
+            });
 
             toast.success(result.message);
             onImportComplete?.(result.data?.importedCount ?? 0);
@@ -371,6 +381,7 @@ export function OfxImportDialog({
             await new Promise((resolve) => setTimeout(resolve, 500));
             handleClose();
         } catch (error) {
+            console.error("[OFX Import Dialog] Exception caught", error);
             const errorMessage =
                 error instanceof Error
                     ? error.message

@@ -187,17 +187,20 @@ const importTransactionsSchema = z.object({
                     .regex(/^\d{4}-\d{2}$/, "Período deve estar no formato YYYY-MM"),
                 anotacao: z.string().optional(),
                 fitId: z.string().optional(),
-                categoriaId: z.string().uuid().optional(),
-                pagadorId: z.string().uuid().optional(),
+                categoriaId: z.string().uuid().optional().or(z.literal(undefined)),
+                pagadorId: z.string().uuid().optional().or(z.literal(undefined)),
             })
         )
         .min(1, "Lista de transações vazia")
         .max(1000, "Máximo de 1000 transações por importação"),
-    defaults: z.object({
-        categoriaId: z.string().uuid().optional(),
-        pagadorId: z.string().uuid().optional(),
-        metodoPagamento: z.string().optional(),
-    }),
+    defaults: z
+        .object({
+            categoriaId: z.string().uuid().optional().or(z.literal(undefined)),
+            pagadorId: z.string().uuid().optional().or(z.literal(undefined)),
+            metodoPagamento: z.string().optional().or(z.literal(undefined)),
+        })
+        .optional()
+        .default({}),
 });
 
 /**
@@ -451,6 +454,13 @@ export async function importOfxTransactionsAction(
     }
 ): Promise<ActionResult<{ importedCount: number }>> {
     try {
+        console.log("[OFX Import] Starting import", {
+            contaId,
+            transactionCount: transactions.length,
+            defaults,
+            sampleTransaction: transactions[0]
+        });
+
         // Validate user authentication
         const user = await getUser();
         if (!user) {
@@ -474,6 +484,9 @@ export async function importOfxTransactionsAction(
             defaults,
         });
         if (!validation.success) {
+            console.error("[OFX Import] Validation failed", {
+                errors: validation.error.issues
+            });
             return errorResult(
                 validation.error.issues[0]?.message ?? "Dados inválidos"
             ) as ActionResult<{ importedCount: number }>;
@@ -556,7 +569,7 @@ export async function importOfxTransactionsAction(
                         .join(" | ");
 
                     return {
-                        nome: t.nome,
+                        name: t.nome,
                         amount: t.valor,
                         purchaseDate: t.data_compra,
                         transactionType: t.tipo_transacao,
@@ -591,10 +604,16 @@ export async function importOfxTransactionsAction(
             });
         } catch (dbError) {
             // Handle database transaction errors with specific message
+            console.error("[OFX Import] Database error", dbError);
             return errorResult(
                 "Erro ao salvar transações no banco de dados. Tente novamente."
             ) as ActionResult<{ importedCount: number }>;
         }
+
+        console.log("[OFX Import] Successfully imported", {
+            importedCount,
+            contaId
+        });
 
         // Revalidate lancamentos pages
         revalidateForEntity("lancamentos");
@@ -611,6 +630,7 @@ export async function importOfxTransactionsAction(
 
         return successResult(message, { importedCount });
     } catch (error) {
+        console.error("[OFX Import] Unexpected error", error);
         return handleActionError(error) as ActionResult<{
             importedCount: number;
         }>;
