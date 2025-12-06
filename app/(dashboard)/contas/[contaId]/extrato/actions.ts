@@ -16,9 +16,10 @@ import {
     type DuplicateMatch,
 } from "@/lib/ofx/duplicate-detector";
 import { db } from "@/lib/db";
-import { contas, lancamentos } from "@/db/schema";
+import { contas, lancamentos, pagadores } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { PAGADOR_ROLE_ADMIN } from "@/lib/pagadores/constants";
 
 /**
  * Server actions for OFX import functionality
@@ -519,6 +520,23 @@ export async function importOfxTransactionsAction(
             ) as ActionResult<{ importedCount: number }>;
         }
 
+        // Get user's ADMIN pagador for imported transactions
+        const adminPagador = await db.query.pagadores.findFirst({
+            where: and(
+                eq(pagadores.userId, user.id),
+                eq(pagadores.role, PAGADOR_ROLE_ADMIN)
+            ),
+            columns: {
+                id: true,
+            },
+        });
+
+        if (!adminPagador) {
+            return errorResult(
+                "Pagador ADMIN não encontrado. Configure seu perfil de pagador primeiro."
+            ) as ActionResult<{ importedCount: number }>;
+        }
+
         // Filter out transactions with duplicate FITIDs
         // Check existing lancamentos for FITIDs in notes field
         const transactionsWithFitId = transactions.filter((t) => t.fitId);
@@ -571,7 +589,7 @@ export async function importOfxTransactionsAction(
                 // Transform transactions to lancamentos format
                 const lancamentosToInsert = transactionsToImport.map((t) => {
                     const categoriaId = t.categoriaId ?? defaults.categoriaId;
-                    const pagadorId = t.pagadorId ?? defaults.pagadorId;
+                    const pagadorId = t.pagadorId ?? defaults.pagadorId ?? adminPagador.id;
                     const formaPagamento =
                         t.forma_pagamento ?? defaults.metodoPagamento ?? "Cartão de débito";
 

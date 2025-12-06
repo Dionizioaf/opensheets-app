@@ -17,6 +17,12 @@ export type AccountData = {
   excludeFromBalance: boolean;
 };
 
+export type LogoOption = {
+  value: string;
+  label: string;
+  // Add other fields if needed
+};
+
 export async function fetchAccountsForUser(
   userId: string
 ): Promise<{ accounts: AccountData[]; logoOptions: LogoOption[] }> {
@@ -56,7 +62,7 @@ export async function fetchAccountsForUser(
       .where(
         and(
           eq(contas.userId, userId),
-          sql`(${lancamentos.id} IS NOT NULL OR ${pagadores.role} = ${PAGADOR_ROLE_ADMIN})`
+          sql`(${lancamentos.id} IS NULL OR ${pagadores.role} = ${PAGADOR_ROLE_ADMIN})`
         )
       )
       .groupBy(
@@ -72,7 +78,7 @@ export async function fetchAccountsForUser(
     loadLogoOptions(),
   ]);
 
-  const accounts = accountRows.map((account) => ({
+  const accounts = accountRows.map((account: any) => ({
     id: account.id,
     name: account.name,
     accountType: account.accountType,
