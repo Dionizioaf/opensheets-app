@@ -71,8 +71,8 @@ export function AccountCard({
   ].filter((action) => typeof action.onClick === "function");
 
   return (
-    <Card className={cn("h-full w-96 gap-0", className)}>
-      <CardContent className="flex flex-1 flex-col gap-4">
+    <Card className={cn("h-full w-96 gap-0 flex flex-col max-h-[500px]", className)}>
+      <CardContent className="flex flex-1 flex-col gap-4 overflow-y-auto">
         <div className="flex items-center gap-2">
           {icon ? (
             <div

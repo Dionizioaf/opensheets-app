@@ -185,8 +185,8 @@ export function OfxImportDialog({
                 // Read file content
                 const fileContent = await file.text();
 
-                // Parse OFX file
-                const statement = parseOfxFile(fileContent);
+                // Parse OFX file (await the promise)
+                const statement = await parseOfxFile(fileContent);
 
                 if (!statement.transactions || statement.transactions.length === 0) {
                     throw new Error("Nenhuma transação encontrada no arquivo OFX");
@@ -194,8 +194,7 @@ export function OfxImportDialog({
 
                 // Map to lancamento format
                 const parsedTransactions = mapOfxTransactionsToLancamentos(
-                    statement.transactions,
-                    contaId
+                    statement.transactions
                 );
 
                 // Convert to ImportTransaction format with UI state
@@ -388,11 +387,11 @@ export function OfxImportDialog({
         <Dialog open={open} onOpenChange={setOpen}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent
-                className="max-w-4xl max-h-[90vh] overflow-hidden p-0"
+                className="max-w-8xl max-h-[90vh] flex flex-col overflow-hidden p-0"
                 showCloseButton={false}
             >
                 {/* Header with Progress Indicator */}
-                <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
                     <div className="flex items-center justify-between">
                         <div>
                             <DialogTitle>Importar arquivo OFX</DialogTitle>
@@ -454,7 +453,7 @@ export function OfxImportDialog({
                 </DialogHeader>
 
                 {/* Step Content */}
-                <div className="px-6 py-6 overflow-y-auto flex-1">
+                <div className="px-6 py-6 overflow-y-auto min-h-0 flex-1">
                     {currentStep === "upload" && (
                         <UploadStep
                             onFileSelected={handleFileSelected}
@@ -493,7 +492,7 @@ export function OfxImportDialog({
 
                 {/* Footer with Navigation (only for upload and review steps) */}
                 {currentStep !== "confirm" && (
-                    <div className="px-6 py-4 border-t flex items-center justify-between">
+                    <div className="px-6 py-4 border-t flex items-center justify-between shrink-0">
                         <Button
                             variant="outline"
                             onClick={handleBack}
