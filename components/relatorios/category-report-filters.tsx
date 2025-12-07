@@ -127,11 +127,12 @@ export function CategoryReportFilters({
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={open}
+                                aria-label="Selecionar categorias para filtrar"
                                 className="w-full sm:w-[280px] justify-between"
                                 disabled={isLoading}
                             >
                                 <span className="truncate">{selectedText}</span>
-                                <RiFilterLine className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                <RiFilterLine className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[280px] p-0" align="start">
@@ -188,11 +189,11 @@ export function CategoryReportFilters({
                                                                 : "opacity-50 [&_svg]:invisible"
                                                         )}
                                                     >
-                                                        <RiCheckLine className="h-4 w-4" />
+                                                        <RiCheckLine className="h-4 w-4" aria-hidden="true" />
                                                     </div>
                                                     <div className="flex items-center gap-2 flex-1">
                                                         {IconComponent && (
-                                                            <IconComponent className="h-4 w-4 shrink-0" />
+                                                            <IconComponent className="h-4 w-4 shrink-0" aria-hidden="true" />
                                                         )}
                                                         <span className="truncate">{category.name}</span>
                                                     </div>

@@ -236,7 +236,7 @@
     - Posicionamento: após a lista de categorias, alinhado à direita
 
 - [ ] **9.0 Testing, Validações e Refinamentos**
-  - [ ] 9.1 Validações e edge cases:
+  - [x] 9.1 Validações e edge cases:
     - Testar com 0 categorias (deve mostrar empty state)
     - Testar com 1 categoria
     - Testar com >50 categorias (verificar performance)
@@ -256,7 +256,7 @@
     - Verificar tempo de carregamento para 12 meses + 30 categorias (< 2s)
     - Verificar que debounce funciona nos filtros
     - Verificar que exportação não trava UI em datasets grandes
-  - [ ] 9.4 Acessibilidade:
+  - [x] 9.4 Acessibilidade:
     - Verificar labels em todos os inputs
     - Verificar navegação por teclado nos filtros
     - Verificar contraste de cores (WCAG AA)

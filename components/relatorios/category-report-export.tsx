@@ -305,22 +305,26 @@ export function CategoryReportExport({ data, filters }: CategoryReportExportProp
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isExporting || data.categories.length === 0}>
-                    <RiDownloadLine className="mr-2 h-4 w-4" />
+                <Button 
+                    variant="outline" 
+                    disabled={isExporting || data.categories.length === 0}
+                    aria-label="Exportar relatório de categorias"
+                >
+                    <RiDownloadLine className="mr-2 h-4 w-4" aria-hidden="true" />
                     {isExporting ? "Exportando..." : "Exportar"}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={exportToCSV} disabled={isExporting}>
-                    <RiFileTextLine className="mr-2 h-4 w-4" />
+                    <RiFileTextLine className="mr-2 h-4 w-4" aria-hidden="true" />
                     Exportar como CSV
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={exportToExcel} disabled={isExporting}>
-                    <RiFileExcelLine className="mr-2 h-4 w-4" />
+                    <RiFileExcelLine className="mr-2 h-4 w-4" aria-hidden="true" />
                     Exportar como Excel (.xlsx)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={exportToPDF} disabled={isExporting}>
-                    <RiFilePdfLine className="mr-2 h-4 w-4" />
+                    <RiFilePdfLine className="mr-2 h-4 w-4" aria-hidden="true" />
                     Exportar como PDF
                 </DropdownMenuItem>
             </DropdownMenuContent>
