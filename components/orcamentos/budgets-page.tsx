@@ -78,9 +78,8 @@ export function BudgetsPage({
   }, [budgetToRemove]);
 
   const removeTitle = budgetToRemove
-    ? `Remover orçamento de "${
-        budgetToRemove.category?.name ?? "categoria removida"
-      }"?`
+    ? `Remover orçamento de "${budgetToRemove.category?.name ?? "categoria removida"
+    }"?`
     : "Remover orçamento?";
 
   const emptyDescription =
