@@ -36,7 +36,7 @@
 ### Notes
 
 - Reutilizar padrões existentes de `parsePeriodParam()` e `getPreviousPeriod()` de `lib/utils/period/index.ts`
-- Seguir estrutura de data fetching similar a `fetchExpensesByCategory()` 
+- Seguir estrutura de data fetching similar a `fetchExpensesByCategory()`
 - Usar `getUserId()` de `lib/auth/server` para autenticação
 - Períodos no formato "YYYY-MM" conforme padrão do projeto
 - Valores de despesa como positivos, usar `Math.abs()` conforme padrão existente
@@ -47,6 +47,7 @@
 ## Tasks
 
 - [ ] **1.0 Setup de Infraestrutura e Navegação**
+
   - [ ] 1.1 Criar estrutura de pastas `app/(dashboard)/relatorios/categorias/`
   - [ ] 1.2 Criar estrutura de pastas `components/relatorios/`
   - [ ] 1.3 Criar estrutura de pastas `lib/relatorios/`
@@ -56,6 +57,7 @@
   - [ ] 1.7 Criar arquivo `app/(dashboard)/relatorios/categorias/loading.tsx` com skeleton states
 
 - [ ] **2.0 Backend: Data Fetching e Tipos**
+
   - [ ] 2.1 Criar `lib/relatorios/types.ts` com tipos:
     - `CategoryReportItem` (categoryId, name, icon, type, monthlyData, total)
     - `MonthlyData` (period, amount, previousAmount, percentageChange)
@@ -78,6 +80,7 @@
     - Ordenar: despesas primeiro (por total desc), depois receitas (por total desc)
 
 - [ ] **3.0 Componentes de Filtros**
+
   - [ ] 3.1 Criar `components/relatorios/types.ts` com tipos de UI:
     - `CategoryOption` (id, name, icon, type)
     - `FilterState` (selectedCategories, startPeriod, endPeriod)
@@ -96,6 +99,7 @@
     - Layout responsivo: stack vertical em mobile, grid horizontal em desktop
 
 - [ ] **4.0 Componente de Tabela Desktop**
+
   - [ ] 4.1 Criar `components/relatorios/category-cell.tsx`:
     - Props: `value: number`, `previousValue: number`, `categoryType: "despesa" | "receita"`, `isFirstMonth: boolean`
     - Exibir valor formatado em BRL usando `Intl.NumberFormat`
@@ -121,6 +125,7 @@
     - Empty state: quando `data.categories.length === 0`
 
 - [ ] **5.0 Componente de Cards Mobile**
+
   - [ ] 5.1 Criar `components/relatorios/category-report-cards.tsx` ("use client"):
     - Props: `data: CategoryReportData`
     - Visível apenas em telas < 768px (usar `@media` ou hook `useMobile`)
@@ -134,6 +139,7 @@
     - Empty state compartilhado com versão desktop
 
 - [ ] **6.0 Funcionalidade de Exportação**
+
   - [ ] 6.1 Instalar dependências no `package.json`:
     - `"xlsx": "^0.18.5"` (Excel)
     - `"jspdf": "^2.5.1"` (PDF)
@@ -167,13 +173,14 @@
     - Loading state durante geração de arquivos grandes
 
 - [ ] **7.0 Página Principal e Integração**
+
   - [ ] 7.1 Criar `components/relatorios/category-report-page.tsx` ("use client"):
     - Props: `initialData: CategoryReportData`, `categories: CategoryOption[]`, `initialFilters: FilterState`
     - State: `filters` (FilterState), `isLoading` (boolean)
     - Usar `useSearchParams` e `useRouter` do Next.js para sincronizar filtros com URL
     - Query params: `?inicio=YYYY-MM&fim=YYYY-MM&categorias=id1,id2`
     - Ao mudar filtros: atualizar URL e recarregar dados
-    - Layout: 
+    - Layout:
       - Header com título "Relatório de Categorias por Período"
       - Subtítulo: "Acompanhe a evolução dos seus gastos e receitas"
       - `<CategoryReportFilters />` no topo
@@ -198,6 +205,7 @@
     - Layout: `<main className="flex flex-col gap-6 px-6">`
 
 - [ ] **8.0 Integração com Dashboard**
+
   - [ ] 8.1 Modificar `components/dashboard/expenses-by-category-widget.tsx`:
     - Adicionar botão/link "Ver mais detalhes" no final do widget
     - Link deve apontar para `/relatorios/categorias?inicio=[6-meses-atras]&fim=[periodo-atual]`
@@ -243,11 +251,13 @@
 ## Implementation Checklist
 
 ### Pre-Development
+
 - [ ] Revisar PRD completo em `.github/tasks/prd-relatorio-categorias.md`
 - [ ] Confirmar que branch `feat/report-category` está atualizada
 - [ ] Verificar que ambiente de desenvolvimento está rodando (`pnpm dev`)
 
 ### Development Order Recommendation
+
 1. Começar por Tasks 1.0 e 2.0 (infraestrutura e backend)
 2. Implementar Task 3.0 (filtros) para ter UI básica
 3. Implementar Task 4.0 (tabela) como visualização principal
@@ -258,6 +268,7 @@
 8. Finalizar com Task 9.0 (testes e refinamentos)
 
 ### Post-Development
+
 - [ ] Executar todos os testes: `pnpm test`
 - [ ] Build de produção: `pnpm build`
 - [ ] Revisar código para seguir padrões do projeto

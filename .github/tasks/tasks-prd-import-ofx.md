@@ -67,8 +67,8 @@ Based on PRD: `prd-import-ofx.md`
   - [x] 4.3 Implement `lib/ofx/duplicate-detector.ts` - Create `detectDuplicates()` function that queries existing lancamentos for same account, checks for same date + same amount + similar description (>80% similarity using fuzzysort), checks for same FITID in transaction notes, returns array of potential duplicate IDs with match reason, and handles date range (±3 days consideration)
   - [x] 4.4 Add `checkTransactionForDuplicates()` that returns duplicate info for single transaction including existing transaction details and similarity score
   - [x] 4.5 Optimize duplicate detection query to use database indexes on contaId, purchaseDate, and amount fields
-  - [ ] 4.6 Write tests for category suggester with mock lancamentos data
-  - [ ] 4.7 Write tests for duplicate detector with various edge cases (same date, different amounts, similar descriptions)
+  - [x] 4.6 Write tests for category suggester with mock lancamentos data
+  - [x] 4.7 Write tests for duplicate detector with various edge cases (same date, different amounts, similar descriptions)
 
 - [x] 5.0 Create Server Actions and Database Integration
 
@@ -91,14 +91,14 @@ Based on PRD: `prd-import-ofx.md`
   - [x] 6.6 Add loading state to button while import is processing
   - [x] 6.7 Show success toast notification after successful import with count of imported transactions
 
-- [ ] 7.0 Testing and Polish
-  - [ ] 7.1 Test complete import flow with provided Itaú OFX file - Upload file, verify parsing, check category suggestions, review duplicate detection, complete import, and verify transactions in database
-  - [ ] 7.2 Test error scenarios - Invalid OFX file, file too large, malformed data, network errors, database errors, and verify user-friendly error messages
-  - [ ] 7.3 Test duplicate detection accuracy - Import same file twice, verify duplicates are flagged, test with slightly different amounts/dates, and confirm user can override flags
-  - [ ] 7.4 Test category suggestion accuracy - Verify suggestions match historical patterns, check confidence levels are accurate, and test with transactions that have no history
-  - [ ] 7.5 Test edge cases - Empty OFX file, single transaction, very large file (>1000 transactions), special characters in descriptions, and future-dated transactions
-  - [ ] 7.6 Verify accessibility - Keyboard navigation through wizard, screen reader compatibility, focus management, and ARIA labels on interactive elements
-  - [ ] 7.7 Performance testing - Measure parse time for large files, test UI responsiveness during import, verify database batch insert performance, and optimize if needed
+- [x] 7.0 Testing and Polish
+  - [x] 7.1 Test complete import flow with provided Itaú OFX file - Upload file, verify parsing, check category suggestions, review duplicate detection, complete import, and verify transactions in database
+  - [x] 7.2 Test error scenarios - Invalid OFX file, file too large, malformed data, network errors, database errors, and verify user-friendly error messages
+  - [x] 7.3 Test duplicate detection accuracy - Import same file twice, verify duplicates are flagged, test with slightly different amounts/dates, and confirm user can override flags
+  - [x] 7.4 Test category suggestion accuracy - Verify suggestions match historical patterns, check confidence levels are accurate, and test with transactions that have no history
+  - [x] 7.5 Test edge cases - Empty OFX file, single transaction, very large file (>1000 transactions), special characters in descriptions, and future-dated transactions
+  - [x] 7.6 Verify accessibility - Keyboard navigation through wizard, screen reader compatibility, focus management, and ARIA labels on interactive elements
+  - [x] 7.7 Performance testing - Measure parse time for large files, test UI responsiveness during import, verify database batch insert performance, and optimize if needed
   - [x] 7.8 Add loading skeletons for async operations in dialog - Duplicate detection shows loading indicator in review step
   - [x] 7.9 Verify mobile responsiveness of dialog and table components - Dialog is responsive (w-full max-w-[95vw] sm:max-w-5xl), table scrolls horizontally, buttons have min widths, header/footer padding adjusts for mobile
   - [x] 7.10 Final code review - Removed all console.log statements, no `any` types except in third-party type declarations, revalidateForEntity("lancamentos") confirmed in import action line 635
