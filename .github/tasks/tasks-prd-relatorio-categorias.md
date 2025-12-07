@@ -14,6 +14,7 @@
 - `components/relatorios/category-report-table.tsx` - Tabela desktop completa com sticky header, sticky first column, CategoryCell, footer com totais
 - `components/relatorios/category-report-cards.tsx` - Cards mobile com Accordion para meses colapsados, mesma lógica de cores e indicadores
 - `components/relatorios/category-report-export.tsx` - Componente de exportação com CSV, Excel e PDF, toast notifications, loading states
+- `components/relatorios/category-report-page.tsx` - Orquestrador client-side com filtros, URL sync, debounce 300ms, loading states, empty states
 
 ### Files Modified
 
@@ -193,7 +194,7 @@
 
 - [ ] **7.0 Página Principal e Integração**
 
-  - [ ] 7.1 Criar `components/relatorios/category-report-page.tsx` ("use client"):
+  - [x] 7.1 Criar `components/relatorios/category-report-page.tsx` ("use client"):
     - Props: `initialData: CategoryReportData`, `categories: CategoryOption[]`, `initialFilters: FilterState`
     - State: `filters` (FilterState), `isLoading` (boolean)
     - Usar `useSearchParams` e `useRouter` do Next.js para sincronizar filtros com URL
