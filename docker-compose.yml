@@ -21,46 +21,46 @@ services:
   # ============================================
   # Serviço: PostgreSQL (Banco de dados local)
   # ============================================
-  db:
-    image: postgres:18-alpine
-    container_name: opensheets_postgres
-    restart: unless-stopped
+  # db:
+  #   image: postgres:18-alpine
+  #   container_name: opensheets_postgres
+  #   restart: unless-stopped
 
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-opensheets}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opensheets_dev_password}
-      POSTGRES_DB: ${POSTGRES_DB:-opensheets_db}
-      # Configurações de performance
-      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER:-opensheets}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opensheets_dev_password}
+  #     POSTGRES_DB: ${POSTGRES_DB:-opensheets_db}
+  #     # Configurações de performance
+  #     POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
 
-    ports:
-      # Mapeia porta 5432 do container para 5432 do host
-      # Útil para conectar com ferramentas externas (ex: DBeaver, pgAdmin)
-      - "${DB_PORT:-5432}:5432"
+  #   ports:
+  #     # Mapeia porta 5432 do container para 5432 do host
+  #     # Útil para conectar com ferramentas externas (ex: DBeaver, pgAdmin)
+  #     - "${DB_PORT:-5432}:5432"
 
-    volumes:
-      # Volume nomeado para persistência de dados
-      # Os dados sobrevivem ao restart do container
-      - postgres_data:/var/lib/postgresql/data
-      # Script de inicialização (cria extensão pgcrypto automaticamente)
-      - ./scripts/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  #   volumes:
+  #     # Volume nomeado para persistência de dados
+  #     # Os dados sobrevivem ao restart do container
+  #     - postgres_data:/var/lib/postgresql/data
+  #     # Script de inicialização (cria extensão pgcrypto automaticamente)
+  #     - ./scripts/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-opensheets} -d ${POSTGRES_DB:-opensheets_db}",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+  #   healthcheck:
+  #     test:
+  #       [
+  #         "CMD-SHELL",
+  #         "pg_isready -U ${POSTGRES_USER:-opensheets} -d ${POSTGRES_DB:-opensheets_db}",
+  #       ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
 
-    networks:
-      - opensheets_network
+  #   networks:
+  #     - opensheets_network
 
-    # Descomentar para ativar logs de queries (debug)
-    # command: ["postgres", "-c", "log_statement=all"]
+  # Descomentar para ativar logs de queries (debug)
+  # command: ["postgres", "-c", "log_statement=all"]
 
   # ============================================
   # Serviço: Aplicação Next.js
@@ -108,9 +108,9 @@ services:
 
     # Só depende do 'db' se estiver usando banco local
     # Para banco remoto, comente a linha abaixo ou suba apenas: docker compose up app
-    depends_on:
-      db:
-        condition: service_healthy
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
 
     networks:
       - opensheets_network
