@@ -15,6 +15,7 @@
 - `components/relatorios/category-report-cards.tsx` - Cards mobile com Accordion para meses colapsados, mesma lógica de cores e indicadores
 - `components/relatorios/category-report-export.tsx` - Componente de exportação com CSV, Excel e PDF, toast notifications, loading states
 - `components/relatorios/category-report-page.tsx` - Orquestrador client-side com filtros, URL sync, debounce 300ms, loading states, empty states
+- `app/(dashboard)/relatorios/categorias/page.tsx` - Server component com data fetching, validação, defaults (últimos 6 meses), categorias query
 
 ### Files Modified
 
@@ -192,7 +193,7 @@
     - Toast de erro se falhar (`toast.error()`)
     - Loading state durante geração de arquivos grandes
 
-- [ ] **7.0 Página Principal e Integração**
+- [x] **7.0 Página Principal e Integração**
 
   - [x] 7.1 Criar `components/relatorios/category-report-page.tsx` ("use client"):
     - Props: `initialData: CategoryReportData`, `categories: CategoryOption[]`, `initialFilters: FilterState`
@@ -212,7 +213,7 @@
       - Sem categorias selecionadas: "Selecione pelo menos uma categoria"
       - Sem dados no período: "Nenhum lançamento encontrado no período selecionado"
     - Usar debounce de 300ms nos filtros para evitar requisições excessivas
-  - [ ] 7.2 Criar `app/(dashboard)/relatorios/categorias/page.tsx` (server component):
+  - [x] 7.2 Criar `app/(dashboard)/relatorios/categorias/page.tsx` (server component):
     - Async function `Page({ searchParams })`
     - Extrair `inicio`, `fim`, `categorias` dos searchParams usando helper `getSingleParam`
     - Default: últimos 6 meses se params não fornecidos (usar `getCurrentPeriod` e calcular 6 meses atrás)
