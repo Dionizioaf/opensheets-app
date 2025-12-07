@@ -19,7 +19,7 @@ export type AccountData = {
 
 export async function fetchAccountsForUser(
   userId: string
-): Promise<{ accounts: AccountData[]; logoOptions: LogoOption[] }> {
+): Promise<{ accounts: AccountData[]; logoOptions: string[] }> {
   const [accountRows, logoOptions] = await Promise.all([
     db
       .select({
@@ -72,7 +72,7 @@ export async function fetchAccountsForUser(
     loadLogoOptions(),
   ]);
 
-  const accounts = accountRows.map((account) => ({
+  const accounts = accountRows.map((account: any) => ({
     id: account.id,
     name: account.name,
     accountType: account.accountType,

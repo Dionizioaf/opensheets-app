@@ -28,7 +28,7 @@ import {
   RiNotification3Fill,
   RiTimeLine,
 } from "@remixicon/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type NotificationBellProps = {
   notifications: DashboardNotification[];
@@ -61,9 +61,21 @@ export function NotificationBell({
   notifications,
   totalCount,
 }: NotificationBellProps) {
+  // Client-side only rendering to avoid hydration issues
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [open, setOpen] = useState(false);
   const displayCount = totalCount > 99 ? "99+" : totalCount.toString();
   const hasNotifications = totalCount > 0;
+
+  // Prevent hydration issues by only rendering on client
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

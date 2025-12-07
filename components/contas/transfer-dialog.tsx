@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useControlledState } from "@/hooks/use-controlled-state";
 import { formatDateForDb } from "@/lib/utils/date";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 
 interface TransferDialogProps {
@@ -44,6 +44,13 @@ export function TransferDialog({
   open,
   onOpenChange,
 }: TransferDialogProps) {
+  // Client-side only rendering to avoid hydration issues
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [dialogOpen, setDialogOpen] = useControlledState(
     open,
     false,
@@ -114,6 +121,11 @@ export function TransferDialog({
       toast.error(result.error);
     });
   };
+
+  // Prevent hydration issues by only rendering on client
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

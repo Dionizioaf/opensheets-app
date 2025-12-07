@@ -1,6 +1,7 @@
 import { AccountDialog } from "@/components/contas/account-dialog";
 import { AccountStatementCard } from "@/components/contas/account-statement-card";
 import type { Account } from "@/components/contas/types";
+import { OfxImportDialog } from "@/components/contas/ofx-import/ofx-import-dialog";
 import { LancamentosPage as LancamentosSection } from "@/components/lancamentos/page/lancamentos-page";
 import MonthPicker from "@/components/month-picker/month-picker";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import {
 } from "@/lib/lancamentos/page-helpers";
 import { loadLogoOptions } from "@/lib/logo/options";
 import { parsePeriodParam } from "@/lib/utils/period";
-import { RiPencilLine } from "@remixicon/react";
+import { RiFileUploadLine, RiPencilLine } from "@remixicon/react";
 import { and, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { fetchAccountData, fetchAccountSummary } from "./data";
@@ -133,22 +134,51 @@ export default async function Page({ params, searchParams }: PageProps) {
         totalExpenses={totalExpenses}
         logo={account.logo}
         actions={
-          <AccountDialog
-            mode="update"
-            account={accountDialogData}
-            logoOptions={logoOptions}
-            trigger={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground"
-                aria-label="Editar conta"
-              >
-                <RiPencilLine className="size-4" />
-              </Button>
-            }
-          />
+          <div className="flex items-center gap-1">
+            {account.status.toLowerCase() === "ativa" && (
+              <OfxImportDialog
+                contaId={account.id}
+                categorias={categoriaOptions.map((c) => ({
+                  id: c.value,
+                  nome: c.label,
+                  icone: c.icon ?? undefined,
+                }))}
+                pagadores={pagadorOptions.map((p) => ({
+                  id: p.value,
+                  nome: p.label,
+                  logo: p.icon ?? undefined,
+                }))}
+                defaultCategoriaId={categoriaOptions[0]?.value}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Importar OFX"
+                  >
+                    <RiFileUploadLine className="size-4" />
+                  </Button>
+                }
+              />
+            )}
+            <AccountDialog
+              mode="update"
+              account={accountDialogData}
+              logoOptions={logoOptions}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Editar conta"
+                >
+                  <RiPencilLine className="size-4" />
+                </Button>
+              }
+            />
+          </div>
         }
       />
 
@@ -164,6 +194,7 @@ export default async function Page({ params, searchParams }: PageProps) {
           pagadorFilterOptions={pagadorFilterOptions}
           categoriaFilterOptions={categoriaFilterOptions}
           contaCartaoFilterOptions={contaCartaoFilterOptions}
+          estabelecimentos={[]}
           selectedPeriod={selectedPeriod}
           allowCreate={false}
         />

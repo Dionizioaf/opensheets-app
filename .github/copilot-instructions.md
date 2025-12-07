@@ -27,6 +27,7 @@ Opensheets is a self-hosted personal finance management application built with N
 - **Database**: `pnpm db:push` to sync schema, `pnpm db:studio` for visual editor
 - **Build**: `pnpm build`, `pnpm start` for production
 - **Docker**: `pnpm docker:up` for full stack, `pnpm docker:logs` for monitoring
+- **Testing**: `pnpm test` to run all tests, `pnpm test:watch` for watch mode, `pnpm test:coverage` for coverage report
 
 ## Common Tasks
 
@@ -34,6 +35,7 @@ Opensheets is a self-hosted personal finance management application built with N
 - **New Entity**: Add to `db/schema.ts`, define relations, create CRUD actions in `lib/[entity]/actions.ts`
 - **UI Component**: Use shadcn/ui, place in `components/[feature]/`, export from `components/ui/`
 - **API Route**: Add to `app/api/`, use `getUserSession()` for auth
+- **Add Tests**: Place in `__tests__/` folder next to code, use Jest with React Testing Library
 
 ## Conventions
 

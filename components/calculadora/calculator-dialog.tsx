@@ -36,7 +36,19 @@ export function CalculatorDialogButton({
   children,
   withTooltip = false,
 }: CalculatorDialogButtonProps) {
+  // Client-side only rendering to avoid hydration issues
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [open, setOpen] = React.useState(false);
+
+  // Prevent hydration issues by only rendering on client
+  if (!mounted) {
+    return null;
+  }
 
   // Se withTooltip for true, usa o estilo do header
   if (withTooltip) {

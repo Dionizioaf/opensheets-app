@@ -86,6 +86,13 @@ export function AccountDialog({
   open,
   onOpenChange,
 }: AccountDialogProps) {
+  // Client-side only rendering to avoid hydration issues
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -179,9 +186,9 @@ export function AccountDialog({
           mode === "create"
             ? await createAccountAction(payload)
             : await updateAccountAction({
-                id: account?.id ?? "",
-                ...payload,
-              });
+              id: account?.id ?? "",
+              ...payload,
+            });
 
         if (result.success) {
           toast.success(result.message);
@@ -203,6 +210,11 @@ export function AccountDialog({
       ? "Cadastre uma nova conta para organizar seus lançamentos."
       : "Atualize as informações da conta selecionada.";
   const submitLabel = mode === "create" ? "Salvar conta" : "Atualizar conta";
+
+  // Prevent hydration issues by only rendering on client
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <>
