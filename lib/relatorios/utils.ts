@@ -105,7 +105,7 @@ export function validateDateRange(
  * @returns Formatted currency string
  */
 export function formatCurrency(value: number): string {
-  return currencyFormatter.format(value);
+    return currencyFormatter.format(value);
 }/**
  * Formats percentage change for display
  * Format: "±X%" or "±X.X%" (one decimal if < 10%)
