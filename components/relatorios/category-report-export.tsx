@@ -305,8 +305,8 @@ export function CategoryReportExport({ data, filters }: CategoryReportExportProp
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button 
-                    variant="outline" 
+                <Button
+                    variant="outline"
                     disabled={isExporting || data.categories.length === 0}
                     aria-label="Exportar relatório de categorias"
                 >
