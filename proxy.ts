@@ -1,4 +1,4 @@
-import { getSessionCookie } from "better-auth/cookies";
+import { auth } from "@/lib/auth/config";
 import { NextRequest, NextResponse } from "next/server";
 
 // Rotas protegidas que requerem autenticação
@@ -19,12 +19,18 @@ const PROTECTED_ROUTES = [
 // Rotas públicas (não requerem autenticação)
 const PUBLIC_AUTH_ROUTES = ["/login", "/signup"];
 
-export async function proxy(request: NextRequest) {
-  const sessionCookie = getSessionCookie(request);
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Validate actual session, not just cookie existence
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  const isAuthenticated = !!session?.user;
+
   // Redirect authenticated users away from login/signup pages
-  if (sessionCookie && PUBLIC_AUTH_ROUTES.includes(pathname)) {
+  if (isAuthenticated && PUBLIC_AUTH_ROUTES.includes(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -33,7 +39,7 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  if (!sessionCookie && isProtectedRoute) {
+  if (!isAuthenticated && isProtectedRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
