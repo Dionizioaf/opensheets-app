@@ -2,6 +2,17 @@
 
 ## Relevant Files
 
+### Files Created
+
+- `app/(dashboard)/relatorios/categorias/loading.tsx` - Loading state da página de relatório com skeleton
+- `lib/relatorios/` - Pasta criada para funções backend do relatório
+- `components/relatorios/` - Pasta criada para componentes do relatório
+
+### Files Modified
+
+- `components/sidebar/nav-link.tsx` - Adicionada seção "Relatórios" com subitem "Categorias" apontando para `/relatorios/categorias`
+- `proxy.ts` - Adicionado `/relatorios` ao array `PROTECTED_ROUTES` e ao matcher do middleware
+
 ### Files to Create
 
 - `app/(dashboard)/relatorios/categorias/page.tsx` - Página principal do relatório (server component)
@@ -48,13 +59,13 @@
 
 - [ ] **1.0 Setup de Infraestrutura e Navegação**
 
-  - [ ] 1.1 Criar estrutura de pastas `app/(dashboard)/relatorios/categorias/`
-  - [ ] 1.2 Criar estrutura de pastas `components/relatorios/`
-  - [ ] 1.3 Criar estrutura de pastas `lib/relatorios/`
-  - [ ] 1.4 Adicionar `/relatorios` ao array `PROTECTED_ROUTES` em `proxy.ts`
-  - [ ] 1.5 Atualizar `nav-link.tsx` para adicionar seção "Relatórios" com ícone `RiLineChartLine`
-  - [ ] 1.6 Adicionar subitem "Categorias" dentro de "Relatórios" apontando para `/relatorios/categorias`
-  - [ ] 1.7 Criar arquivo `app/(dashboard)/relatorios/categorias/loading.tsx` com skeleton states
+  - [x] 1.1 Criar estrutura de pastas `app/(dashboard)/relatorios/categorias/`
+  - [x] 1.2 Criar estrutura de pastas `components/relatorios/`
+  - [x] 1.3 Criar estrutura de pastas `lib/relatorios/`
+  - [x] 1.4 Adicionar `/relatorios` ao array `PROTECTED_ROUTES` em `proxy.ts`
+  - [x] 1.5 Atualizar `nav-link.tsx` para adicionar seção "Relatórios" com ícone `RiLineChartLine`
+  - [x] 1.6 Adicionar subitem "Categorias" dentro de "Relatórios" apontando para `/relatorios/categorias`
+  - [x] 1.7 Criar arquivo `app/(dashboard)/relatorios/categorias/loading.tsx` com skeleton states
 
 - [ ] **2.0 Backend: Data Fetching e Tipos**
 
