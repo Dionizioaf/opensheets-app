@@ -32,6 +32,11 @@ export function BudgetsPage({
 
   const hasBudgets = budgets.length > 0;
 
+  const totalBudgetAmount = budgets.reduce(
+    (sum, budget) => sum + budget.amount,
+    0
+  );
+
   const handleEdit = useCallback((budget: Budget) => {
     setSelectedBudget(budget);
     setEditOpen(true);
@@ -86,7 +91,23 @@ export function BudgetsPage({
   return (
     <>
       <div className="flex w-full flex-col gap-6">
-        <div className="flex justify-start">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Orçamentos
+            </h2>
+            {hasBudgets && (
+              <p className="text-sm text-muted-foreground">
+                Total orçado:{" "}
+                <span className="font-medium text-foreground">
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(totalBudgetAmount)}
+                </span>
+              </p>
+            )}
+          </div>
           <BudgetDialog
             mode="create"
             categories={categories}
