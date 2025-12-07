@@ -225,7 +225,7 @@
     - Tratar erros: redirect para error page se validação falhar
     - Layout: `<main className="flex flex-col gap-6 px-6">`
 
-- [ ] **8.0 Integração com Dashboard**
+- [x] **8.0 Integração com Dashboard**
 
   - [x] 8.1 Modificar `components/dashboard/expenses-by-category-widget.tsx`:
     - Adicionar botão/link "Ver mais detalhes" no final do widget

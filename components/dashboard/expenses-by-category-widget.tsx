@@ -127,13 +127,12 @@ export function ExpensesByCategoryWidget({
                 />
                 {category.percentageChange !== null && (
                   <span
-                    className={`flex items-center gap-0.5 text-xs ${
-                      hasIncrease
+                    className={`flex items-center gap-0.5 text-xs ${hasIncrease
                         ? "text-red-600"
                         : hasDecrease
-                        ? "text-green-600"
-                        : "text-muted-foreground"
-                    }`}
+                          ? "text-green-600"
+                          : "text-muted-foreground"
+                      }`}
                   >
                     {hasIncrease && <RiArrowUpLine className="size-3" />}
                     {hasDecrease && <RiArrowDownLine className="size-3" />}
@@ -146,11 +145,10 @@ export function ExpensesByCategoryWidget({
             {hasBudget && category.budgetUsedPercentage !== null && (
               <div className="ml-11 flex items-center gap-1.5 text-xs">
                 <RiWallet3Line
-                  className={`size-3 ${
-                    budgetExceeded
+                  className={`size-3 ${budgetExceeded
                       ? "text-red-600"
                       : "text-blue-600 dark:text-blue-400"
-                  }`}
+                    }`}
                 />
                 <span
                   className={
