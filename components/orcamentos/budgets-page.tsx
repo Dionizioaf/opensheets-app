@@ -122,11 +122,10 @@ export function BudgetsPage({
                 <p>
                   Total disponível:{" "}
                   <span
-                    className={`font-medium ${
-                      totalAvailable >= 0
+                    className={`font-medium ${totalAvailable >= 0
                         ? "text-green-600 dark:text-green-500"
                         : "text-red-600 dark:text-red-500"
-                    }`}
+                      }`}
                   >
                     {new Intl.NumberFormat("pt-BR", {
                       style: "currency",
