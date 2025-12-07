@@ -419,8 +419,7 @@ export const mapLancamentosData = (rows: LancamentoRowWithRelations[]) =>
     seriesId: item.seriesId ?? null,
     readonly:
       Boolean(item.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) ||
-      item.categoria?.name === "Saldo inicial" ||
-      item.categoria?.name === "Pagamentos",
+      item.categoria?.name === "Saldo inicial",
   }));
 
 const sortByLabel = <T extends { label: string }>(items: T[]) =>

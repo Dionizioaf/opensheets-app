@@ -14,6 +14,7 @@ const PROTECTED_ROUTES = [
   "/lancamentos",
   "/orcamentos",
   "/pagadores",
+  "/relatorios",
 ];
 
 // Rotas públicas (não requerem autenticação)
@@ -60,6 +61,7 @@ export const config = {
     "/lancamentos/:path*",
     "/orcamentos/:path*",
     "/pagadores/:path*",
+    "/relatorios/:path*",
     "/login",
     "/signup",
   ],

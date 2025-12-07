@@ -1,9 +1,10 @@
 import MoneyValues from "@/components/money-values";
 import type { ExpensesByCategoryData } from "@/lib/dashboard/categories/expenses-by-category";
 import { getIconComponent } from "@/lib/utils/icons";
-import { formatPeriodForUrl } from "@/lib/utils/period";
+import { addMonthsToPeriod, formatPeriodForUrl } from "@/lib/utils/period";
 import {
   RiArrowDownLine,
+  RiArrowRightLine,
   RiArrowUpLine,
   RiExternalLinkLine,
   RiPieChartLine,
@@ -40,6 +41,7 @@ export function ExpensesByCategoryWidget({
   period,
 }: ExpensesByCategoryWidgetProps) {
   const periodParam = formatPeriodForUrl(period);
+  const startPeriod = addMonthsToPeriod(period, -5); // 6 months including current
 
   if (data.categories.length === 0) {
     return (
@@ -125,13 +127,12 @@ export function ExpensesByCategoryWidget({
                 />
                 {category.percentageChange !== null && (
                   <span
-                    className={`flex items-center gap-0.5 text-xs ${
-                      hasIncrease
+                    className={`flex items-center gap-0.5 text-xs ${hasIncrease
                         ? "text-red-600"
                         : hasDecrease
-                        ? "text-green-600"
-                        : "text-muted-foreground"
-                    }`}
+                          ? "text-green-600"
+                          : "text-muted-foreground"
+                      }`}
                   >
                     {hasIncrease && <RiArrowUpLine className="size-3" />}
                     {hasDecrease && <RiArrowDownLine className="size-3" />}
@@ -144,11 +145,10 @@ export function ExpensesByCategoryWidget({
             {hasBudget && category.budgetUsedPercentage !== null && (
               <div className="ml-11 flex items-center gap-1.5 text-xs">
                 <RiWallet3Line
-                  className={`size-3 ${
-                    budgetExceeded
+                  className={`size-3 ${budgetExceeded
                       ? "text-red-600"
                       : "text-blue-600 dark:text-blue-400"
-                  }`}
+                    }`}
                 />
                 <span
                   className={
@@ -174,6 +174,16 @@ export function ExpensesByCategoryWidget({
           </div>
         );
       })}
+
+      <div className="flex justify-end pt-3 border-t border-dashed">
+        <Link
+          href={`/relatorios/categorias?inicio=${startPeriod}&fim=${period}`}
+          className="flex items-center gap-1.5 text-sm text-primary hover:underline underline-offset-2"
+        >
+          <span>Ver mais detalhes</span>
+          <RiArrowRightLine className="size-4" aria-hidden />
+        </Link>
+      </div>
     </div>
   );
 }

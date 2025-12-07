@@ -150,6 +150,16 @@ export function createSidebarNavData(pagadores: PagadorLike[]): SidebarNavData {
           },
         ],
       },
+      {
+        title: "Relatórios",
+        items: [
+          {
+            title: "Categorias",
+            url: "/relatorios/categorias",
+            icon: RiLineChartLine,
+          },
+        ],
+      },
     ],
     navSecondary: [
       {
