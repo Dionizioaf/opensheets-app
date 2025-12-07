@@ -13,6 +13,7 @@
 - `components/relatorios/category-cell.tsx` - Célula individual com valor formatado, indicador de tendência (setas e percentuais), lógica de cores
 - `components/relatorios/category-report-table.tsx` - Tabela desktop completa com sticky header, sticky first column, CategoryCell, footer com totais
 - `components/relatorios/category-report-cards.tsx` - Cards mobile com Accordion para meses colapsados, mesma lógica de cores e indicadores
+- `components/relatorios/category-report-export.tsx` - Componente de exportação com CSV, Excel e PDF, toast notifications, loading states
 
 ### Files Modified
 
@@ -156,14 +157,14 @@
     - Scroll vertical suave
     - Empty state compartilhado com versão desktop
 
-- [ ] **6.0 Funcionalidade de Exportação**
+- [x] **6.0 Funcionalidade de Exportação**
 
-  - [ ] 6.1 Instalar dependências no `package.json`:
+  - [x] 6.1 Instalar dependências no `package.json`:
     - `"xlsx": "^0.18.5"` (Excel)
     - `"jspdf": "^2.5.1"` (PDF)
     - `"jspdf-autotable": "^3.8.2"` (Tabelas no PDF)
     - Executar `pnpm install`
-  - [ ] 6.2 Criar `components/relatorios/category-report-export.tsx` ("use client"):
+  - [x] 6.2 Criar `components/relatorios/category-report-export.tsx` ("use client"):
     - Props: `data: CategoryReportData`, `filters: FilterState`
     - Botão "Exportar" com `DropdownMenu` oferecendo 3 opções
     - **Função `exportToCSV()`**:
