@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { lancamentos } from "@/db/schema";
-import { eq, and, between, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
 import Fuzzysort from "fuzzysort";
 
 /**
