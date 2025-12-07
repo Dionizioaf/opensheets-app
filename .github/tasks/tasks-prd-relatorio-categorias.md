@@ -12,6 +12,7 @@
 - `components/relatorios/category-report-filters.tsx` - Componente de filtros com multiselect de categorias e inputs de data
 - `components/relatorios/category-cell.tsx` - Célula individual com valor formatado, indicador de tendência (setas e percentuais), lógica de cores
 - `components/relatorios/category-report-table.tsx` - Tabela desktop completa com sticky header, sticky first column, CategoryCell, footer com totais
+- `components/relatorios/category-report-cards.tsx` - Cards mobile com Accordion para meses colapsados, mesma lógica de cores e indicadores
 
 ### Files Modified
 
@@ -141,9 +142,9 @@
     - Mostrar ícones das categorias usando `getIconComponent()` de `lib/utils/icons`
     - Empty state: quando `data.categories.length === 0`
 
-- [ ] **5.0 Componente de Cards Mobile**
+- [x] **5.0 Componente de Cards Mobile**
 
-  - [ ] 5.1 Criar `components/relatorios/category-report-cards.tsx` ("use client"):
+  - [x] 5.1 Criar `components/relatorios/category-report-cards.tsx` ("use client"):
     - Props: `data: CategoryReportData`
     - Visível apenas em telas < 768px (usar `@media` ou hook `useMobile`)
     - Cada categoria renderizada como `Card` do shadcn/ui
