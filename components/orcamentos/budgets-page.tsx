@@ -32,6 +32,15 @@ export function BudgetsPage({
 
   const hasBudgets = budgets.length > 0;
 
+  const totalBudgetAmount = budgets.reduce(
+    (sum, budget) => sum + budget.amount,
+    0
+  );
+
+  const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0);
+
+  const totalAvailable = totalBudgetAmount - totalSpent;
+
   const handleEdit = useCallback((budget: Budget) => {
     setSelectedBudget(budget);
     setEditOpen(true);
@@ -73,9 +82,8 @@ export function BudgetsPage({
   }, [budgetToRemove]);
 
   const removeTitle = budgetToRemove
-    ? `Remover orçamento de "${
-        budgetToRemove.category?.name ?? "categoria removida"
-      }"?`
+    ? `Remover orçamento de "${budgetToRemove.category?.name ?? "categoria removida"
+    }"?`
     : "Remover orçamento?";
 
   const emptyDescription =
@@ -86,7 +94,48 @@ export function BudgetsPage({
   return (
     <>
       <div className="flex w-full flex-col gap-6">
-        <div className="flex justify-start">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Orçamentos
+            </h2>
+            {hasBudgets && (
+              <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                <p>
+                  Total orçado:{" "}
+                  <span className="font-medium text-foreground">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalBudgetAmount)}
+                  </span>
+                </p>
+                <p>
+                  Total realizado:{" "}
+                  <span className="font-medium text-foreground">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalSpent)}
+                  </span>
+                </p>
+                <p>
+                  Total disponível:{" "}
+                  <span
+                    className={`font-medium ${totalAvailable >= 0
+                        ? "text-green-600 dark:text-green-500"
+                        : "text-red-600 dark:text-red-500"
+                      }`}
+                  >
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalAvailable)}
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
           <BudgetDialog
             mode="create"
             categories={categories}
