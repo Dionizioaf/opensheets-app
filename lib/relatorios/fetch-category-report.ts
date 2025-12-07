@@ -6,6 +6,7 @@ import { categorias, lancamentos, pagadores } from "@/db/schema";
 import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/lib/accounts/constants";
 import { db } from "@/lib/db";
 import { PAGADOR_ROLE_ADMIN } from "@/lib/pagadores/constants";
+import { toNumber } from "@/lib/dashboard/common";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type {
   CategoryReportData,
@@ -14,15 +15,6 @@ import type {
   MonthlyData,
 } from "./types";
 import { calculatePercentageChange, generatePeriodRange } from "./utils";
-
-/**
- * Helper to convert database numeric/string to number
- */
-function toNumber(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) return 0;
-  if (typeof value === "number") return value;
-  return Number.parseFloat(value) || 0;
-}
 
 /**
  * Fetches category report data for multiple periods

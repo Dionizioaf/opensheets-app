@@ -3,34 +3,12 @@
  */
 
 import { buildPeriodRange, MONTH_NAMES, parsePeriod } from "@/lib/utils/period";
+import { calculatePercentageChange } from "@/lib/utils/math";
+import { currencyFormatter } from "@/lib/lancamentos/formatting-helpers";
 import type { DateRangeValidation } from "./types";
 
-/**
- * Calculates percentage change between two values
- * Reuses logic from expenses-by-category.ts
- *
- * @param current - Current period value
- * @param previous - Previous period value
- * @returns Percentage change or null if not applicable
- */
-export function calculatePercentageChange(
-    current: number,
-    previous: number
-): number | null {
-    const EPSILON = 0.01; // Consider values less than 1 cent as zero
-
-    if (Math.abs(previous) < EPSILON) {
-        if (Math.abs(current) < EPSILON) return null;
-        return current > 0 ? 100 : -100;
-    }
-
-    const change = ((current - previous) / Math.abs(previous)) * 100;
-
-    // Protect against absurd values (return null if > 1 million %)
-    return Number.isFinite(change) && Math.abs(change) < 1000000 ? change : null;
-}
-
-/**
+// Re-export for convenience
+export { calculatePercentageChange };/**
  * Formats period string from "YYYY-MM" to "MMM/YYYY" format
  * Example: "2025-01" -> "Jan/2025"
  *
@@ -121,18 +99,14 @@ export function validateDateRange(
 
 /**
  * Formats a number as Brazilian currency (R$ X.XXX,XX)
+ * Uses the shared currencyFormatter from formatting-helpers
  *
  * @param value - Numeric value to format
  * @returns Formatted currency string
  */
 export function formatCurrency(value: number): string {
-    return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-    }).format(value);
-}
-
-/**
+  return currencyFormatter.format(value);
+}/**
  * Formats percentage change for display
  * Format: "±X%" or "±X.X%" (one decimal if < 10%)
  *

@@ -5,8 +5,9 @@
 ### Files Created
 
 - `app/(dashboard)/relatorios/categorias/loading.tsx` - Loading state da página de relatório com skeleton
-- `lib/relatorios/` - Pasta criada para funções backend do relatório
-- `components/relatorios/` - Pasta criada para componentes do relatório
+- `lib/relatorios/types.ts` - TypeScript types para o relatório (CategoryReportItem, MonthlyData, CategoryReportData, CategoryReportFilters)
+- `lib/relatorios/utils.ts` - Funções utilitárias (calculatePercentageChange, formatPeriodLabel, generatePeriodRange, validateDateRange, formatCurrency, formatPercentageChange)
+- `lib/relatorios/fetch-category-report.ts` - Função principal fetchCategoryReport para buscar dados agregados por categoria e período
 
 ### Files Modified
 
@@ -67,19 +68,19 @@
   - [x] 1.6 Adicionar subitem "Categorias" dentro de "Relatórios" apontando para `/relatorios/categorias`
   - [x] 1.7 Criar arquivo `app/(dashboard)/relatorios/categorias/loading.tsx` com skeleton states
 
-- [ ] **2.0 Backend: Data Fetching e Tipos**
+- [x] **2.0 Backend: Data Fetching e Tipos**
 
-  - [ ] 2.1 Criar `lib/relatorios/types.ts` com tipos:
+  - [x] 2.1 Criar `lib/relatorios/types.ts` com tipos:
     - `CategoryReportItem` (categoryId, name, icon, type, monthlyData, total)
     - `MonthlyData` (period, amount, previousAmount, percentageChange)
     - `CategoryReportData` (categories, periods, totals)
     - `CategoryReportFilters` (startPeriod, endPeriod, categoryIds?)
-  - [ ] 2.2 Criar `lib/relatorios/utils.ts` com funções:
+  - [x] 2.2 Criar `lib/relatorios/utils.ts` com funções:
     - `calculatePercentageChange(current, previous)` - reutilizar lógica de `expenses-by-category.ts`
     - `formatPeriodLabel(period)` - formatar "YYYY-MM" para "MMM/YYYY"
     - `generatePeriodRange(startPeriod, endPeriod)` - gerar array de períodos entre duas datas
     - `validateDateRange(start, end)` - validar que fim >= início e limite de 24 meses
-  - [ ] 2.3 Criar `lib/relatorios/fetch-category-report.ts` com função `fetchCategoryReport(userId, filters)`:
+  - [x] 2.3 Criar `lib/relatorios/fetch-category-report.ts` com função `fetchCategoryReport(userId, filters)`:
     - Query Drizzle com JOINs: `lancamentos` ⟕ `categorias` ⟕ `pagadores`
     - WHERE: `userId`, `period IN (periods)`, `pagadorRole = ADMIN`, opcional `categoriaId IN (categoryIds)`
     - GROUP BY: `categoriaId`, `period`
@@ -88,6 +89,7 @@
     - Processar resultado em estrutura `CategoryReportData`
     - Calcular totais por mês e categoria
     - Calcular variações percentuais entre meses consecutivos
+    - Ordenar: despesas primeiro (por total desc), depois receitas (por total desc)
     - Ordenar: despesas primeiro (por total desc), depois receitas (por total desc)
 
 - [ ] **3.0 Componentes de Filtros**
