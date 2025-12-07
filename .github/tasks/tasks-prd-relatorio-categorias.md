@@ -8,6 +8,8 @@
 - `lib/relatorios/types.ts` - TypeScript types para o relatório (CategoryReportItem, MonthlyData, CategoryReportData, CategoryReportFilters)
 - `lib/relatorios/utils.ts` - Funções utilitárias (calculatePercentageChange, formatPeriodLabel, generatePeriodRange, validateDateRange, formatCurrency, formatPercentageChange)
 - `lib/relatorios/fetch-category-report.ts` - Função principal fetchCategoryReport para buscar dados agregados por categoria e período
+- `components/relatorios/types.ts` - Tipos de UI (CategoryOption, FilterState, CategoryReportFiltersProps)
+- `components/relatorios/category-report-filters.tsx` - Componente de filtros com multiselect de categorias e inputs de data
 
 ### Files Modified
 
@@ -92,12 +94,12 @@
     - Ordenar: despesas primeiro (por total desc), depois receitas (por total desc)
     - Ordenar: despesas primeiro (por total desc), depois receitas (por total desc)
 
-- [ ] **3.0 Componentes de Filtros**
+- [x] **3.0 Componentes de Filtros**
 
-  - [ ] 3.1 Criar `components/relatorios/types.ts` com tipos de UI:
+  - [x] 3.1 Criar `components/relatorios/types.ts` com tipos de UI:
     - `CategoryOption` (id, name, icon, type)
     - `FilterState` (selectedCategories, startPeriod, endPeriod)
-  - [ ] 3.2 Criar `components/relatorios/category-report-filters.tsx` ("use client"):
+  - [x] 3.2 Criar `components/relatorios/category-report-filters.tsx` ("use client"):
     - Receber props: `categories: CategoryOption[]`, `filters: FilterState`, `onFiltersChange: (filters) => void`
     - Implementar Combobox multiselect de categorias usando shadcn/ui
     - Mostrar ícones das categorias no select

@@ -7,10 +7,10 @@
  * Includes type field for filtering despesas/receitas
  */
 export interface CategoryOption {
-  id: string;
-  name: string;
-  icon: string | null;
-  type: "despesa" | "receita";
+    id: string;
+    name: string;
+    icon: string | null;
+    type: "despesa" | "receita";
 }
 
 /**
@@ -18,17 +18,17 @@ export interface CategoryOption {
  * Manages selected categories and date range
  */
 export interface FilterState {
-  selectedCategories: string[]; // Array of category IDs
-  startPeriod: string; // Format: "YYYY-MM"
-  endPeriod: string; // Format: "YYYY-MM"
+    selectedCategories: string[]; // Array of category IDs
+    startPeriod: string; // Format: "YYYY-MM"
+    endPeriod: string; // Format: "YYYY-MM"
 }
 
 /**
  * Props for CategoryReportFilters component
  */
 export interface CategoryReportFiltersProps {
-  categories: CategoryOption[];
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
-  isLoading?: boolean;
+    categories: CategoryOption[];
+    filters: FilterState;
+    onFiltersChange: (filters: FilterState) => void;
+    isLoading?: boolean;
 }
