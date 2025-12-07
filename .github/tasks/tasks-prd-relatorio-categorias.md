@@ -227,7 +227,7 @@
 
 - [ ] **8.0 Integração com Dashboard**
 
-  - [ ] 8.1 Modificar `components/dashboard/expenses-by-category-widget.tsx`:
+  - [x] 8.1 Modificar `components/dashboard/expenses-by-category-widget.tsx`:
     - Adicionar botão/link "Ver mais detalhes" no final do widget
     - Link deve apontar para `/relatorios/categorias?inicio=[6-meses-atras]&fim=[periodo-atual]`
     - Usar `Link` do Next.js
