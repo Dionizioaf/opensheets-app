@@ -37,6 +37,10 @@ export function BudgetsPage({
     0
   );
 
+  const totalSpent = budgets.reduce((sum, budget) => sum + budget.spent, 0);
+
+  const totalAvailable = totalBudgetAmount - totalSpent;
+
   const handleEdit = useCallback((budget: Budget) => {
     setSelectedBudget(budget);
     setEditOpen(true);
@@ -96,15 +100,41 @@ export function BudgetsPage({
               Orçamentos
             </h2>
             {hasBudgets && (
-              <p className="text-sm text-muted-foreground">
-                Total orçado:{" "}
-                <span className="font-medium text-foreground">
-                  {new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  }).format(totalBudgetAmount)}
-                </span>
-              </p>
+              <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                <p>
+                  Total orçado:{" "}
+                  <span className="font-medium text-foreground">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalBudgetAmount)}
+                  </span>
+                </p>
+                <p>
+                  Total realizado:{" "}
+                  <span className="font-medium text-foreground">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalSpent)}
+                  </span>
+                </p>
+                <p>
+                  Total disponível:{" "}
+                  <span
+                    className={`font-medium ${
+                      totalAvailable >= 0
+                        ? "text-green-600 dark:text-green-500"
+                        : "text-red-600 dark:text-red-500"
+                    }`}
+                  >
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalAvailable)}
+                  </span>
+                </p>
+              </div>
             )}
           </div>
           <BudgetDialog
