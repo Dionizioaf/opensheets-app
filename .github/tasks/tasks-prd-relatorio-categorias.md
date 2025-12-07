@@ -302,3 +302,130 @@
 **Estimated Effort**: 2-3 dias (desenvolvedor júnior)  
 **Priority**: Medium  
 **Dependencies**: Nenhuma - feature independente
+
+---
+
+## Tutorial: Como Usar o Relatório de Categorias
+
+### Acessando o Relatório
+
+**Opção 1: Via Menu Lateral**
+
+1. Abra o aplicativo Opensheets
+2. No menu lateral, localize a seção "Relatórios"
+3. Clique em "Categorias"
+4. Você será redirecionado para `/relatorios/categorias`
+
+**Opção 2: Via Dashboard (Atalho Rápido)**
+
+1. No dashboard principal, localize o card "Despesas por Categoria"
+2. Role até o final da lista de categorias
+3. Clique no link "Ver mais detalhes" (com ícone de seta)
+4. O relatório abrirá automaticamente com os últimos 6 meses de dados
+
+### Usando os Filtros
+
+**Filtrar por Categorias Específicas**
+
+1. No topo da página, clique no campo "Categorias"
+2. Uma lista com todas as suas categorias aparecerá
+3. Selecione uma ou múltiplas categorias (multiselect)
+4. Use a busca interna para encontrar categorias rapidamente
+5. Clique fora ou pressione ESC para fechar o seletor
+
+**Filtrar por Período**
+
+1. Use os campos "Data Inicial" e "Data Final" para definir o período
+2. Formato aceito: mês e ano (ex: "Janeiro 2025")
+3. O período padrão ao abrir é os últimos 6 meses
+4. Máximo permitido: 24 meses
+
+**Aplicando Filtros**
+
+- Os filtros são aplicados automaticamente após 300ms (debounce)
+- A URL será atualizada com os parâmetros selecionados
+- Você pode compartilhar a URL com os filtros aplicados
+
+### Interpretando a Visualização
+
+**Tabela (Desktop)**
+
+- **Primeira coluna**: Nome e ícone da categoria + badge (Despesa/Receita)
+- **Colunas seguintes**: Valor por mês no formato "Jan/2025"
+- **Última coluna**: Total acumulado da categoria no período
+- **Última linha**: Totais por mês (soma de todas categorias)
+- **Célula inferior direita**: Total geral
+
+**Cards (Mobile)**
+
+- Em telas menores, a visualização muda para cards empilhados
+- Cada card representa uma categoria
+- Clique no card para expandir e ver os meses individualmente
+- Último card mostra os totais gerais
+
+### Entendendo os Indicadores de Tendência
+
+**Setas e Percentuais**
+
+- **Seta para cima (↑) vermelha**: Despesa aumentou OU receita diminuiu
+- **Seta para baixo (↓) verde**: Despesa diminuiu OU receita aumentou
+- **Percentual**: Variação em relação ao mês anterior
+- **Primeiro mês**: Não mostra indicador (não há comparação)
+
+**Casos Especiais**
+
+- Se o mês anterior era R$ 0,00 e atual > 0: mostra "+100%"
+- Se o mês anterior > 0 e atual é R$ 0,00: mostra "-100%"
+- Valores são sempre mostrados como positivos (sem sinal negativo)
+
+### Exportando os Dados
+
+**Formatos Disponíveis**
+
+1. Clique no botão "Exportar" no canto superior direito
+2. Escolha um dos formatos:
+   - **CSV**: Para uso em planilhas e análises
+   - **Excel (.xlsx)**: Com formatação e estilos
+   - **PDF**: Para impressão e compartilhamento formal
+
+**Conteúdo Exportado**
+
+- Todas as categorias e meses visíveis na tela (filtros aplicados)
+- Indicadores de variação como texto (ex: "↑12%")
+- Linha e coluna de totais
+- Cabeçalho com período e data de geração
+- Nome do arquivo: `relatorio-categorias-[inicio]-[fim].[extensao]`
+
+**Após Exportação**
+
+- Uma mensagem de sucesso aparecerá
+- O arquivo será baixado automaticamente
+- Em caso de erro, uma mensagem informará o problema
+
+### Dicas de Uso
+
+1. **Análise de Padrões**: Use períodos de 6-12 meses para identificar tendências
+2. **Comparação Sazonal**: Compare mesmo mês em anos diferentes
+3. **Controle de Gastos**: Monitore categorias com tendência de alta constante
+4. **Planejamento**: Use os dados exportados para criar orçamentos futuros
+5. **Compartilhamento**: Copie a URL com filtros para compartilhar análises específicas
+
+### Troubleshooting
+
+**Página vazia ou sem dados**
+
+- Verifique se há lançamentos cadastrados no período
+- Confirme se alguma categoria está selecionada
+- Tente ampliar o período de busca
+
+**Performance lenta**
+
+- Reduza o período selecionado (máximo 24 meses)
+- Selecione menos categorias por vez
+- Use a exportação para análises offline de grandes volumes
+
+**Exportação não funciona**
+
+- Verifique a conexão com a internet
+- Certifique-se de que o navegador permite downloads
+- Tente um formato diferente (CSV é mais leve)
