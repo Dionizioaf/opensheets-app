@@ -57,7 +57,7 @@
 
 ## Tasks
 
-- [ ] **1.0 Setup de Infraestrutura e Navegação**
+- [x] **1.0 Setup de Infraestrutura e Navegação**
 
   - [x] 1.1 Criar estrutura de pastas `app/(dashboard)/relatorios/categorias/`
   - [x] 1.2 Criar estrutura de pastas `components/relatorios/`
