@@ -165,7 +165,6 @@ export function sanitizeOfxDescription(description: string): string {
  * @returns Note text with timestamp and OFX metadata
  */
 export function generateImportNote(ofxTrn: OfxTransaction): string {
-    const timestamp = new Date().toISOString();
     const parts = [
         `Importado via OFX em ${new Date().toLocaleDateString("pt-BR")}`,
         `FITID: ${ofxTrn.fitId}`,
