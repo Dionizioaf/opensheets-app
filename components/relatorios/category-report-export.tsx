@@ -52,7 +52,7 @@ export function CategoryReportExport({ data, filters }: CategoryReportExportProp
                     let cellValue = formatCurrency(value);
 
                     // Add indicator as text
-                    if (!isFirstMonth && percentageChange !== null) {
+                    if (!isFirstMonth && percentageChange != null) {
                         const arrow = percentageChange > 0 ? "↑" : "↓";
                         cellValue += ` (${arrow}${formatPercentageChange(percentageChange)})`;
                     }
@@ -119,7 +119,7 @@ export function CategoryReportExport({ data, filters }: CategoryReportExportProp
                     let cellValue: string = formatCurrency(value);
 
                     // Add indicator as text
-                    if (!isFirstMonth && percentageChange !== null) {
+                    if (!isFirstMonth && percentageChange != null) {
                         const arrow = percentageChange > 0 ? "↑" : "↓";
                         cellValue += ` (${arrow}${formatPercentageChange(percentageChange)})`;
                     }
@@ -223,7 +223,7 @@ export function CategoryReportExport({ data, filters }: CategoryReportExportProp
                     let cellValue = formatCurrency(value);
 
                     // Add indicator as text
-                    if (!isFirstMonth && percentageChange !== null) {
+                    if (!isFirstMonth && percentageChange != null) {
                         const arrow = percentageChange > 0 ? "↑" : "↓";
                         cellValue += `\n(${arrow}${formatPercentageChange(percentageChange)})`;
                     }
