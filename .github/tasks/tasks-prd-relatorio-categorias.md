@@ -10,6 +10,8 @@
 - `lib/relatorios/fetch-category-report.ts` - Função principal fetchCategoryReport para buscar dados agregados por categoria e período
 - `components/relatorios/types.ts` - Tipos de UI (CategoryOption, FilterState, CategoryReportFiltersProps)
 - `components/relatorios/category-report-filters.tsx` - Componente de filtros com multiselect de categorias e inputs de data
+- `components/relatorios/category-cell.tsx` - Célula individual com valor formatado, indicador de tendência (setas e percentuais), lógica de cores
+- `components/relatorios/category-report-table.tsx` - Tabela desktop completa com sticky header, sticky first column, CategoryCell, footer com totais
 
 ### Files Modified
 
@@ -113,9 +115,9 @@
     - Usar `useMemo` para otimizar lista de categorias
     - Layout responsivo: stack vertical em mobile, grid horizontal em desktop
 
-- [ ] **4.0 Componente de Tabela Desktop**
+- [x] **4.0 Componente de Tabela Desktop**
 
-  - [ ] 4.1 Criar `components/relatorios/category-cell.tsx`:
+  - [x] 4.1 Criar `components/relatorios/category-cell.tsx`:
     - Props: `value: number`, `previousValue: number`, `categoryType: "despesa" | "receita"`, `isFirstMonth: boolean`
     - Exibir valor formatado em BRL usando `Intl.NumberFormat`
     - Se `!isFirstMonth`, calcular e mostrar indicador:
@@ -125,7 +127,7 @@
       - Formato: "±X%" ou "±X.X%" se < 10%
       - Caso especial: se `previousValue === 0` e `value > 0`, mostrar "+100%"
     - Usar `text-red-600` para valores negativos de variação, `text-green-600` para positivos
-  - [ ] 4.2 Criar `components/relatorios/category-report-table.tsx` ("use client"):
+  - [x] 4.2 Criar `components/relatorios/category-report-table.tsx` ("use client"):
     - Props: `data: CategoryReportData`
     - Usar componente `Table` do shadcn/ui
     - Header fixo com scroll horizontal
