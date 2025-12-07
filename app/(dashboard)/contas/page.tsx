@@ -22,7 +22,7 @@ export default async function Page() {
     <main className="flex flex-col items-start gap-6">
       <AccountsPage
         accounts={accounts}
-        logoOptions={logoOptions.map(option => option.value)}
+        logoOptions={logoOptions}
         categoriaOptions={categoriaOptions}
         pagadorOptions={pagadorOptions}
       />

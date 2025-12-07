@@ -17,15 +17,9 @@ export type AccountData = {
   excludeFromBalance: boolean;
 };
 
-export type LogoOption = {
-  value: string;
-  label: string;
-  // Add other fields if needed
-};
-
 export async function fetchAccountsForUser(
   userId: string
-): Promise<{ accounts: AccountData[]; logoOptions: LogoOption[] }> {
+): Promise<{ accounts: AccountData[]; logoOptions: string[] }> {
   const [accountRows, logoOptions] = await Promise.all([
     db
       .select({
