@@ -93,6 +93,33 @@ Se você não se importa em dedicar alguns minutos por dia (ou semana) para mant
 - Defina quanto quer gastar por categoria no mês
 - Acompanhe se está dentro do planejado
 
+### 🆕 Features Exclusivas deste Fork
+
+Este fork adiciona funcionalidades importantes que não estão na versão original:
+
+📊 **Relatório de Categorias por Período**
+
+- Visualize gastos e receitas por categoria ao longo de vários meses
+- Compare tendências mês a mês com indicadores visuais (setas e percentuais)
+- Filtros flexíveis por categorias e período customizado
+- Exportação em múltiplos formatos (CSV, Excel, PDF)
+- Visão responsiva: tabela no desktop, cards no mobile
+- Acesso rápido via dashboard
+
+📥 **Importação de Arquivos OFX**
+
+- Importe extratos bancários no formato OFX diretamente
+- Detecção automática de duplicatas
+- Sugestão inteligente de categorias baseada em histórico
+- Mapeamento automático de contas
+- Economia de tempo no registro manual de transações
+
+💱 **Detalhes de Resumo de Cotações**
+
+- Acompanhe informações detalhadas sobre cotações de moedas
+- Visualização aprimorada de taxas de câmbio
+- Histórico de variações
+
 ### Stack técnica
 
 Construído com tecnologias modernas que facilitam o desenvolvimento:
