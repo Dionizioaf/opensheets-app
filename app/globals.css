@@ -8,7 +8,7 @@
 
 :root {
   /* Base surfaces - warm cream with subtle orange undertone */
-  --background: oklch(97.512% 0.00674 67.377);
+  --background: oklch(96.563% 0.00504 67.275);
   --foreground: oklch(18% 0.02 45);
   --card: oklch(100% 0.00011 271.152);
   --card-foreground: oklch(18% 0.02 45);
@@ -49,11 +49,11 @@
   --chart-6: var(--color-stone-400);
 
   /* Sidebar - slight elevation from background */
-  --sidebar: oklch(94.637% 0.00925 62.27);
+  --sidebar: oklch(100% 0.00011 271.152);
   --sidebar-foreground: oklch(20% 0.02 45);
   --sidebar-primary: oklch(25% 0.025 45);
   --sidebar-primary-foreground: oklch(98% 0.008 80);
-  --sidebar-accent: oklch(88.94% 0.02161 65.18);
+  --sidebar-accent: oklch(96.563% 0.00504 67.275);
   --sidebar-accent-foreground: oklch(22% 0.025 45);
   --sidebar-border: oklch(58.814% 0.15852 38.26);
   --sidebar-ring: oklch(69.18% 0.18855 38.353);
@@ -79,7 +79,7 @@
   --spacing: 0.25rem;
 
   /* Special components */
-  --month-picker: oklch(92.929% 0.01274 63.703);
+  --month-picker: oklch(100% 0.00011 271.152);
   --month-picker-foreground: oklch(22% 0.015 45);
   --dark: oklch(22% 0.015 45);
   --dark-foreground: oklch(94% 0.008 80);

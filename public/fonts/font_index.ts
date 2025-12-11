@@ -1,23 +1,17 @@
-import { Funnel_Display } from "next/font/google";
-import localFont from "next/font/local";
+import { Barlow, Inter } from "next/font/google";
 
-const anthropic_sans = localFont({
-  src: [
-    {
-      path: "../fonts/anthropic-sans.woff2",
-      weight: "400",
-      style: "normal",
-    },
-  ],
-});
-
-const funnel_display = Funnel_Display({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["500", "600", "700"],
 });
 
-const main_font = funnel_display;
-const money_font = anthropic_sans;
-const title_font = funnel_display;
+const barlow = Barlow({
+  subsets: ["latin"],
+  weight: "500",
+});
+
+const main_font = inter;
+const money_font = barlow;
+const title_font = inter;
 
 export { main_font, money_font, title_font };

@@ -1,5 +1,5 @@
-import { PrivacyProvider } from "@/components/privacy-provider";
 import { SiteHeader } from "@/components/header-dashboard";
+import { PrivacyProvider } from "@/components/privacy-provider";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getUserSession } from "@/lib/auth/server";
@@ -52,7 +52,7 @@ export default async function DashboardLayout({
             avatarUrl: item.avatarUrl,
             canEdit: item.canEdit,
           }))}
-          variant="inset"
+          variant="sidebar"
         />
         <SidebarInset>
           <SiteHeader notificationsSnapshot={notificationsSnapshot} />

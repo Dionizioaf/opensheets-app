@@ -188,7 +188,7 @@ const buildColumns = ({
             <EstabelecimentoLogo name={name} size={28} />
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="line-clamp-2 max-w-[180px] font-bold truncate">
+                <span className="line-clamp-2 max-w-[160px] font-semibold truncate">
                   {name}
                 </span>
               </TooltipTrigger>

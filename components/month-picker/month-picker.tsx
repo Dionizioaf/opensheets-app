@@ -2,7 +2,6 @@
 
 import { Card } from "@/components/ui/card";
 import { useMonthPeriod } from "@/hooks/use-month-period";
-import { main_font } from "@/public/fonts/font_index";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useTransition } from "react";
 import LoadingSpinner from "./loading-spinner";
@@ -80,9 +79,7 @@ export default function MonthPicker() {
   };
 
   return (
-    <Card
-      className={`${main_font.className} sticky top-0 z-30 w-full flex-row border-none bg-month-picker text-month-picker-foreground p-5 shadow-none drop-shadow-none`}
-    >
+    <Card className="sticky top-0 z-30 w-full flex-row bg-month-picker text-month-picker-foreground p-5">
       <div className="flex items-center gap-1">
         <NavigationButton
           direction="left"
@@ -92,7 +89,7 @@ export default function MonthPicker() {
 
         <div className="flex items-center">
           <div
-            className="mx-1 space-x-1 capitalize font-bold tracking-wide"
+            className="mx-1 space-x-1 capitalize font-medium"
             aria-current={!isDifferentFromCurrent ? "date" : undefined}
             aria-label={`Período selecionado: ${currentMonthLabel} de ${currentYear}`}
           >

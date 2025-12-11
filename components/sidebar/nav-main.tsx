@@ -120,7 +120,7 @@ export function NavMain({ sections }: { sections: NavSection[] }) {
                         className={itemIsActive ? activeLinkClasses : ""}
                       >
                         <Link prefetch href={buildHrefWithPeriod(item.url)}>
-                          <item.icon className={"h-4 w-4"} />
+                          <item.icon className="size-4" />
                           {item.title}
                         </Link>
                       </SidebarMenuButton>
