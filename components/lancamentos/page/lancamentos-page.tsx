@@ -370,20 +370,20 @@ export function LancamentosPage({
 
         <LancamentosTable
           data={lancamentos}
-        pagadorFilterOptions={pagadorFilterOptions}
-        categoriaFilterOptions={categoriaFilterOptions}
-        contaCartaoFilterOptions={contaCartaoFilterOptions}
-        onCreate={allowCreate ? handleCreate : undefined}
-        onMassAdd={allowCreate ? handleMassAdd : undefined}
-        onEdit={handleEdit}
-        onCopy={handleCopy}
-        onConfirmDelete={handleConfirmDelete}
-        onBulkDelete={handleMultipleBulkDelete}
-        onViewDetails={handleViewDetails}
-        onToggleSettlement={handleToggleSettlement}
-        onAnticipate={handleAnticipate}
-        onViewAnticipationHistory={handleViewAnticipationHistory}
-        isSettlementLoading={(id) => settlementLoadingId === id}
+          pagadorFilterOptions={pagadorFilterOptions}
+          categoriaFilterOptions={categoriaFilterOptions}
+          contaCartaoFilterOptions={contaCartaoFilterOptions}
+          onCreate={allowCreate ? handleCreate : undefined}
+          onMassAdd={allowCreate ? handleMassAdd : undefined}
+          onEdit={handleEdit}
+          onCopy={handleCopy}
+          onConfirmDelete={handleConfirmDelete}
+          onBulkDelete={handleMultipleBulkDelete}
+          onViewDetails={handleViewDetails}
+          onToggleSettlement={handleToggleSettlement}
+          onAnticipate={handleAnticipate}
+          onViewAnticipationHistory={handleViewAnticipationHistory}
+          isSettlementLoading={(id) => settlementLoadingId === id}
         />
       </div>
 
@@ -526,9 +526,8 @@ export function LancamentosPage({
       <ConfirmActionDialog
         open={multipleBulkDeleteOpen && pendingMultipleDeleteData.length > 0}
         onOpenChange={setMultipleBulkDeleteOpen}
-        title={`Remover ${pendingMultipleDeleteData.length} ${
-          pendingMultipleDeleteData.length === 1 ? "lançamento" : "lançamentos"
-        }?`}
+        title={`Remover ${pendingMultipleDeleteData.length} ${pendingMultipleDeleteData.length === 1 ? "lançamento" : "lançamentos"
+          }?`}
         description="Essa ação é irreversível e removerá os lançamentos selecionados de forma permanente."
         confirmLabel="Remover"
         pendingLabel="Removendo..."
