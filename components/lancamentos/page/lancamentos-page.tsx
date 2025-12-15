@@ -85,7 +85,10 @@ export function LancamentosPage({
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(() => {
-    // Initialize from localStorage
+    // Initialize from localStorage (only in browser)
+    if (typeof window === "undefined") {
+      return false;
+    }
     try {
       const stored = localStorage.getItem("lancamentos_totalizer_collapsed");
       return stored !== null ? JSON.parse(stored) : false;
