@@ -86,7 +86,7 @@
   - [x] 3.13 Add labels "Receitas", "Despesas", "Saldo" in Portuguese
   - [x] 3.14 Export component as default
 
-- [ ] 4.0 **Category Column Addition**
+- [x] 4.0 **Category Column Addition**
 
   - [x] 4.1 Open `components/lancamentos/table/lancamentos-table.tsx`
   - [x] 4.2 Verify `LancamentoItem` type includes `categoriaName`, `categoriaIcon` fields (already exists from types.ts)
@@ -101,18 +101,18 @@
 
 - [ ] 5.0 **Column Selector Component**
 
-  - [ ] 5.1 Create `components/lancamentos/table/column-selector.tsx` file with `"use client"` directive
-  - [ ] 5.2 Define props: `table: Table<LancamentoItem>` (from TanStack React Table), `onReset: () => void`
-  - [ ] 5.3 Import `Button`, `DropdownMenu`, `Checkbox` from shadcn/ui
-  - [ ] 5.4 Import `RiSettings4Line`, `RiRefreshLine` icons from Remix Icon
-  - [ ] 5.5 Create DropdownMenu with trigger button showing settings icon and "Colunas" label
-  - [ ] 5.6 Use `table.getAllColumns()` to get column list, filter out non-hideable columns (select, actions)
-  - [ ] 5.7 Map each column to a DropdownMenuItem with Checkbox showing visibility state
-  - [ ] 5.8 Use `column.getIsVisible()` to get current state and `column.toggleVisibility()` to toggle
-  - [ ] 5.9 Display column label using `column.columnDef.meta?.label` or fallback to `column.id`
-  - [ ] 5.10 Add separator then "Restaurar padrão" menu item at bottom that calls `onReset()`
-  - [ ] 5.11 Style menu to be scrollable if many columns (max-h-96)
-  - [ ] 5.12 Export component as default
+  - [x] 5.1 Create `components/lancamentos/table/column-selector.tsx` file with `"use client"` directive
+  - [x] 5.2 Define props: `table: Table<LancamentoItem>` (from TanStack React Table), `onReset: () => void`
+  - [x] 5.3 Import `Button`, `DropdownMenu`, `Checkbox` from shadcn/ui
+  - [x] 5.4 Import `RiSettings4Line`, `RiRefreshLine` icons from Remix Icon
+  - [x] 5.5 Create DropdownMenu with trigger button showing settings icon and "Colunas" label
+  - [x] 5.6 Use `table.getAllColumns()` to get column list, filter out non-hideable columns (select, actions)
+  - [x] 5.7 Map each column to a DropdownMenuItem with Checkbox showing visibility state
+  - [x] 5.8 Use `column.getIsVisible()` to get current state and `column.toggleVisibility()` to toggle
+  - [x] 5.9 Display column label using `column.columnDef.meta?.label` or fallback to `column.id`
+  - [x] 5.10 Add separator then "Restaurar padrão" menu item at bottom that calls `onReset()`
+  - [x] 5.11 Style menu to be scrollable if many columns (max-h-96)
+  - [x] 5.12 Export component as default
 
 - [ ] 6.0 **Column Visibility & Reordering Integration**
 
