@@ -88,16 +88,16 @@
 
 - [ ] 4.0 **Category Column Addition**
 
-  - [ ] 4.1 Open `components/lancamentos/table/lancamentos-table.tsx`
-  - [ ] 4.2 Verify `LancamentoItem` type includes `categoriaName`, `categoriaIcon` fields (already exists from types.ts)
-  - [ ] 4.3 In `buildColumns()` function, add new column definition after "Estabelecimento" column
-  - [ ] 4.4 Set `accessorKey: "categoriaName"` and `header: "Categoria"` and `id: "categoria"`
-  - [ ] 4.5 Implement cell renderer that checks if `categoriaName` exists
-  - [ ] 4.6 If category exists, display icon (using `getIconComponent()`) + name in a Badge
-  - [ ] 4.7 If no category, display "—" placeholder
-  - [ ] 4.8 Make column hideable by setting `enableHiding: true`
-  - [ ] 4.9 Add `meta` property with `label: "Categoria"` for display in column selector
-  - [ ] 4.10 Test category display with transactions that have and don't have categories
+  - [x] 4.1 Open `components/lancamentos/table/lancamentos-table.tsx`
+  - [x] 4.2 Verify `LancamentoItem` type includes `categoriaName`, `categoriaIcon` fields (already exists from types.ts)
+  - [x] 4.3 In `buildColumns()` function, add new column definition after "Estabelecimento" column
+  - [x] 4.4 Set `accessorKey: "categoriaName"` and `header: "Categoria"` and `id: "categoria"`
+  - [x] 4.5 Implement cell renderer that checks if `categoriaName` exists
+  - [x] 4.6 If category exists, display icon (using `getIconComponent()`) + name in a Badge
+  - [x] 4.7 If no category, display "—" placeholder
+  - [x] 4.8 Make column hideable by setting `enableHiding: true`
+  - [x] 4.9 Add `meta` property with `label: "Categoria"` for display in column selector
+  - [x] 4.10 Test category display with transactions that have and don't have categories
 
 - [ ] 5.0 **Column Selector Component**
 

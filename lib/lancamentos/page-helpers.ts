@@ -403,6 +403,7 @@ export const mapLancamentosData = (rows: LancamentoRowWithRelations[]) =>
     cartaoLogo: item.cartao?.logo ?? null,
     categoriaId: item.categoriaId ?? null,
     categoriaName: item.categoria?.name ?? null,
+    categoriaIcon: item.categoria?.icon ?? null,
     categoriaType: item.categoria?.type ?? null,
     installmentCount: item.installmentCount ?? null,
     recurrenceCount: item.recurrenceCount ?? null,

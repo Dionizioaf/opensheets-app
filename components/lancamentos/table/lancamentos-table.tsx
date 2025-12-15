@@ -38,7 +38,11 @@ import {
 } from "@/components/ui/tooltip";
 import { getAvatarSrc } from "@/lib/pagadores/utils";
 import { formatDate } from "@/lib/utils/date";
-import { getConditionIcon, getPaymentMethodIcon } from "@/lib/utils/icons";
+import {
+  getConditionIcon,
+  getIconComponent,
+  getPaymentMethodIcon,
+} from "@/lib/utils/icons";
 import { cn } from "@/lib/utils/ui";
 import { title_font } from "@/public/fonts/font_index";
 import {
@@ -282,6 +286,31 @@ const buildColumns = ({
               </Tooltip>
             ) : null}
           </span>
+        );
+      },
+    },
+    {
+      id: "categoria",
+      accessorKey: "categoriaName",
+      header: "Categoria",
+      enableHiding: true,
+      meta: {
+        label: "Categoria",
+      },
+      cell: ({ row }) => {
+        const { categoriaName, categoriaIcon } = row.original;
+
+        if (!categoriaName) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+
+        const Icon = categoriaIcon ? getIconComponent(categoriaIcon) : null;
+
+        return (
+          <Badge variant="outline" className="gap-1.5">
+            {Icon && <Icon className="h-3.5 w-3.5" aria-hidden />}
+            <span>{categoriaName}</span>
+          </Badge>
         );
       },
     },
