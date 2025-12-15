@@ -9,8 +9,10 @@ import {
   updateLancamentoBulkAction,
 } from "@/app/(dashboard)/lancamentos/actions";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { calculateTotalizers } from "@/lib/lancamentos/totalizers";
+import { LancamentosTotalizer } from "../totalizer/lancamentos-totalizer";
 
 import { AnticipateInstallmentsDialog } from "../dialogs/anticipate-installments-dialog/anticipate-installments-dialog";
 import { AnticipationHistoryDialog } from "../dialogs/anticipate-installments-dialog/anticipation-history-dialog";
@@ -82,6 +84,42 @@ export function LancamentosPage({
   );
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(false);
+
+  // Load totalizer collapse preference from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("lancamentos_totalizer_collapsed");
+      if (stored !== null) {
+        setIsTotalizerCollapsed(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error("Failed to load totalizer collapse preference:", error);
+    }
+  }, []);
+
+  // Handle totalizer collapse toggle
+  const handleToggleTotalizerCollapse = useCallback(() => {
+    setIsTotalizerCollapsed((prev) => {
+      const newValue = !prev;
+      try {
+        localStorage.setItem(
+          "lancamentos_totalizer_collapsed",
+          JSON.stringify(newValue)
+        );
+      } catch (error) {
+        console.error("Failed to save totalizer collapse preference:", error);
+      }
+      return newValue;
+    });
+  }, []);
+
+  // Calculate totalizer data from filtered lancamentos
+  const totalizerData = useMemo(
+    () => calculateTotalizers(lancamentos),
+    [lancamentos]
+  );
+
   const [pendingEditData, setPendingEditData] = useState<{
     id: string;
     name: string;
@@ -323,8 +361,15 @@ export function LancamentosPage({
 
   return (
     <>
-      <LancamentosTable
-        data={lancamentos}
+      <div className="flex flex-col gap-6">
+        <LancamentosTotalizer
+          totalizerData={totalizerData}
+          isCollapsed={isTotalizerCollapsed}
+          onToggleCollapse={handleToggleTotalizerCollapse}
+        />
+
+        <LancamentosTable
+          data={lancamentos}
         pagadorFilterOptions={pagadorFilterOptions}
         categoriaFilterOptions={categoriaFilterOptions}
         contaCartaoFilterOptions={contaCartaoFilterOptions}
@@ -339,7 +384,8 @@ export function LancamentosPage({
         onAnticipate={handleAnticipate}
         onViewAnticipationHistory={handleViewAnticipationHistory}
         isSettlementLoading={(id) => settlementLoadingId === id}
-      />
+        />
+      </div>
 
       {allowCreate ? (
         <LancamentoDialog

@@ -140,7 +140,7 @@
 
 - [ ] 7.0 **Page Integration & Layout**
 
-  - [ ] 7.1 Open `components/lancamentos/page/lancamentos-page.tsx`
+  - [x] 7.1 Open `components/lancamentos/page/lancamentos-page.tsx`
   - [ ] 7.2 Import `LancamentosTotalizer` component
   - [ ] 7.3 Import `calculateTotalizers` function from `@/lib/lancamentos/totalizers`
   - [ ] 7.4 Add `useState` for totalizer collapse state: `const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(false)`
