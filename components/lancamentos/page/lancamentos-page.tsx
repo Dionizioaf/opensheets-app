@@ -84,19 +84,16 @@ export function LancamentosPage({
   );
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(false);
-
-  // Load totalizer collapse preference from localStorage on mount
-  useEffect(() => {
+  const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(() => {
+    // Initialize from localStorage
     try {
       const stored = localStorage.getItem("lancamentos_totalizer_collapsed");
-      if (stored !== null) {
-        setIsTotalizerCollapsed(JSON.parse(stored));
-      }
+      return stored !== null ? JSON.parse(stored) : false;
     } catch (error) {
       console.error("Failed to load totalizer collapse preference:", error);
+      return false;
     }
-  }, []);
+  });
 
   // Handle totalizer collapse toggle
   const handleToggleTotalizerCollapse = useCallback(() => {

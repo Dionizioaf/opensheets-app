@@ -26,6 +26,7 @@ describe("calculateTotalizers", () => {
         categoriaId: null,
         categoriaName: null,
         categoriaType: null,
+        categoriaIcon: null,
         installmentCount: null,
         recurrenceCount: null,
         currentInstallment: null,

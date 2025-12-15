@@ -664,6 +664,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "contaCartao",
 ];
 
+
 export function LancamentosTable({
   data,
   pagadorFilterOptions = [],
@@ -683,6 +684,7 @@ export function LancamentosTable({
   showActions = true,
   showFilters = true,
 }: LancamentosTableProps) {
+  const { preferences, updatePreferences, resetToDefault } = useColumnPreferences();
   const [sorting, setSorting] = useState<SortingState>([
     { id: "purchaseDate", desc: true },
   ]);
@@ -700,9 +702,6 @@ export function LancamentosTable({
   const [columnOrder, setColumnOrder] = useState<string[]>(
     preferences?.columnOrder ?? DEFAULT_COLUMN_ORDER
   );
-
-  const { preferences, updatePreferences, resetToDefault } =
-    useColumnPreferences();
 
   const columns = useMemo(
     () =>
@@ -778,7 +777,10 @@ export function LancamentosTable({
       .filter(([, isVisible]) => isVisible)
       .map(([col]) => col);
     if (visibleCols.length > 0) {
-      updatePreferences({ visibleColumns: visibleCols });
+      updatePreferences({
+        visibleColumns: visibleCols,
+        columnOrder,
+      });
     }
   }, [columnVisibility, updatePreferences]);
 
@@ -791,8 +793,14 @@ export function LancamentosTable({
 
   // Sync order changes back to localStorage
   useEffect(() => {
-    updatePreferences({ columnOrder });
-  }, [columnOrder, updatePreferences]);
+    const visibleCols = Object.entries(columnVisibility)
+      .filter(([, isVisible]) => isVisible)
+      .map(([col]) => col);
+    updatePreferences({
+      columnOrder,
+      visibleColumns: visibleCols,
+    });
+  }, [columnOrder, columnVisibility, updatePreferences]);
 
   const handleBulkDelete = () => {
     if (onBulkDelete && selectedCount > 0) {
