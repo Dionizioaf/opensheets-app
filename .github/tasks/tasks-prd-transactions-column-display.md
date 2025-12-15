@@ -18,9 +18,12 @@
 - ✅ `lib/lancamentos/__tests__/totalizers.test.ts` - Tests for totalizer calculation logic
 - ✅ `components/lancamentos/totalizer/lancamentos-totalizer.tsx` - Totalizer widget displaying income/expenses/net total
 
+### New Files Created (continued)
+
+- ✅ `components/lancamentos/table/column-selector.tsx` - Dropdown menu for column visibility control
+
 ### New Files to Create
 
-- `components/lancamentos/table/column-selector.tsx` - Dropdown menu for column visibility control
 - `components/lancamentos/totalizer/__tests__/lancamentos-totalizer.test.tsx` - Tests for totalizer component
 - `components/lancamentos/table/__tests__/column-selector.test.tsx` - Tests for column selector
 
@@ -99,7 +102,7 @@
   - [x] 4.9 Add `meta` property with `label: "Categoria"` for display in column selector
   - [x] 4.10 Test category display with transactions that have and don't have categories
 
-- [ ] 5.0 **Column Selector Component**
+- [x] 5.0 **Column Selector Component**
 
   - [x] 5.1 Create `components/lancamentos/table/column-selector.tsx` file with `"use client"` directive
   - [x] 5.2 Define props: `table: Table<LancamentoItem>` (from TanStack React Table), `onReset: () => void`

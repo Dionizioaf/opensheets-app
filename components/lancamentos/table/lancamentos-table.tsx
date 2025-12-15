@@ -321,9 +321,9 @@ const buildColumns = ({
         <TypeBadge
           type={
             row.original.transactionType as
-              | "Despesa"
-              | "Receita"
-              | "Transferência"
+            | "Despesa"
+            | "Receita"
+            | "Transferência"
           }
         />
       ),
@@ -449,8 +449,8 @@ const buildColumns = ({
         const href = cartaoId
           ? `/cartoes/${cartaoId}/fatura`
           : contaId
-          ? `/contas/${contaId}/extrato`
-          : null;
+            ? `/contas/${contaId}/extrato`
+            : null;
         const Icon = cartaoId ? RiBankCard2Line : contaId ? RiBankLine : null;
 
         if (!label) {
@@ -816,9 +816,9 @@ export function LancamentosTable({
                             {header.isPlaceholder
                               ? null
                               : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
                           </TableHead>
                         ))}
                       </TableRow>
