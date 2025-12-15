@@ -10,19 +10,19 @@
 - `lib/lancamentos/page-helpers.ts` - May need utility functions for totalizer calculations
 - `app/(dashboard)/lancamentos/data.ts` - Ensure category data is fetched with transactions
 
+### New Files Created
+
+- ✅ `hooks/use-column-preferences.ts` - Custom hook for reading/writing column preferences to localStorage
+- ✅ `hooks/__tests__/use-column-preferences.test.ts` - Unit tests for localStorage hook
+- ✅ `lib/lancamentos/totalizers.ts` - Utility functions to calculate totals from filtered transactions
+- ✅ `lib/lancamentos/__tests__/totalizers.test.ts` - Tests for totalizer calculation logic
+- ✅ `components/lancamentos/totalizer/lancamentos-totalizer.tsx` - Totalizer widget displaying income/expenses/net total
+
 ### New Files to Create
 
-- `hooks/use-column-preferences.ts` - Custom hook for reading/writing column preferences to localStorage
-- `components/lancamentos/totalizer/lancamentos-totalizer.tsx` - Totalizer widget displaying income/expenses/net total
 - `components/lancamentos/table/column-selector.tsx` - Dropdown menu for column visibility control
-- `lib/lancamentos/totalizers.ts` - Utility functions to calculate totals from filtered transactions
-
-### Test Files to Create
-
-- `hooks/__tests__/use-column-preferences.test.ts` - Unit tests for localStorage hook
 - `components/lancamentos/totalizer/__tests__/lancamentos-totalizer.test.tsx` - Tests for totalizer component
 - `components/lancamentos/table/__tests__/column-selector.test.tsx` - Tests for column selector
-- `lib/lancamentos/__tests__/totalizers.test.ts` - Tests for totalizer calculation logic
 
 ### Reference Files (for patterns)
 
@@ -43,48 +43,48 @@
 
 ## Tasks
 
-- [ ] 1.0 **LocalStorage Hook for Column Preferences**
+- [x] 1.0 **LocalStorage Hook for Column Preferences**
 
-  - [ ] 1.1 Create `hooks/use-column-preferences.ts` file
-  - [ ] 1.2 Define TypeScript types: `ColumnPreferences` with `visibleColumns: string[]` and `columnOrder: string[]`
-  - [ ] 1.3 Define localStorage key constant: `LANCAMENTOS_COLUMN_PREFERENCES_KEY = "lancamentos_column_preferences"`
-  - [ ] 1.4 Implement `getColumnPreferences()` function to read from localStorage, parse JSON, and return typed object or null
-  - [ ] 1.5 Implement `setColumnPreferences()` function to stringify and write to localStorage with error handling
-  - [ ] 1.6 Create `useColumnPreferences()` hook using `useState` and `useEffect`
-  - [ ] 1.7 Initialize state from localStorage on mount, falling back to default values
-  - [ ] 1.8 Provide `updatePreferences()` function that updates both state and localStorage
-  - [ ] 1.9 Add try-catch error handling for localStorage quota exceeded scenarios
-  - [ ] 1.10 Export hook and types from the file
+  - [x] 1.1 Create `hooks/use-column-preferences.ts` file
+  - [x] 1.2 Define TypeScript types: `ColumnPreferences` with `visibleColumns: string[]` and `columnOrder: string[]`
+  - [x] 1.3 Define localStorage key constant: `LANCAMENTOS_COLUMN_PREFERENCES_KEY = "lancamentos_column_preferences"`
+  - [x] 1.4 Implement `getColumnPreferences()` function to read from localStorage, parse JSON, and return typed object or null
+  - [x] 1.5 Implement `setColumnPreferences()` function to stringify and write to localStorage with error handling
+  - [x] 1.6 Create `useColumnPreferences()` hook using `useState` and `useEffect`
+  - [x] 1.7 Initialize state from localStorage on mount, falling back to default values
+  - [x] 1.8 Provide `updatePreferences()` function that updates both state and localStorage
+  - [x] 1.9 Add try-catch error handling for localStorage quota exceeded scenarios
+  - [x] 1.10 Export hook and types from the file
 
-- [ ] 2.0 **Totalizer Calculation Utilities**
+- [x] 2.0 **Totalizer Calculation Utilities**
 
-  - [ ] 2.1 Create `lib/lancamentos/totalizers.ts` file
-  - [ ] 2.2 Define TypeScript type: `TotalizerData` with `totalIncome: number`, `totalExpenses: number`, `netTotal: number`
-  - [ ] 2.3 Implement `calculateTotalizers(lancamentos: LancamentoItem[]): TotalizerData` function
-  - [ ] 2.4 Filter lancamentos to separate "Receita" (income) and "Despesa" (expense) by `transactionType`
-  - [ ] 2.5 Calculate `totalIncome` by summing all income amounts (use `Math.abs()` to ensure positive)
-  - [ ] 2.6 Calculate `totalExpenses` by summing all expense amounts (use `Math.abs()` to ensure positive)
-  - [ ] 2.7 Calculate `netTotal` as `totalIncome - totalExpenses` (can be negative)
-  - [ ] 2.8 Return object with all three calculated values as numbers
-  - [ ] 2.9 Add JSDoc comments explaining the function and return values
-  - [ ] 2.10 Export function from the file
+  - [x] 2.1 Create `lib/lancamentos/totalizers.ts` file
+  - [x] 2.2 Define TypeScript type: `TotalizerData` with `totalIncome: number`, `totalExpenses: number`, `netTotal: number`
+  - [x] 2.3 Implement `calculateTotalizers(lancamentos: LancamentoItem[]): TotalizerData` function
+  - [x] 2.4 Filter lancamentos to separate "Receita" (income) and "Despesa" (expense) by `transactionType`
+  - [x] 2.5 Calculate `totalIncome` by summing all income amounts (use `Math.abs()` to ensure positive)
+  - [x] 2.6 Calculate `totalExpenses` by summing all expense amounts (use `Math.abs()` to ensure positive)
+  - [x] 2.7 Calculate `netTotal` as `totalIncome - totalExpenses` (can be negative)
+  - [x] 2.8 Return object with all three calculated values as numbers
+  - [x] 2.9 Add JSDoc comments explaining the function and return values
+  - [x] 2.10 Export function from the file
 
-- [ ] 3.0 **Totalizer Widget Component**
+- [x] 3.0 **Totalizer Widget Component**
 
-  - [ ] 3.1 Create `components/lancamentos/totalizer/` directory
-  - [ ] 3.2 Create `components/lancamentos/totalizer/lancamentos-totalizer.tsx` file with `"use client"` directive
-  - [ ] 3.3 Define component props: `totalizerData: TotalizerData`, `isCollapsed?: boolean`, `onToggleCollapse?: () => void`
-  - [ ] 3.4 Import `usePrivacyMode()` hook from `@/components/privacy-provider`
-  - [ ] 3.5 Import `MoneyValues` component from `@/components/money-values` for consistent currency formatting
-  - [ ] 3.6 Import `Card`, `CardContent`, `CardHeader` from shadcn/ui
-  - [ ] 3.7 Create layout with three sections: Total Income (green), Total Expenses (red), Net Total (blue if positive, red if negative)
-  - [ ] 3.8 Use `MoneyValues` component for each value (privacy mode handled automatically)
-  - [ ] 3.9 Add collapse/expand button in header using `RiArrowUpSLine` / `RiArrowDownSLine` icons
-  - [ ] 3.10 Conditionally render CardContent based on `isCollapsed` prop
-  - [ ] 3.11 Apply responsive layout: side-by-side on desktop (flex-row), stacked on mobile (flex-col)
-  - [ ] 3.12 Use Tailwind classes for visual distinction: border colors matching income/expense/net
-  - [ ] 3.13 Add labels "Receitas", "Despesas", "Saldo" in Portuguese
-  - [ ] 3.14 Export component as default
+  - [x] 3.1 Create `components/lancamentos/totalizer/` directory
+  - [x] 3.2 Create `components/lancamentos/totalizer/lancamentos-totalizer.tsx` file with `"use client"` directive
+  - [x] 3.3 Define component props: `totalizerData: TotalizerData`, `isCollapsed?: boolean`, `onToggleCollapse?: () => void`
+  - [x] 3.4 Import `usePrivacyMode()` hook from `@/components/privacy-provider`
+  - [x] 3.5 Import `MoneyValues` component from `@/components/money-values` for consistent currency formatting
+  - [x] 3.6 Import `Card`, `CardContent`, `CardHeader` from shadcn/ui
+  - [x] 3.7 Create layout with three sections: Total Income (green), Total Expenses (red), Net Total (blue if positive, red if negative)
+  - [x] 3.8 Use `MoneyValues` component for each value (privacy mode handled automatically)
+  - [x] 3.9 Add collapse/expand button in header using `RiArrowUpSLine` / `RiArrowDownSLine` icons
+  - [x] 3.10 Conditionally render CardContent based on `isCollapsed` prop
+  - [x] 3.11 Apply responsive layout: side-by-side on desktop (flex-row), stacked on mobile (flex-col)
+  - [x] 3.12 Use Tailwind classes for visual distinction: border colors matching income/expense/net
+  - [x] 3.13 Add labels "Receitas", "Despesas", "Saldo" in Portuguese
+  - [x] 3.14 Export component as default
 
 - [ ] 4.0 **Category Column Addition**
 
