@@ -120,6 +120,12 @@ export function LancamentosPage({
     [lancamentos]
   );
 
+  // Memoize settlement loading check to prevent table re-renders
+  const checkSettlementLoading = useCallback(
+    (id: string) => settlementLoadingId === id,
+    [settlementLoadingId]
+  );
+
   const [pendingEditData, setPendingEditData] = useState<{
     id: string;
     name: string;
@@ -383,7 +389,7 @@ export function LancamentosPage({
           onToggleSettlement={handleToggleSettlement}
           onAnticipate={handleAnticipate}
           onViewAnticipationHistory={handleViewAnticipationHistory}
-          isSettlementLoading={(id) => settlementLoadingId === id}
+          isSettlementLoading={checkSettlementLoading}
         />
       </div>
 
