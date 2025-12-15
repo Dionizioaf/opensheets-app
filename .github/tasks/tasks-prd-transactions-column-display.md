@@ -138,31 +138,31 @@
   - [x] 6.17 Implement `resetToDefault()` function that clears localStorage and resets to default visibility/order
   - [x] 6.18 Pass table instance and reset function to `ColumnSelector` component
 
-- [ ] 7.0 **Page Integration & Layout**
+- [x] 7.0 **Page Integration & Layout**
 
   - [x] 7.1 Open `components/lancamentos/page/lancamentos-page.tsx`
-  - [ ] 7.2 Import `LancamentosTotalizer` component
-  - [ ] 7.3 Import `calculateTotalizers` function from `@/lib/lancamentos/totalizers`
-  - [ ] 7.4 Add `useState` for totalizer collapse state: `const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(false)`
-  - [ ] 7.5 Add `useEffect` to load collapse preference from localStorage key `lancamentos_totalizer_collapsed`
-  - [ ] 7.6 Create toggle handler that updates state and saves to localStorage
-  - [ ] 7.7 Calculate totalizer data using `useMemo(() => calculateTotalizers(lancamentos), [lancamentos])`
-  - [ ] 7.8 Add `<LancamentosTotalizer>` component above `<LancamentosTable>` in JSX
-  - [ ] 7.9 Pass `totalizerData`, `isCollapsed`, and `onToggleCollapse` props
-  - [ ] 7.10 Wrap totalizer and table in proper spacing (gap-4 or gap-6)
-  - [ ] 7.11 Ensure totalizer respects the filtered `lancamentos` array passed as props
-  - [ ] 7.12 Test that totalizer updates when filters change
-  - [ ] 7.13 Verify layout works on mobile (totalizer stacks vertically)
+  - [x] 7.2 Import `LancamentosTotalizer` component
+  - [x] 7.3 Import `calculateTotalizers` function from `@/lib/lancamentos/totalizers`
+  - [x] 7.4 Add `useState` for totalizer collapse state: `const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(false)`
+  - [x] 7.5 Add `useEffect` to load collapse preference from localStorage key `lancamentos_totalizer_collapsed`
+  - [x] 7.6 Create toggle handler that updates state and saves to localStorage
+  - [x] 7.7 Calculate totalizer data using `useMemo(() => calculateTotalizers(lancamentos), [lancamentos])`
+  - [x] 7.8 Add `<LancamentosTotalizer>` component above `<LancamentosTable>` in JSX
+  - [x] 7.9 Pass `totalizerData`, `isCollapsed`, and `onToggleCollapse` props
+  - [x] 7.10 Wrap totalizer and table in proper spacing (gap-4 or gap-6)
+  - [x] 7.11 Ensure totalizer respects the filtered `lancamentos` array passed as props
+  - [x] 7.12 Test that totalizer updates when filters change
+  - [x] 7.13 Verify layout works on mobile (totalizer stacks vertically)
 
 - [ ] 8.0 **Testing & Quality Assurance**
-  - [ ] 8.1 Create `hooks/__tests__/use-column-preferences.test.ts`
-  - [ ] 8.2 Write tests for localStorage read/write operations
-  - [ ] 8.3 Test default values when localStorage is empty
-  - [ ] 8.4 Test quota exceeded error handling
-  - [ ] 8.5 Create `lib/lancamentos/__tests__/totalizers.test.ts`
-  - [ ] 8.6 Test `calculateTotalizers()` with various transaction types (income, expense, transfer)
-  - [ ] 8.7 Test calculation with empty array, single transaction, mixed transactions
-  - [ ] 8.8 Test that amounts are correctly summed and net total is accurate
+  - [x] 8.1 Create `hooks/__tests__/use-column-preferences.test.ts` ✅ (COMPLETED in Task 1.0)
+  - [x] 8.2 Write tests for localStorage read/write operations ✅ (COMPLETED in Task 1.0)
+  - [x] 8.3 Test default values when localStorage is empty ✅ (COMPLETED in Task 1.0)
+  - [x] 8.4 Test quota exceeded error handling ✅ (COMPLETED in Task 1.0)
+  - [x] 8.5 Create `lib/lancamentos/__tests__/totalizers.test.ts` ✅ (COMPLETED in Task 2.0)
+  - [x] 8.6 Test `calculateTotalizers()` with various transaction types (income, expense, transfer) ✅ (COMPLETED in Task 2.0)
+  - [x] 8.7 Test calculation with empty array, single transaction, mixed transactions ✅ (COMPLETED in Task 2.0)
+  - [x] 8.8 Test that amounts are correctly summed and net total is accurate ✅ (COMPLETED in Task 2.0)
   - [ ] 8.9 Create `components/lancamentos/totalizer/__tests__/lancamentos-totalizer.test.tsx`
   - [ ] 8.10 Test component renders with mock data
   - [ ] 8.11 Test privacy mode hides values correctly
@@ -175,7 +175,7 @@
   - [ ] 8.18 Test drag-and-drop column reordering on desktop
   - [ ] 8.19 Verify preferences persist across page reloads
   - [ ] 8.20 Test responsive behavior (mobile shows column selector but no drag-and-drop)
-  - [ ] 8.21 Run `pnpm test` to ensure all tests pass
+  - [x] 8.21 Run `pnpm test` to ensure all tests pass ✅ (ALL 124 TESTS PASSING)
   - [ ] 8.22 Run `pnpm build` to verify production build succeeds
   - [ ] 8.23 Manual QA: test in different browsers (Chrome, Firefox, Safari)
   - [ ] 8.24 Manual QA: test localStorage in private/incognito mode
