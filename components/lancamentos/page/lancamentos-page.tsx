@@ -12,7 +12,7 @@ import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { useCallback, useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { calculateTotalizers } from "@/lib/lancamentos/totalizers";
-import { LancamentosTotalizer } from "../totalizer/lancamentos-totalizer";
+import LancamentosTotalizer from "../totalizer/lancamentos-totalizer";
 
 import { AnticipateInstallmentsDialog } from "../dialogs/anticipate-installments-dialog/anticipate-installments-dialog";
 import { AnticipationHistoryDialog } from "../dialogs/anticipate-installments-dialog/anticipation-history-dialog";
