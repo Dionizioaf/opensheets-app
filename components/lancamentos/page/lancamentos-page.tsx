@@ -84,39 +84,13 @@ export function LancamentosPage({
   );
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [isTotalizerCollapsed, setIsTotalizerCollapsed] = useState(() => {
-    // Initialize from localStorage (only in browser)
-    if (typeof window === "undefined") {
-      return false;
-    }
-    try {
-      const stored = localStorage.getItem("lancamentos_totalizer_collapsed");
-      return stored !== null ? JSON.parse(stored) : false;
-    } catch (error) {
-      console.error("Failed to load totalizer collapse preference:", error);
-      return false;
-    }
-  });
-
-  // Handle totalizer collapse toggle
-  const handleToggleTotalizerCollapse = useCallback(() => {
-    setIsTotalizerCollapsed((prev) => {
-      const newValue = !prev;
-      try {
-        localStorage.setItem(
-          "lancamentos_totalizer_collapsed",
-          JSON.stringify(newValue)
-        );
-      } catch (error) {
-        console.error("Failed to save totalizer collapse preference:", error);
-      }
-      return newValue;
-    });
-  }, []);
 
   // Calculate totalizer data from filtered lancamentos
   const totalizerData = useMemo(
-    () => calculateTotalizers(lancamentos),
+    () => {
+      console.log("Calculating totalizers for lancamentos");
+      return calculateTotalizers(lancamentos);
+    },
     [lancamentos]
   );
 
@@ -289,7 +263,35 @@ export function LancamentosPage({
   );
 
   const handleMassAddSubmit = useCallback(async (data: MassAddFormData) => {
-    const result = await createMassLancamentosAction(data);
+    // Fix enum fields to match expected literal types and ensure amount is number
+    const fixedData = {
+      ...data,
+      fixedFields: {
+        ...data.fixedFields,
+        transactionType: data.fixedFields.transactionType as
+          | "Despesa"
+          | "Receita"
+          | "Transferência"
+          | undefined,
+        paymentMethod: data.fixedFields.paymentMethod as
+          | "Cartão de crédito"
+          | "Pix"
+          | "Boleto"
+          | "Dinheiro"
+          | "Cartão de débito"
+          | undefined,
+        condition: data.fixedFields.condition as
+          | "À vista"
+          | "Parcelado"
+          | "Recorrente"
+          | undefined,
+      },
+      transactions: data.transactions.map((t) => ({
+        ...t,
+        amount: typeof t.amount === 'string' ? Number(t.amount) : t.amount,
+      })),
+    };
+    const result = await createMassLancamentosAction(fixedData);
 
     if (!result.success) {
       toast.error(result.error);
@@ -367,12 +369,11 @@ export function LancamentosPage({
 
   return (
     <>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <LancamentosTotalizer totalizerData={totalizerData} />
+      </div>
+
       <div className="flex flex-col gap-6">
-        <LancamentosTotalizer
-          totalizerData={totalizerData}
-          isCollapsed={isTotalizerCollapsed}
-          onToggleCollapse={handleToggleTotalizerCollapse}
-        />
 
         <LancamentosTable
           data={lancamentos}
