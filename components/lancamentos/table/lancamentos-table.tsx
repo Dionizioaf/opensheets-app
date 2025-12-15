@@ -36,6 +36,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useColumnPreferences } from "@/hooks/use-column-preferences";
 import { getAvatarSrc } from "@/lib/pagadores/utils";
 import { formatDate } from "@/lib/utils/date";
 import {
@@ -76,7 +77,8 @@ import {
 } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import ColumnSelector from "./column-selector";
 import { EstabelecimentoLogo } from "../shared/estabelecimento-logo";
 import type {
   ContaCartaoFilterOption,
@@ -636,6 +638,32 @@ type LancamentosTableProps = {
   showFilters?: boolean;
 };
 
+const DEFAULT_COLUMN_ORDER = [
+  "select",
+  "purchaseDate",
+  "name",
+  "categoria",
+  "transactionType",
+  "amount",
+  "condition",
+  "paymentMethod",
+  "pagadorName",
+  "contaCartao",
+  "actions",
+];
+
+const DEFAULT_VISIBLE_COLUMNS = [
+  "purchaseDate",
+  "name",
+  "categoria",
+  "transactionType",
+  "amount",
+  "condition",
+  "paymentMethod",
+  "pagadorName",
+  "contaCartao",
+];
+
 export function LancamentosTable({
   data,
   pagadorFilterOptions = [],
@@ -663,6 +691,18 @@ export function LancamentosTable({
     pageSize: 30,
   });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState(() => {
+    const visibleCols = preferences?.visibleColumns ?? DEFAULT_VISIBLE_COLUMNS;
+    return Object.fromEntries(
+      DEFAULT_COLUMN_ORDER.map((col) => [col, visibleCols.includes(col)])
+    );
+  });
+  const [columnOrder, setColumnOrder] = useState<string[]>(
+    preferences?.columnOrder ?? DEFAULT_COLUMN_ORDER
+  );
+
+  const { preferences, updatePreferences, resetToDefault } =
+    useColumnPreferences();
 
   const columns = useMemo(
     () =>
@@ -697,10 +737,12 @@ export function LancamentosTable({
       sorting,
       pagination,
       rowSelection,
+      columnVisibility,
     },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -717,12 +759,57 @@ export function LancamentosTable({
     0
   );
 
+  // Initialize column visibility from preferences on mount
+  useEffect(() => {
+    if (preferences?.visibleColumns) {
+      const newVisibility = Object.fromEntries(
+        DEFAULT_COLUMN_ORDER.map((col) => [
+          col,
+          preferences.visibleColumns.includes(col),
+        ])
+      );
+      setColumnVisibility(newVisibility);
+    }
+  }, [preferences?.visibleColumns]);
+
+  // Sync visibility changes back to localStorage
+  useEffect(() => {
+    const visibleCols = Object.entries(columnVisibility)
+      .filter(([, isVisible]) => isVisible)
+      .map(([col]) => col);
+    if (visibleCols.length > 0) {
+      updatePreferences({ visibleColumns: visibleCols });
+    }
+  }, [columnVisibility, updatePreferences]);
+
+  // Initialize column order from preferences on mount
+  useEffect(() => {
+    if (preferences?.columnOrder) {
+      setColumnOrder(preferences.columnOrder);
+    }
+  }, [preferences?.columnOrder]);
+
+  // Sync order changes back to localStorage
+  useEffect(() => {
+    updatePreferences({ columnOrder });
+  }, [columnOrder, updatePreferences]);
+
   const handleBulkDelete = () => {
     if (onBulkDelete && selectedCount > 0) {
       const selectedItems = selectedRows.map((row) => row.original);
       onBulkDelete(selectedItems);
       setRowSelection({});
     }
+  };
+
+  const handleResetColumnPreferences = () => {
+    resetToDefault();
+    setColumnVisibility(
+      Object.fromEntries(
+        DEFAULT_COLUMN_ORDER.map((col) => [col, DEFAULT_VISIBLE_COLUMNS.includes(col)])
+      )
+    );
+    setColumnOrder(DEFAULT_COLUMN_ORDER);
   };
 
   const showTopControls =
@@ -758,14 +845,20 @@ export function LancamentosTable({
             <span className={showFilters ? "hidden sm:block" : ""} />
           )}
 
-          {showFilters ? (
-            <LancamentosFilters
-              pagadorOptions={pagadorFilterOptions}
-              categoriaOptions={categoriaFilterOptions}
-              contaCartaoOptions={contaCartaoFilterOptions}
-              className="w-full lg:flex-1 lg:justify-end"
+          <div className="flex items-center gap-2">
+            {showFilters ? (
+              <LancamentosFilters
+                pagadorOptions={pagadorFilterOptions}
+                categoriaOptions={categoriaFilterOptions}
+                contaCartaoOptions={contaCartaoFilterOptions}
+                className="w-full lg:flex-1 lg:justify-end"
+              />
+            ) : null}
+            <ColumnSelector
+              table={table}
+              onReset={handleResetColumnPreferences}
             />
-          ) : null}
+          </div>
         </div>
       ) : null}
 

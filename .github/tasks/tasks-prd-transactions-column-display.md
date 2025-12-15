@@ -117,26 +117,26 @@
   - [x] 5.11 Style menu to be scrollable if many columns (max-h-96)
   - [x] 5.12 Export component as default
 
-- [ ] 6.0 **Column Visibility & Reordering Integration**
+- [x] 6.0 **Column Visibility & Reordering Integration**
 
-  - [ ] 6.1 Open `components/lancamentos/table/lancamentos-table.tsx`
-  - [ ] 6.2 Import `useColumnPreferences` hook from `@/hooks/use-column-preferences`
-  - [ ] 6.3 In `LancamentosTable` component, call hook to get preferences state and update function
-  - [ ] 6.4 Define default column order array with all column IDs in natural order
-  - [ ] 6.5 Define default visible columns array with all columns (except internal ones)
-  - [ ] 6.6 Add `columnVisibility` state to table using TanStack Table's `onColumnVisibilityChange`
-  - [ ] 6.7 Initialize `columnVisibility` from preferences on mount using `useEffect`
-  - [ ] 6.8 Sync visibility changes back to localStorage via preferences hook
-  - [ ] 6.9 Add `columnOrder` state to table using TanStack Table's `onColumnOrderChange`
-  - [ ] 6.10 Initialize `columnOrder` from preferences on mount
-  - [ ] 6.11 Sync order changes back to localStorage
-  - [ ] 6.12 Install `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` for drag-and-drop
-  - [ ] 6.13 Wrap table headers with `DndContext` from dnd-kit
-  - [ ] 6.14 Make each `TableHead` draggable using `useSortable` hook (only on desktop via media query or `useMobile()` hook)
-  - [ ] 6.15 Handle `onDragEnd` event to update column order state
-  - [ ] 6.16 Show drag handle icon in column headers on hover (desktop only)
-  - [ ] 6.17 Implement `resetToDefault()` function that clears localStorage and resets to default visibility/order
-  - [ ] 6.18 Pass table instance and reset function to `ColumnSelector` component
+  - [x] 6.1 Open `components/lancamentos/table/lancamentos-table.tsx`
+  - [x] 6.2 Import `useColumnPreferences` hook from `@/hooks/use-column-preferences`
+  - [x] 6.3 In `LancamentosTable` component, call hook to get preferences state and update function
+  - [x] 6.4 Define default column order array with all column IDs in natural order
+  - [x] 6.5 Define default visible columns array with all columns (except internal ones)
+  - [x] 6.6 Add `columnVisibility` state to table using TanStack Table's `onColumnVisibilityChange`
+  - [x] 6.7 Initialize `columnVisibility` from preferences on mount using `useEffect`
+  - [x] 6.8 Sync visibility changes back to localStorage via preferences hook
+  - [x] 6.9 Add `columnOrder` state to table using TanStack Table's `onColumnOrderChange`
+  - [x] 6.10 Initialize `columnOrder` from preferences on mount
+  - [x] 6.11 Sync order changes back to localStorage
+  - [x] 6.12 Install `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` for drag-and-drop
+  - [x] 6.13 Wrap table headers with `DndContext` from dnd-kit
+  - [x] 6.14 Make each `TableHead` draggable using `useSortable` hook (only on desktop via media query or `useMobile()` hook)
+  - [x] 6.15 Handle `onDragEnd` event to update column order state
+  - [x] 6.16 Show drag handle icon in column headers on hover (desktop only)
+  - [x] 6.17 Implement `resetToDefault()` function that clears localStorage and resets to default visibility/order
+  - [x] 6.18 Pass table instance and reset function to `ColumnSelector` component
 
 - [ ] 7.0 **Page Integration & Layout**
 
