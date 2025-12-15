@@ -23,8 +23,8 @@ export default function LancamentosTotalizer({
 
     return (
         <Card className="w-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-lg font-semibold">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-4">
+                <CardTitle className="text-sm font-semibold">
                     Resumo Financeiro
                 </CardTitle>
                 {onToggleCollapse && (
@@ -35,31 +35,31 @@ export default function LancamentosTotalizer({
                         aria-label={isCollapsed ? "Expandir resumo" : "Recolher resumo"}
                     >
                         {isCollapsed ? (
-                            <RiArrowDownSLine className="h-5 w-5" />
+                            <RiArrowDownSLine className="h-4 w-4" />
                         ) : (
-                            <RiArrowUpSLine className="h-5 w-5" />
+                            <RiArrowUpSLine className="h-4 w-4" />
                         )}
                     </Button>
                 )}
             </CardHeader>
 
             {!isCollapsed && (
-                <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-3 grid-cols-1">
+                <CardContent className="px-4 py-2">
+                    <div className="grid gap-2 sm:grid-cols-3 grid-cols-1">
                         {/* Total Income */}
                         <div
                             className={cn(
-                                "flex flex-col space-y-1.5 rounded-lg border-2 p-4",
+                                "flex flex-col space-y-0.5 rounded-lg border p-2.5",
                                 "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20"
                             )}
                         >
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="text-xs font-medium text-muted-foreground">
                                 Receitas
                             </p>
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex items-baseline gap-1">
                                 <MoneyValues
                                     amount={totalIncome}
-                                    className="text-2xl font-bold text-green-600 dark:text-green-400"
+                                    className="text-lg font-bold text-green-600 dark:text-green-400"
                                 />
                             </div>
                         </div>
@@ -67,17 +67,17 @@ export default function LancamentosTotalizer({
                         {/* Total Expenses */}
                         <div
                             className={cn(
-                                "flex flex-col space-y-1.5 rounded-lg border-2 p-4",
+                                "flex flex-col space-y-0.5 rounded-lg border p-2.5",
                                 "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20"
                             )}
                         >
-                            <p className="text-sm font-medium text-muted-foreground">
+                            <p className="text-xs font-medium text-muted-foreground">
                                 Despesas
                             </p>
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex items-baseline gap-1">
                                 <MoneyValues
                                     amount={totalExpenses}
-                                    className="text-2xl font-bold text-red-600 dark:text-red-400"
+                                    className="text-lg font-bold text-red-600 dark:text-red-400"
                                 />
                             </div>
                         </div>
@@ -85,18 +85,18 @@ export default function LancamentosTotalizer({
                         {/* Net Total */}
                         <div
                             className={cn(
-                                "flex flex-col space-y-1.5 rounded-lg border-2 p-4",
+                                "flex flex-col space-y-0.5 rounded-lg border p-2.5",
                                 isPositiveNet
                                     ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20"
                                     : "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20"
                             )}
                         >
-                            <p className="text-sm font-medium text-muted-foreground">Saldo</p>
-                            <div className="flex items-baseline gap-2">
+                            <p className="text-xs font-medium text-muted-foreground">Saldo</p>
+                            <div className="flex items-baseline gap-1">
                                 <MoneyValues
                                     amount={netTotal}
                                     className={cn(
-                                        "text-2xl font-bold",
+                                        "text-lg font-bold",
                                         isPositiveNet
                                             ? "text-blue-600 dark:text-blue-400"
                                             : "text-red-600 dark:text-red-400"
