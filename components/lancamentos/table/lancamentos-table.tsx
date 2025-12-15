@@ -760,16 +760,26 @@ export function LancamentosTable({
 
   // Initialize column visibility from preferences on mount
   useEffect(() => {
-    if (preferences?.visibleColumns) {
-      const newVisibility = Object.fromEntries(
-        DEFAULT_COLUMN_ORDER.map((col) => [
-          col,
-          preferences.visibleColumns.includes(col),
-        ])
-      );
+    if (!preferences?.visibleColumns) {
+      return;
+    }
+
+    const newVisibility = Object.fromEntries(
+      DEFAULT_COLUMN_ORDER.map((col) => [
+        col,
+        preferences.visibleColumns.includes(col),
+      ])
+    );
+
+    // Avoid state update if nothing changed to prevent render loops
+    const isSame = DEFAULT_COLUMN_ORDER.every(
+      (col) => columnVisibility[col] === newVisibility[col]
+    );
+
+    if (!isSame) {
       setColumnVisibility(newVisibility);
     }
-  }, [preferences?.visibleColumns]);
+  }, [preferences?.visibleColumns, columnVisibility]);
 
   // Sync visibility changes back to localStorage
   useEffect(() => {
