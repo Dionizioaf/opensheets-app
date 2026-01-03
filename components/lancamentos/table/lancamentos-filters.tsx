@@ -136,7 +136,8 @@ export function LancamentosFilters({
 
   const handleFilterChange = useCallback(
     (key: string, value: string | null) => {
-      const nextParams = new URLSearchParams(searchParams.toString());
+      const currentParamsStr = searchParams.toString();
+      const nextParams = new URLSearchParams(currentParamsStr);
 
       if (value && value !== FILTER_EMPTY_VALUE) {
         nextParams.set(key, value);
@@ -144,8 +145,14 @@ export function LancamentosFilters({
         nextParams.delete(key);
       }
 
+      const nextParamsStr = nextParams.toString();
+      if (nextParamsStr === currentParamsStr) {
+        // No-op; avoid unnecessary router.replace that can cause loops
+        return;
+      }
+
       startTransition(() => {
-        router.replace(`${pathname}?${nextParams.toString()}`, {
+        router.replace(`${pathname}?${nextParamsStr}`, {
           scroll: false,
         });
       });
@@ -282,12 +289,14 @@ export function LancamentosFilters({
 
       <Select
         value={getParamValue("pagador")}
-        onValueChange={(value) =>
+        onValueChange={(value) => {
+          const current = getParamValue("pagador");
+          if (value === current) return;
           handleFilterChange(
             "pagador",
             value === FILTER_EMPTY_VALUE ? null : value
-          )
-        }
+          );
+        }}
         disabled={isPending}
       >
         <SelectTrigger
@@ -384,12 +393,14 @@ export function LancamentosFilters({
 
       <Select
         value={getParamValue("contaCartao")}
-        onValueChange={(value) =>
+        onValueChange={(value) => {
+          const current = getParamValue("contaCartao");
+          if (value === current) return;
           handleFilterChange(
             "contaCartao",
             value === FILTER_EMPTY_VALUE ? null : value
-          )
-        }
+          );
+        }}
         disabled={isPending}
       >
         <SelectTrigger

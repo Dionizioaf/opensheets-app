@@ -9,8 +9,10 @@ import {
   updateLancamentoBulkAction,
 } from "@/app/(dashboard)/lancamentos/actions";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { calculateTotalizers } from "@/lib/lancamentos/totalizers";
+import LancamentosTotalizer from "../totalizer/lancamentos-totalizer";
 
 import { AnticipateInstallmentsDialog } from "../dialogs/anticipate-installments-dialog/anticipate-installments-dialog";
 import { AnticipationHistoryDialog } from "../dialogs/anticipate-installments-dialog/anticipation-history-dialog";
@@ -82,6 +84,22 @@ export function LancamentosPage({
   );
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  // Calculate totalizer data from filtered lancamentos
+  const totalizerData = useMemo(
+    () => {
+      console.log("Calculating totalizers for lancamentos");
+      return calculateTotalizers(lancamentos);
+    },
+    [lancamentos]
+  );
+
+  // Memoize settlement loading check to prevent table re-renders
+  const checkSettlementLoading = useCallback(
+    (id: string) => settlementLoadingId === id,
+    [settlementLoadingId]
+  );
+
   const [pendingEditData, setPendingEditData] = useState<{
     id: string;
     name: string;
@@ -245,7 +263,35 @@ export function LancamentosPage({
   );
 
   const handleMassAddSubmit = useCallback(async (data: MassAddFormData) => {
-    const result = await createMassLancamentosAction(data);
+    // Fix enum fields to match expected literal types and ensure amount is number
+    const fixedData = {
+      ...data,
+      fixedFields: {
+        ...data.fixedFields,
+        transactionType: data.fixedFields.transactionType as
+          | "Despesa"
+          | "Receita"
+          | "Transferência"
+          | undefined,
+        paymentMethod: data.fixedFields.paymentMethod as
+          | "Cartão de crédito"
+          | "Pix"
+          | "Boleto"
+          | "Dinheiro"
+          | "Cartão de débito"
+          | undefined,
+        condition: data.fixedFields.condition as
+          | "À vista"
+          | "Parcelado"
+          | "Recorrente"
+          | undefined,
+      },
+      transactions: data.transactions.map((t) => ({
+        ...t,
+        amount: typeof t.amount === 'string' ? Number(t.amount) : t.amount,
+      })),
+    };
+    const result = await createMassLancamentosAction(fixedData);
 
     if (!result.success) {
       toast.error(result.error);
@@ -323,23 +369,30 @@ export function LancamentosPage({
 
   return (
     <>
-      <LancamentosTable
-        data={lancamentos}
-        pagadorFilterOptions={pagadorFilterOptions}
-        categoriaFilterOptions={categoriaFilterOptions}
-        contaCartaoFilterOptions={contaCartaoFilterOptions}
-        onCreate={allowCreate ? handleCreate : undefined}
-        onMassAdd={allowCreate ? handleMassAdd : undefined}
-        onEdit={handleEdit}
-        onCopy={handleCopy}
-        onConfirmDelete={handleConfirmDelete}
-        onBulkDelete={handleMultipleBulkDelete}
-        onViewDetails={handleViewDetails}
-        onToggleSettlement={handleToggleSettlement}
-        onAnticipate={handleAnticipate}
-        onViewAnticipationHistory={handleViewAnticipationHistory}
-        isSettlementLoading={(id) => settlementLoadingId === id}
-      />
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <LancamentosTotalizer totalizerData={totalizerData} />
+      </div>
+
+      <div className="flex flex-col gap-6">
+
+        <LancamentosTable
+          data={lancamentos}
+          pagadorFilterOptions={pagadorFilterOptions}
+          categoriaFilterOptions={categoriaFilterOptions}
+          contaCartaoFilterOptions={contaCartaoFilterOptions}
+          onCreate={allowCreate ? handleCreate : undefined}
+          onMassAdd={allowCreate ? handleMassAdd : undefined}
+          onEdit={handleEdit}
+          onCopy={handleCopy}
+          onConfirmDelete={handleConfirmDelete}
+          onBulkDelete={handleMultipleBulkDelete}
+          onViewDetails={handleViewDetails}
+          onToggleSettlement={handleToggleSettlement}
+          onAnticipate={handleAnticipate}
+          onViewAnticipationHistory={handleViewAnticipationHistory}
+          isSettlementLoading={checkSettlementLoading}
+        />
+      </div>
 
       {allowCreate ? (
         <LancamentoDialog
@@ -480,9 +533,8 @@ export function LancamentosPage({
       <ConfirmActionDialog
         open={multipleBulkDeleteOpen && pendingMultipleDeleteData.length > 0}
         onOpenChange={setMultipleBulkDeleteOpen}
-        title={`Remover ${pendingMultipleDeleteData.length} ${
-          pendingMultipleDeleteData.length === 1 ? "lançamento" : "lançamentos"
-        }?`}
+        title={`Remover ${pendingMultipleDeleteData.length} ${pendingMultipleDeleteData.length === 1 ? "lançamento" : "lançamentos"
+          }?`}
         description="Essa ação é irreversível e removerá os lançamentos selecionados de forma permanente."
         confirmLabel="Remover"
         pendingLabel="Removendo..."

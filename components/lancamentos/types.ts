@@ -19,6 +19,7 @@ export type LancamentoItem = {
   cartaoLogo: string | null;
   categoriaId: string | null;
   categoriaName: string | null;
+  categoriaIcon: string | null;
   categoriaType: string | null;
   installmentCount: number | null;
   recurrenceCount: number | null;
