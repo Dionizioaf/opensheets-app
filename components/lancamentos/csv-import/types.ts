@@ -192,6 +192,7 @@ export interface CsvReviewStepProps {
  */
 export interface CsvConfirmStepProps {
     summary: ImportSummary;
+    transactions: ImportTransaction[];
     accountName: string; // Display name of selected account
     accountType: AccountType;
     isImporting: boolean;
