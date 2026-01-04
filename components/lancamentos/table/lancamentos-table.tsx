@@ -57,6 +57,7 @@ import {
   RiDeleteBin5Line,
   RiEyeLine,
   RiFileCopyLine,
+  RiFileUploadLine,
   RiGroupLine,
   RiHistoryLine,
   RiMoreFill,
@@ -625,6 +626,7 @@ type LancamentosTableProps = {
   contaCartaoFilterOptions?: ContaCartaoFilterOption[];
   onCreate?: () => void;
   onMassAdd?: () => void;
+  onCsvImport?: () => void;
   onEdit?: (item: LancamentoItem) => void;
   onCopy?: (item: LancamentoItem) => void;
   onConfirmDelete?: (item: LancamentoItem) => void;
@@ -672,6 +674,7 @@ export function LancamentosTable({
   contaCartaoFilterOptions = [],
   onCreate,
   onMassAdd,
+  onCsvImport,
   onEdit,
   onCopy,
   onConfirmDelete,
@@ -831,13 +834,13 @@ export function LancamentosTable({
   };
 
   const showTopControls =
-    Boolean(onCreate) || Boolean(onMassAdd) || showFilters;
+    Boolean(onCreate) || Boolean(onMassAdd) || Boolean(onCsvImport) || showFilters;
 
   return (
     <TooltipProvider>
       {showTopControls ? (
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {onCreate || onMassAdd ? (
+          {onCreate || onMassAdd || onCsvImport ? (
             <div className="flex gap-2">
               {onCreate ? (
                 <Button onClick={onCreate} className="w-full sm:w-auto">
@@ -855,6 +858,19 @@ export function LancamentosTable({
                   <RiAddCircleFill className="size-4" />
                   <span className="sr-only">
                     Adicionar múltiplos lançamentos
+                  </span>
+                </Button>
+              ) : null}
+              {onCsvImport ? (
+                <Button
+                  onClick={onCsvImport}
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                >
+                  <RiFileUploadLine className="size-4" />
+                  <span className="sr-only">
+                    Importar arquivo CSV
                   </span>
                 </Button>
               ) : null}
