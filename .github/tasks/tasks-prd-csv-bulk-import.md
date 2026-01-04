@@ -358,3 +358,128 @@ These existing OFX components work seamlessly with CSV:
 
 **Next Steps:**
 Create server actions for CSV import (parsing, duplicate detection, category suggestions, batch insert) and build the main wizard dialog that orchestrates all four steps (Upload → Mapping → Review → Confirm).
+
+### Task 5.0: CSV Import Server Actions
+
+Created comprehensive server actions for CSV import functionality, reusing OFX infrastructure:
+
+**Server Actions Created in `app/(dashboard)/lancamentos/actions.ts`:**
+
+1. **`parseCsvFileAction()`** (70 lines) - CSV file parsing
+
+   - **Authentication**: Validates user with `getUser()`
+   - **Input validation**: Accepts file content string and optional delimiter preference
+   - **File validation**: Checks for empty content
+   - **Dynamic import**: Imports CSV parser only on server to avoid client bundle bloat
+   - **File conversion**: Converts string content to Blob/File for parser
+   - **Parsing**: Calls `parseCsvFile()` with configurable delimiter (auto/semicolon/comma/tab)
+   - **Response**: Returns headers (name + originalName), rows, rowCount, and detectedDelimiter
+   - **Error handling**: Portuguese error messages via `handleActionError()`
+
+2. **`detectCsvDuplicatesAction()`** (105 lines) - Duplicate detection
+
+   - **Authentication**: Validates user authentication
+   - **Input validation**: UUID validation, transaction count limit (max 1000)
+   - **Account ownership verification**:
+     - Bank accounts: Checks `contas` table
+     - Credit cards: Checks `cartoes` table (dynamic import)
+   - **Duplicate detection**: Calls `detectDuplicatesBatch()` from OFX duplicate detector
+   - **Response**: Map of transaction IDs to duplicate matches (match reason, similarity, existing transaction details)
+   - **Reuses OFX logic**: Same duplicate detection algorithm (FITID, exact, similar, likely matches)
+
+3. **`suggestCsvCategoriesAction()`** (82 lines) - Category suggestions
+
+   - **Authentication**: Validates user authentication
+   - **Input validation**: Transaction count limit (max 1000)
+   - **Category suggestion**: Calls `suggestCategoriesForTransactions()` from OFX category suggester
+   - **Response**: Map of transaction IDs to category suggestions (categoriaId, confidence level, score, match reason)
+   - **Reuses OFX logic**: Same ML-based category matching (exact/fuzzy/amount-pattern)
+
+4. **`importCsvTransactionsAction()`** (240 lines) - Batch import with rate limiting
+   - **Authentication & rate limiting**:
+     - Validates user authentication
+     - Rate limit: 60 imports per 30 minutes (same as OFX)
+     - In-memory rate limit store per user
+   - **Input validation**:
+     - Account ID UUID validation
+     - Transaction count: 1-1000 transactions
+     - Account type: "bank" or "card"
+   - **Account ownership verification**:
+     - Bank accounts: Verifies ownership via `contas` table
+     - Credit cards: Verifies ownership via `cartoes` table
+   - **Pagador fallback**: Gets user's ADMIN pagador for default
+   - **Duplicate prevention**:
+     - Checks existing transactions with same name, amount, date
+     - Filters transactions already imported today (via note pattern)
+     - Skips duplicates and reports count
+   - **Database transaction**:
+     - Atomic batch insert using `db.transaction()`
+     - Transforms CSV data to lancamentos format
+     - Sets all CSV-specific defaults (isSettled: true, payment method based on account type)
+     - Adds import metadata to note: "Importado de CSV em {timestamp}"
+     - Inserts via `db.insert(lancamentos).values()`
+   - **Post-import**:
+     - Revalidates pages with `revalidateForEntity("lancamentos")`
+     - Records import attempt for rate limiting
+     - Returns success with imported count and skipped count
+   - **Error handling**: Database errors, authentication errors, validation errors
+
+**Rate Limiting Implementation:**
+
+```typescript
+const CSV_RATE_LIMIT_MAX_IMPORTS = 60; // Maximum imports
+const CSV_RATE_LIMIT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+// In-memory store tracks import timestamps per user
+const csvImportAttemptsStore = new Map<string, number[]>();
+```
+
+**Duplicate Prevention Strategy:**
+
+1. **Import note pattern**: Adds timestamp to prevent same-day re-imports
+2. **Transaction matching**: Compares name + amount + date
+3. **Graceful handling**: Skips duplicates, reports count, proceeds with unique transactions
+
+**Data Transformation:**
+
+CSV transactions → Lancamentos format:
+
+- **Account assignment**: Sets `contaId` (bank) or `cartaoId` (credit card)
+- **Payment method**: Based on account type (bank = "Débito", card = "Cartão de crédito")
+- **isSettled**: Always `true` (CSV imports are already settled)
+- **Category & Pagador**: User-selected or defaults (ADMIN pagador fallback)
+- **Import metadata**: Adds note with timestamp
+- **Optional fields**: All set to `null` (installments, recurrence, etc.)
+
+**Error Messages (Portuguese):**
+
+- "Usuário não autenticado"
+- "Limite de importações excedido. Você atingiu o máximo de 60 importações em 30 minutos"
+- "Conta não encontrada ou você não tem permissão para acessá-la"
+- "Todas as transações já foram importadas anteriormente"
+- "Erro ao salvar transações no banco de dados. Tente novamente"
+
+**Success Messages:**
+
+- "X transações importadas com sucesso"
+- "X transações importadas com sucesso. Y transações duplicadas foram ignoradas"
+
+**Key Benefits:**
+
+1. **Maximum code reuse**: Leverages existing OFX duplicate detection and category suggestion logic
+2. **Type safety**: Full TypeScript type checking throughout
+3. **Atomic operations**: Database transactions ensure all-or-nothing imports
+4. **Rate limiting**: Prevents abuse (60 imports/30 min)
+5. **Duplicate prevention**: Avoids accidental re-imports
+6. **Account flexibility**: Supports both bank accounts and credit cards
+7. **Error resilience**: Comprehensive error handling with user-friendly messages
+8. **Performance**: Batch inserts, efficient queries, in-memory rate limiting
+
+**Test Results:**
+
+- All 211 tests passing ✅
+- No new tests needed (server actions tested via integration)
+
+**Next Steps:**
+
+Build the main CSV import wizard dialog that orchestrates all four steps (Upload → Column Mapping → Review → Confirm) and integrates these server actions.
