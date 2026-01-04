@@ -116,11 +116,14 @@ Based on PRD: `prd-csv-bulk-import.md`
 The CSV import feature infrastructure has been set up with all necessary dependencies and directory structure:
 
 **Dependencies Installed:**
+
 - `papaparse` (v5.5.3) - CSV parsing library that handles various delimiters and formats
 - `@types/papaparse` (v5.5.2) - TypeScript type definitions for papaparse
 
 **Directory Structure Created:**
+
 - `lib/csv/` - Contains CSV parsing and mapping logic
+
   - `types.ts` - Type definitions for CSV import
   - `parser.ts` - CSV file parsing functions
   - `mapper.ts` - Data transformation and column mapping logic
@@ -136,5 +139,3 @@ The CSV import feature infrastructure has been set up with all necessary depende
 
 **What's Next:**
 The infrastructure is ready for implementation. Next tasks will add the actual parsing logic, UI components, and server actions to enable CSV file imports for transactions.
-
-

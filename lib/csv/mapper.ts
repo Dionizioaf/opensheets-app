@@ -39,12 +39,12 @@ export function parseBrazilianCurrency(value: string): string | null {
     // Determine decimal separator based on format
     // Brazilian format: 1.234,56 (period for thousands, comma for decimal)
     // International format: 1,234.56 (comma for thousands, period for decimal)
-    
+
     const lastComma = cleaned.lastIndexOf(",");
     const lastPeriod = cleaned.lastIndexOf(".");
-    
+
     let decimalValue: string;
-    
+
     if (lastComma > lastPeriod) {
         // Brazilian format: 1.234,56 or just 1234,56
         // Remove thousand separators (periods) and convert decimal comma to period
@@ -91,9 +91,9 @@ export function parseBrazilianDate(value: string): Date | null {
         const day = parseInt(ddmmyyyyMatch[1], 10);
         const month = parseInt(ddmmyyyyMatch[2], 10);
         const year = parseInt(ddmmyyyyMatch[3], 10);
-        
+
         const date = new Date(year, month - 1, day);
-        
+
         // Validate date
         if (
             date.getFullYear() === year &&
@@ -110,9 +110,9 @@ export function parseBrazilianDate(value: string): Date | null {
         const year = parseInt(yyyymmddMatch[1], 10);
         const month = parseInt(yyyymmddMatch[2], 10);
         const day = parseInt(yyyymmddMatch[3], 10);
-        
+
         const date = new Date(year, month - 1, day);
-        
+
         // Validate date
         if (
             date.getFullYear() === year &&
@@ -152,17 +152,17 @@ export function validateColumnMapping(mapping: ColumnMapping): ColumnMappingVali
         errorMessage: isValid
             ? undefined
             : `Campos obrigatórios não mapeados: ${missingFields
-                  .map((field) => {
-                      switch (field) {
-                          case "date":
-                              return "Data";
-                          case "amount":
-                              return "Valor";
-                          default:
-                              return field;
-                      }
-                  })
-                  .join(", ")}`,
+                .map((field) => {
+                    switch (field) {
+                        case "date":
+                            return "Data";
+                        case "amount":
+                            return "Valor";
+                        default:
+                            return field;
+                    }
+                })
+                .join(", ")}`,
     };
 }
 
@@ -222,7 +222,7 @@ export function mapCsvRowToTransaction(
         id: randomUUID(), // Temporary ID for UI
         csvRowIndex: rowIndex,
         rawData: row,
-        
+
         // Transaction fields
         name: description || "Transação importada",
         amount: absoluteAmount,
@@ -231,22 +231,22 @@ export function mapCsvRowToTransaction(
         transactionType,
         paymentMethod: "Débito", // Default, will be set based on account type
         condition: "à vista",
-        
+
         // Optional fields (set later in review step)
         categoriaId: undefined,
         pagadorId: undefined,
-        
+
         // Import metadata
         isSettled: true, // CSV imports are already settled
         contaId: undefined, // Set during import based on selected account
         cartaoId: undefined,
-        
+
         // UI state
         isSelected: true, // Selected by default
         isEdited: false,
         hasError: false,
         isDuplicate: false,
-        
+
         // Fields required by ImportTransaction but not used for CSV
         userId: "", // Will be set during import
         installmentCount: null,

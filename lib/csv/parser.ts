@@ -24,7 +24,7 @@ import type {
 export function detectDelimiter(content: string): CsvDelimiter {
     // Get first 5 lines for analysis
     const lines = content.split("\n").slice(0, 5).filter(line => line.trim());
-    
+
     if (lines.length === 0) {
         return ";"; // Default to semicolon (Brazilian standard)
     }
@@ -37,7 +37,7 @@ export function detectDelimiter(content: string): CsvDelimiter {
         const avgCount = lineCounts.reduce((a, b) => a + b, 0) / lineCounts.length;
         // Check consistency (all lines should have similar count)
         const isConsistent = lineCounts.every(count => Math.abs(count - avgCount) <= 1);
-        
+
         return {
             delimiter,
             avgCount,
@@ -103,8 +103,8 @@ export async function parseCsvFile(
                 delimiter,
                 header: true,
                 skipEmptyLines: config?.skipEmptyLines ?? true,
-                transformHeader: config?.trimHeaders !== false 
-                    ? (header) => header.trim() 
+                transformHeader: config?.trimHeaders !== false
+                    ? (header) => header.trim()
                     : undefined,
                 complete: (results) => {
                     // Extract headers
