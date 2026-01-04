@@ -42,7 +42,7 @@ Based on PRD: `prd-csv-bulk-import.md`
 
 ## Tasks
 
-- [ ] 1.0 Setup Dependencies and CSV Parsing Infrastructure
+- [x] 1.0 Setup Dependencies and CSV Parsing Infrastructure
 
   - [x] 1.1 Install `papaparse` package: `pnpm add papaparse`
   - [x] 1.2 Install TypeScript types: `pnpm add -D @types/papaparse`
@@ -53,15 +53,17 @@ Based on PRD: `prd-csv-bulk-import.md`
 
 - [ ] 2.0 Implement CSV Parsing and Column Mapping Logic
 
-  - [ ] 2.1 Create `lib/csv/types.ts` - Define TypeScript interfaces for CsvRow, CsvColumn, CsvParseResult, ColumnMapping, CsvImportConfig, and CsvParsingError
-  - [ ] 2.2 Implement `lib/csv/parser.ts` - Create `parseCsvFile()` function that accepts File, detects delimiter (auto or user-selected), extracts headers from first row, parses data rows using papaparse, handles encoding (UTF-8, Latin1), and returns CsvParseResult with error handling
-  - [ ] 2.3 Add utility function `detectDelimiter()` in parser.ts to auto-detect semicolon, comma, or tab based on first few rows
-  - [ ] 2.4 Implement `lib/csv/mapper.ts` - Create `mapCsvRowToTransaction()` function that converts CSV row to ImportTransaction format based on user column mapping, parses Brazilian date format (DD/MM/YYYY), parses Brazilian currency format ("R$ 1.234,56" to "1234.56"), determines transaction type from amount sign (negative = Despesa, positive = Receita)
-  - [ ] 2.5 Add `parseBrazilianCurrency()` utility function to strip "R$ " prefix, convert decimal separator from comma to period, remove thousands separator (period)
-  - [ ] 2.6 Add `parseBrazilianDate()` utility function to handle DD/MM/YYYY and other common formats (YYYY-MM-DD, DD-MM-YYYY)
-  - [ ] 2.7 Add `validateColumnMapping()` function to ensure required fields (Date, Amount) are mapped
-  - [ ] 2.8 Write unit tests in `lib/csv/__tests__/parser.test.ts` - Test delimiter detection, header extraction, error handling for malformed CSV
-  - [ ] 2.9 Write unit tests in `lib/csv/__tests__/mapper.test.ts` - Test currency parsing, date parsing, transaction type detection, column mapping validation
+  - [x] 2.1 Create `lib/csv/types.ts` - Define TypeScript interfaces for CsvRow, CsvColumn, CsvParseResult, ColumnMapping, CsvImportConfig, and CsvParsingError
+  - [x] 2.2 Implement `lib/csv/parser.ts` - Create `parseCsvFile()` function that accepts File, detects delimiter (auto or user-selected), extracts headers from first row, parses data rows using papaparse, handles encoding (UTF-8, Latin1), and returns CsvParseResult with error handling
+  - [x] 2.3 Add utility function `detectDelimiter()` in parser.ts to auto-detect semicolon, comma, or tab based on first few rows
+  - [x] 2.4 Implement `lib/csv/mapper.ts` - Create `mapCsvRowToTransaction()` function that converts CSV row to ImportTransaction format based on user column mapping, parses Brazilian date format (DD/MM/YYYY), parses Brazilian currency format ("R$ 1.234,56" to "1234.56"), determines transaction type from amount sign (negative = Despesa, positive = Receita)
+  - [x] 2.5 Add `parseBrazilianCurrency()` utility function to strip "R$ " prefix, convert decimal separator from comma to period, remove thousands separator (period)
+  - [x] 2.6 Add `parseBrazilianDate()` utility function to handle DD/MM/YYYY and other common formats (YYYY-MM-DD, DD-MM-YYYY)
+  - [x] 2.7 Add `validateColumnMapping()` function to ensure required fields (Date, Amount) are mapped
+  - [x] 2.8 Write unit tests in `lib/csv/__tests__/parser.test.ts` - Test delimiter detection, header extraction, error handling for malformed CSV
+  - [x] 2.9 Write unit tests in `lib/csv/__tests__/mapper.test.ts` - Test currency parsing, date parsing, transaction type detection, column mapping validation
+
+- [x] 2.0 Implement CSV Parsing and Column Mapping Logic
 
 - [ ] 3.0 Build CSV Import UI Components (Upload & Column Mapping Steps)
 
@@ -109,4 +111,30 @@ Based on PRD: `prd-csv-bulk-import.md`
 
 ## Tutorial
 
-(Tutorial will be added as parent tasks are completed)
+### Task 1.0: CSV Import Infrastructure Setup
+
+The CSV import feature infrastructure has been set up with all necessary dependencies and directory structure:
+
+**Dependencies Installed:**
+- `papaparse` (v5.5.3) - CSV parsing library that handles various delimiters and formats
+- `@types/papaparse` (v5.5.2) - TypeScript type definitions for papaparse
+
+**Directory Structure Created:**
+- `lib/csv/` - Contains CSV parsing and mapping logic
+  - `types.ts` - Type definitions for CSV import
+  - `parser.ts` - CSV file parsing functions
+  - `mapper.ts` - Data transformation and column mapping logic
+  - `__tests__/` - Unit tests directory
+
+- `components/lancamentos/csv-import/` - UI components for CSV import wizard
+  - `types.ts` - Component-specific type definitions
+  - `csv-import-dialog.tsx` - Main wizard dialog (4-step flow)
+  - `csv-upload-step.tsx` - File upload and account selection step
+  - `csv-column-mapping-step.tsx` - Column mapping step (unique to CSV, not in OFX)
+  - `csv-review-step.tsx` - Transaction review wrapper
+  - `csv-confirm-step.tsx` - Import confirmation wrapper
+
+**What's Next:**
+The infrastructure is ready for implementation. Next tasks will add the actual parsing logic, UI components, and server actions to enable CSV file imports for transactions.
+
+
