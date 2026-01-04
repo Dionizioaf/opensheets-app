@@ -39,25 +39,25 @@ const SYSTEM_FIELDS: Array<{
     required: boolean;
     description: string;
 }> = [
-    {
-        key: "date",
-        label: "Data",
-        required: true,
-        description: "Data da transação (ex: 01/12/2024)",
-    },
-    {
-        key: "amount",
-        label: "Valor",
-        required: true,
-        description: "Valor da transação (ex: R$ 123,45)",
-    },
-    {
-        key: "description",
-        label: "Descrição",
-        required: false,
-        description: "Descrição ou nome da transação",
-    },
-];
+        {
+            key: "date",
+            label: "Data",
+            required: true,
+            description: "Data da transação (ex: 01/12/2024)",
+        },
+        {
+            key: "amount",
+            label: "Valor",
+            required: true,
+            description: "Valor da transação (ex: R$ 123,45)",
+        },
+        {
+            key: "description",
+            label: "Descrição",
+            required: false,
+            description: "Descrição ou nome da transação",
+        },
+    ];
 
 /**
  * CSV Column Mapping Step
@@ -201,8 +201,8 @@ export function CsvColumnMappingStep({
                                     id={`field-${field.key}`}
                                     className={cn(
                                         field.required &&
-                                            !getMappedColumn(field.key) &&
-                                            "border-destructive"
+                                        !getMappedColumn(field.key) &&
+                                        "border-destructive"
                                     )}
                                 >
                                     <SelectValue placeholder="Selecione uma coluna..." />
