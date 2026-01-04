@@ -103,15 +103,19 @@ export async function parseCsvFile(
                 delimiter,
                 header: true,
                 skipEmptyLines: config?.skipEmptyLines ?? true,
-                transformHeader: config?.trimHeaders !== false
-                    ? (header) => header.trim()
-                    : undefined,
                 complete: (results) => {
-                    // Extract headers
+                    // Get original headers before any transformation
+                    const firstLine = content.split("\n")[0];
+                    const originalHeaders = firstLine.split(delimiter);
+
+                    // Determine if headers should be trimmed (default: true)
+                    const shouldTrim = config?.trimHeaders !== false;
+
+                    // Extract headers with both trimmed and original names
                     const headers: CsvColumn[] = results.meta.fields?.map((field, index) => ({
                         index,
-                        name: field.trim(),
-                        originalName: field,
+                        name: shouldTrim ? field.trim() : field,
+                        originalName: originalHeaders[index] || field,
                     })) || [];
 
                     // Convert data to CsvRow format

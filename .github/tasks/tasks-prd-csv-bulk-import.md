@@ -6,15 +6,15 @@ Based on PRD: `prd-csv-bulk-import.md`
 
 **New Files to Create:**
 
-- `lib/csv/types.ts` - TypeScript types for CSV parsing and column mapping
-- `lib/csv/parser.ts` - CSV parsing logic using papaparse (delimiter detection, header extraction)
-- `lib/csv/mapper.ts` - Column mapping logic and data transformation to ImportTransaction format
-- `lib/csv/__tests__/parser.test.ts` - Unit tests for CSV parser
-- `lib/csv/__tests__/mapper.test.ts` - Unit tests for CSV mapper
-- `components/lancamentos/csv-import/types.ts` - CSV-specific UI types extending OFX ImportTransaction
+- `lib/csv/types.ts` - TypeScript types for CSV parsing and column mapping ✅
+- `lib/csv/parser.ts` - CSV parsing logic using papaparse (delimiter detection, header extraction) ✅
+- `lib/csv/mapper.ts` - Column mapping logic and data transformation to ImportTransaction format ✅
+- `lib/csv/__tests__/parser.test.ts` - Unit tests for CSV parser ✅
+- `lib/csv/__tests__/mapper.test.ts` - Unit tests for CSV mapper ✅
+- `components/lancamentos/csv-import/types.ts` - CSV-specific UI types extending OFX ImportTransaction ✅
 - `components/lancamentos/csv-import/csv-import-dialog.tsx` - Main wizard dialog (4-step flow)
-- `components/lancamentos/csv-import/csv-upload-step.tsx` - Step 1: File upload + account selection
-- `components/lancamentos/csv-import/csv-column-mapping-step.tsx` - Step 2: Map CSV columns to fields (NEW - doesn't exist in OFX)
+- `components/lancamentos/csv-import/csv-upload-step.tsx` - Step 1: File upload + account selection ✅
+- `components/lancamentos/csv-import/csv-column-mapping-step.tsx` - Step 2: Map CSV columns to fields ✅
 - `components/lancamentos/csv-import/csv-review-step.tsx` - Step 3: Wrapper component using shared review UI
 - `components/lancamentos/csv-import/csv-confirm-step.tsx` - Step 4: Wrapper component using shared confirm UI
 
@@ -65,12 +65,12 @@ Based on PRD: `prd-csv-bulk-import.md`
 
 - [x] 2.0 Implement CSV Parsing and Column Mapping Logic
 
-- [ ] 3.0 Build CSV Import UI Components (Upload & Column Mapping Steps)
+- [x] 3.0 Build CSV Import UI Components (Upload & Column Mapping Steps)
 
-  - [ ] 3.1 Create `components/lancamentos/csv-import/types.ts` - Define CsvWizardStep ("upload" | "mapping" | "review" | "confirm"), CsvImportFormState, CsvColumnOption, extend ImportTransaction from OFX types
-  - [ ] 3.2 Implement `components/lancamentos/csv-import/csv-upload-step.tsx` - Create file upload UI with drag-and-drop zone (using shadcn/ui Input file type), account type selector (Bank Account / Credit Card radio group), account dropdown filtered by type, delimiter selector dropdown (Auto-detect, Semicolon, Comma, Tab), file validation (max 5MB, .csv extension only), display file info after selection (name, size, row count preview), loading state during parsing with spinner, error display for invalid files
-  - [ ] 3.3 Implement `components/lancamentos/csv-import/csv-column-mapping-step.tsx` - Display detected CSV headers from parsed file, provide dropdowns to map columns to system fields (Date, Amount/Valor, Description/Descrição), mark required fields with asterisk (Date and Amount mandatory), show data preview (first 5 rows) with mapped columns highlighted, validate mapping before allowing Next button (disable if Date or Amount not mapped), display total row count from CSV, add "Auto-detect" button that tries to match headers based on common patterns (data/date → Date, valor/value/amount → Amount, descrição/description/memo → Description)
-  - [ ] 3.4 Style components to match existing Opensheets design - Use shadcn/ui components (Dialog, Select, Input, Button, Label, Alert), consistent spacing and typography, Portuguese labels throughout, responsive design with proper mobile breakpoints
+  - [x] 3.1 Create `components/lancamentos/csv-import/types.ts` - Define CsvWizardStep ("upload" | "mapping" | "review" | "confirm"), CsvImportFormState, CsvColumnOption, extend ImportTransaction from OFX types
+  - [x] 3.2 Implement `components/lancamentos/csv-import/csv-upload-step.tsx` - Create file upload UI with drag-and-drop zone (using shadcn/ui Input file type), account type selector (Bank Account / Credit Card radio group), account dropdown filtered by type, delimiter selector dropdown (Auto-detect, Semicolon, Comma, Tab), file validation (max 5MB, .csv extension only), display file info after selection (name, size, row count preview), loading state during parsing with spinner, error display for invalid files
+  - [x] 3.3 Implement `components/lancamentos/csv-import/csv-column-mapping-step.tsx` - Display detected CSV headers from parsed file, provide dropdowns to map columns to system fields (Date, Amount/Valor, Description/Descrição), mark required fields with asterisk (Date and Amount mandatory), show data preview (first 5 rows) with mapped columns highlighted, validate mapping before allowing Next button (disable if Date or Amount not mapped), display total row count from CSV, add "Auto-detect" button that tries to match headers based on common patterns (data/date → Date, valor/value/amount → Amount, descrição/description/memo → Description)
+  - [x] 3.4 Style components to match existing Opensheets design - Use shadcn/ui components (Dialog, Select, Input, Button, Label, Alert), consistent spacing and typography, Portuguese labels throughout, responsive design with proper mobile breakpoints
 
 - [ ] 4.0 Integrate with Existing OFX Infrastructure (Review & Confirm Steps)
 
