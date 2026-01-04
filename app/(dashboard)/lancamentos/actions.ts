@@ -1407,3 +1407,518 @@ export async function getRecentEstablishmentsAction(): Promise<string[]> {
     return [];
   }
 }
+
+/**
+ * CSV Import Server Actions
+ */
+
+/**
+ * Parse CSV file content
+ * Validates file content and returns parsed data with headers and rows
+ */
+export async function parseCsvFileAction(
+  fileContent: string,
+  delimiter?: ";" | "," | "\t" | "auto"
+): Promise<
+  ActionResult<{
+    headers: Array<{ name: string; originalName: string }>;
+    rows: Array<Record<string, string>>;
+    rowCount: number;
+    detectedDelimiter: ";" | "," | "\t";
+  }>
+> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Validate file content
+    if (!fileContent || fileContent.trim().length === 0) {
+      return errorResult("Arquivo CSV vazio.");
+    }
+
+    // Import CSV parser (dynamic import to avoid client-side bundle)
+    const { parseCsvFile } = await import("@/lib/csv/parser");
+
+    // Convert string content to File-like object for parser
+    const blob = new Blob([fileContent], { type: "text/csv" });
+    const file = new File([blob], "upload.csv", { type: "text/csv" });
+
+    // Parse CSV file
+    const parseResult = await parseCsvFile(file, {
+      delimiter: delimiter === "auto" ? undefined : delimiter,
+      trimHeaders: true,
+    });
+
+    // Check for parsing errors
+    if (!parseResult.success) {
+      return errorResult(
+        parseResult.error || "Erro ao processar arquivo CSV."
+      );
+    }
+
+    // Return parsed data
+    return {
+      success: true,
+      message: "Arquivo CSV processado com sucesso.",
+      data: {
+        headers: parseResult.headers,
+        rows: parseResult.rows,
+        rowCount: parseResult.rowCount,
+        detectedDelimiter: parseResult.detectedDelimiter,
+      },
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/**
+ * Detect duplicate CSV transactions
+ * Server action for detecting potential duplicates in existing transactions
+ *
+ * @param accountId - Account ID (contaId or cartaoId) to check for duplicates
+ * @param accountType - Type of account ("bank" or "card")
+ * @param transactions - Array of CSV transactions to check for duplicates
+ * @returns Map of transaction IDs to their duplicate matches
+ */
+export async function detectCsvDuplicatesAction(
+  accountId: string,
+  accountType: "bank" | "card",
+  transactions: Array<{
+    id: string;
+    name: string;
+    amount: string;
+    purchaseDate: Date;
+  }>
+): Promise<
+  ActionResult<
+    Map<
+      string,
+      Array<{
+        lancamentoId: string;
+        matchReason: "fitid" | "exact" | "similar" | "likely";
+        similarity: number;
+        existingTransaction: {
+          nome: string;
+          valor: string;
+          purchaseDate: Date;
+          anotacao: string | null;
+        };
+      }>
+    >
+  >
+> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Validate inputs
+    if (!accountId || !z.string().uuid().safeParse(accountId).success) {
+      return errorResult("ID da conta inválido.");
+    }
+
+    if (transactions.length === 0) {
+      return errorResult("Lista de transações vazia.");
+    }
+
+    if (transactions.length > 1000) {
+      return errorResult("Máximo de 1000 transações por verificação.");
+    }
+
+    // Verify account ownership based on account type
+    if (accountType === "bank") {
+      const account = await db.query.contas.findFirst({
+        where: and(eq(contas.id, accountId), eq(contas.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!account) {
+        return errorResult(
+          "Conta não encontrada ou você não tem permissão para acessá-la."
+        );
+      }
+    } else {
+      const { cartoes } = await import("@/db/schema");
+      const card = await db.query.cartoes.findFirst({
+        where: and(eq(cartoes.id, accountId), eq(cartoes.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!card) {
+        return errorResult(
+          "Cartão não encontrado ou você não tem permissão para acessá-lo."
+        );
+      }
+    }
+
+    // Import duplicate detector
+    const { detectDuplicatesBatch } = await import(
+      "@/lib/ofx/duplicate-detector"
+    );
+
+    // Detect duplicates using the same logic as OFX imports
+    const duplicates = await detectDuplicatesBatch(
+      user.id,
+      accountId,
+      transactions
+    );
+
+    return {
+      success: true,
+      message: `Verificação de duplicatas concluída para ${transactions.length} transações.`,
+      data: duplicates,
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/**
+ * Suggest categories for CSV transactions
+ * Server action for getting category suggestions based on historical data
+ *
+ * @param transactions - Array of CSV transactions to get suggestions for
+ * @returns Map of transaction ID to category suggestion
+ */
+export async function suggestCsvCategoriesAction(
+  transactions: Array<{
+    id: string;
+    name: string;
+    amount: string;
+    transactionType: string;
+  }>
+): Promise<
+  ActionResult<
+    Map<
+      string,
+      {
+        categoriaId: string;
+        confidence: "high" | "medium" | "low";
+        score: number;
+        matchReason: "exact" | "fuzzy" | "amount-pattern";
+      }
+    >
+  >
+> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Validate input
+    if (transactions.length === 0) {
+      return errorResult("Lista de transações vazia.");
+    }
+
+    if (transactions.length > 1000) {
+      return errorResult("Máximo de 1000 transações por sugestão.");
+    }
+
+    // Import category suggester
+    const { suggestCategoriesForTransactions } = await import(
+      "@/lib/ofx/category-suggester"
+    );
+
+    // Get category suggestions using the same logic as OFX imports
+    const suggestions = await suggestCategoriesForTransactions(
+      user.id,
+      transactions.map((t) => ({
+        id: t.id,
+        name: t.name,
+        amount: t.amount,
+        transactionType: t.transactionType,
+      }))
+    );
+
+    return {
+      success: true,
+      message: `Sugestões geradas para ${suggestions.size} transações.`,
+      data: suggestions,
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/**
+ * Rate limit configuration for CSV imports
+ * Reuses OFX import rate limits
+ */
+const CSV_RATE_LIMIT_MAX_IMPORTS = 60;
+const CSV_RATE_LIMIT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * In-memory store for CSV import rate limiting
+ * Maps userId to array of import timestamps
+ */
+const csvImportAttemptsStore = new Map<string, number[]>();
+
+/**
+ * Check if user has exceeded rate limit for CSV imports
+ */
+function isCsvRateLimitExceeded(userId: string): boolean {
+  const now = Date.now();
+  const attempts = csvImportAttemptsStore.get(userId) || [];
+
+  const recentAttempts = attempts.filter(
+    (timestamp) => now - timestamp < CSV_RATE_LIMIT_WINDOW_MS
+  );
+
+  if (recentAttempts.length === 0) {
+    csvImportAttemptsStore.delete(userId);
+  } else {
+    csvImportAttemptsStore.set(userId, recentAttempts);
+  }
+
+  return recentAttempts.length >= CSV_RATE_LIMIT_MAX_IMPORTS;
+}
+
+/**
+ * Record a CSV import attempt for rate limiting
+ */
+function recordCsvImportAttempt(userId: string): void {
+  const now = Date.now();
+  const attempts = csvImportAttemptsStore.get(userId) || [];
+  attempts.push(now);
+
+  const recentAttempts = attempts.filter(
+    (timestamp) => now - timestamp < CSV_RATE_LIMIT_WINDOW_MS
+  );
+
+  csvImportAttemptsStore.set(userId, recentAttempts);
+}
+
+/**
+ * Import CSV transactions to database
+ * Server action for batch inserting validated CSV transactions
+ *
+ * @param accountId - Account ID (contaId or cartaoId) to import transactions to
+ * @param accountType - Type of account ("bank" or "card")
+ * @param transactions - Array of validated transactions to import
+ * @returns Success result with imported count or error
+ */
+export async function importCsvTransactionsAction(
+  accountId: string,
+  accountType: "bank" | "card",
+  transactions: Array<{
+    name: string;
+    amount: string;
+    purchaseDate: Date;
+    transactionType: "Despesa" | "Receita";
+    paymentMethod: string;
+    condition: string;
+    period: string;
+    note?: string;
+    categoriaId?: string;
+    pagadorId?: string;
+  }>
+): Promise<ActionResult<{ importedCount: number; skippedCount: number }>> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Check rate limit before processing
+    if (isCsvRateLimitExceeded(user.id)) {
+      return errorResult(
+        `Limite de importações excedido. Você atingiu o máximo de ${CSV_RATE_LIMIT_MAX_IMPORTS} importações em 30 minutos. Tente novamente mais tarde.`
+      );
+    }
+
+    // Validate inputs
+    if (!accountId || !z.string().uuid().safeParse(accountId).success) {
+      return errorResult("ID da conta inválido.");
+    }
+
+    if (transactions.length === 0) {
+      return errorResult("Lista de transações vazia.");
+    }
+
+    if (transactions.length > 1000) {
+      return errorResult("Máximo de 1000 transações por importação.");
+    }
+
+    // Verify account ownership based on account type
+    if (accountType === "bank") {
+      const account = await db.query.contas.findFirst({
+        where: and(eq(contas.id, accountId), eq(contas.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!account) {
+        return errorResult(
+          "Conta não encontrada ou você não tem permissão para acessá-la."
+        );
+      }
+    } else {
+      const { cartoes } = await import("@/db/schema");
+      const card = await db.query.cartoes.findFirst({
+        where: and(eq(cartoes.id, accountId), eq(cartoes.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!card) {
+        return errorResult(
+          "Cartão não encontrado ou você não tem permissão para acessá-lo."
+        );
+      }
+    }
+
+    // Get user's ADMIN pagador for default fallback
+    const { pagadores, PAGADOR_ROLE_ADMIN } = await import("@/db/schema");
+    const adminPagador = await db.query.pagadores.findFirst({
+      where: and(
+        eq(pagadores.userId, user.id),
+        eq(pagadores.role, PAGADOR_ROLE_ADMIN)
+      ),
+      columns: { id: true },
+    });
+
+    if (!adminPagador) {
+      return errorResult(
+        "Pagador ADMIN não encontrado. Configure seu perfil primeiro."
+      );
+    }
+
+    // Check for existing transactions with same import note pattern to avoid duplicates
+    const importDate = new Date().toLocaleDateString("pt-BR");
+    const importNotePattern = `Importado de CSV em ${importDate}`;
+
+    const existingImports = await db.query.lancamentos.findMany({
+      where: and(
+        accountType === "bank"
+          ? eq(lancamentos.contaId, accountId)
+          : eq(lancamentos.cartaoId, accountId),
+        eq(lancamentos.userId, user.id)
+      ),
+      columns: {
+        id: true,
+        note: true,
+        name: true,
+        amount: true,
+        purchaseDate: true,
+      },
+    });
+
+    // Filter out potential duplicates (same name, amount, date already imported today)
+    let skippedDuplicates = 0;
+    const transactionsToImport = transactions.filter((t) => {
+      const isDuplicate = existingImports.some(
+        (existing) =>
+          existing.note?.includes(importNotePattern) &&
+          existing.name === t.name &&
+          existing.amount === t.amount &&
+          existing.purchaseDate.toISOString() === t.purchaseDate.toISOString()
+      );
+
+      if (isDuplicate) {
+        skippedDuplicates++;
+        return false;
+      }
+      return true;
+    });
+
+    // If all transactions are duplicates, return early
+    if (transactionsToImport.length === 0) {
+      return errorResult(
+        "Todas as transações já foram importadas anteriormente."
+      );
+    }
+
+    // Use database transaction for atomic batch insert
+    let importedCount: number;
+    try {
+      importedCount = await db.transaction(async (tx) => {
+        // Transform transactions to lancamentos format
+        const lancamentosToInsert = transactionsToImport.map((t) => {
+          const categoriaId = t.categoriaId ?? null;
+          const pagadorId = t.pagadorId ?? adminPagador.id;
+
+          // Add import metadata to note
+          const importTimestamp = new Date().toISOString();
+          const importNote = `Importado de CSV em ${importTimestamp}`;
+          const originalNote = t.note ?? "";
+          const combinedNote = [importNote, originalNote]
+            .filter(Boolean)
+            .join(" | ");
+
+          return {
+            name: t.name,
+            amount: t.amount,
+            purchaseDate: t.purchaseDate,
+            transactionType: t.transactionType,
+            paymentMethod: t.paymentMethod,
+            condition: t.condition,
+            period: t.period,
+            note: combinedNote,
+            isSettled: true, // Always true for CSV imports (already settled)
+            contaId: accountType === "bank" ? accountId : null,
+            cartaoId: accountType === "card" ? accountId : null,
+            categoriaId,
+            pagadorId,
+            userId: user.id,
+            // Optional fields set to null
+            installmentCount: null,
+            currentInstallment: null,
+            recurrenceCount: null,
+            dueDate: null,
+            boletoPaymentDate: null,
+            isDivided: false,
+            isAnticipated: false,
+            anticipationId: null,
+            seriesId: null,
+            transferId: null,
+          };
+        });
+
+        // Batch insert all transactions
+        await tx.insert(lancamentos).values(lancamentosToInsert);
+
+        return lancamentosToInsert.length;
+      });
+    } catch (dbError) {
+      console.error("[CSV Import] Database error", dbError);
+      return errorResult(
+        "Erro ao salvar transações no banco de dados. Tente novamente."
+      );
+    }
+
+    // Revalidate lancamentos pages
+    revalidateForEntity("lancamentos");
+
+    // Record successful import attempt for rate limiting
+    recordCsvImportAttempt(user.id);
+
+    // Build success message
+    let message = `${importedCount} ${
+      importedCount === 1 ? "transação importada" : "transações importadas"
+    } com sucesso`;
+
+    if (skippedDuplicates > 0) {
+      message += `. ${skippedDuplicates} ${
+        skippedDuplicates === 1
+          ? "transação duplicada foi ignorada"
+          : "transações duplicadas foram ignoradas"
+      }`;
+    }
+
+    return {
+      success: true,
+      message,
+      data: { importedCount, skippedCount: skippedDuplicates },
+    };
+  } catch (error) {
+    console.error("[CSV Import] Unexpected error", error);
+    return handleActionError(error);
+  }
+}
