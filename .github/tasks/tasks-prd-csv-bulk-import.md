@@ -493,6 +493,7 @@ Successfully integrated CSV import functionality into the transactions page with
 - **`components/lancamentos/csv-import/csv-import-dialog.tsx`** (665 lines) - Main wizard orchestrator
 
   **Component Architecture:**
+
   - **4-step wizard flow**: Upload → Column Mapping → Review → Confirm
   - **State management**: Manages 13+ state variables across all steps
   - **Controlled/uncontrolled modes**: Supports both trigger-based and parent-controlled open state
@@ -500,6 +501,7 @@ Successfully integrated CSV import functionality into the transactions page with
   - **Client-side only rendering**: Uses `useEffect` with mounted flag to prevent hydration issues
 
   **State Categories:**
+
   1. **Dialog state**: `open`, `mounted`, `currentStep`
   2. **Upload state**: `isParsingFile`, `parsingError`, `csvData`
   3. **Mapping state**: `columnMapping`, `selectedAccount`
@@ -507,6 +509,7 @@ Successfully integrated CSV import functionality into the transactions page with
   5. **Import state**: `isImporting`, `importProgress`, `importError`
 
   **Key Handlers:**
+
   - `handleFileSelected()` - Reads file, calls `parseCsvFileAction()`, auto-advances to mapping
   - `handleMappingComplete()` - Stores mapping, calls `detectCsvDuplicatesAction()` + `suggestCsvCategoriesAction()`, advances to review
   - `handleTransactionUpdate()` - Updates individual transaction, marks as edited
@@ -516,6 +519,7 @@ Successfully integrated CSV import functionality into the transactions page with
   - `handleNext()` / `handleBack()` - Step navigation with validation
 
   **Summary Calculation** (memoized):
+
   - Selected transaction count
   - Total value (sum of amounts)
   - Date range (min/max dates)
@@ -523,14 +527,24 @@ Successfully integrated CSV import functionality into the transactions page with
   - Type breakdown (Receitas vs Despesas counts)
 
   **Step Rendering:**
+
   ```tsx
-  {currentStep === "upload" && <CsvUploadStep />}
-  {currentStep === "mapping" && csvData && <CsvColumnMappingStep />}
-  {currentStep === "review" && <CsvReviewStep />}
-  {currentStep === "confirm" && <CsvConfirmStep />}
+  {
+    currentStep === "upload" && <CsvUploadStep />;
+  }
+  {
+    currentStep === "mapping" && csvData && <CsvColumnMappingStep />;
+  }
+  {
+    currentStep === "review" && <CsvReviewStep />;
+  }
+  {
+    currentStep === "confirm" && <CsvConfirmStep />;
+  }
   ```
 
   **Navigation Footer**:
+
   - "Voltar" button - Disabled on upload step or during processing
   - "Próximo"/"Continuar" button - Disabled based on step validation:
     - Upload: requires `csvData`
@@ -539,6 +553,7 @@ Successfully integrated CSV import functionality into the transactions page with
   - Confirm step has its own internal buttons (no footer)
 
   **Progress Simulation**:
+
   - Import progress updates every 100ms from 0% → 90%
   - Server action completes → 100%
   - 500ms delay at 100% before closing for visual feedback
@@ -548,6 +563,7 @@ Successfully integrated CSV import functionality into the transactions page with
 - **`components/lancamentos/page/lancamentos-page.tsx`** - Page integration
 
   **Changes Made:**
+
   1. **Import added**: `import { CsvImportDialog } from "../csv-import/csv-import-dialog"`
   2. **State added**: `const [csvImportOpen, setCsvImportOpen] = useState(false)`
   3. **Handlers added**:
@@ -572,22 +588,25 @@ Successfully integrated CSV import functionality into the transactions page with
 - **`components/lancamentos/table/lancamentos-table.tsx`** - Table toolbar button
 
   **Changes Made:**
+
   1. **Type interface**: Added `onCsvImport?: () => void`
   2. **Icon import**: Added `RiFileUploadLine` from `@remixicon/react`
   3. **Top controls condition**: Updated to include `Boolean(onCsvImport)`
   4. **CSV import button**:
      ```tsx
-     {onCsvImport ? (
-       <Button
-         onClick={onCsvImport}
-         variant="outline"
-         size="icon"
-         className="shrink-0"
-       >
-         <RiFileUploadLine className="size-4" />
-         <span className="sr-only">Importar arquivo CSV</span>
-       </Button>
-     ) : null}
+     {
+       onCsvImport ? (
+         <Button
+           onClick={onCsvImport}
+           variant="outline"
+           size="icon"
+           className="shrink-0"
+         >
+           <RiFileUploadLine className="size-4" />
+           <span className="sr-only">Importar arquivo CSV</span>
+         </Button>
+       ) : null;
+     }
      ```
   5. **Button placement**: After "Mass Add" button, before filters
 
@@ -702,7 +721,7 @@ Successfully integrated CSV import functionality into the transactions page with
 ✅ Get automatic duplicate detection  
 ✅ Get AI-powered category suggestions  
 ✅ Bulk edit imported transactions  
-✅ Track import progress in real-time  
+✅ Track import progress in real-time
 
 **Next Steps:**
 
