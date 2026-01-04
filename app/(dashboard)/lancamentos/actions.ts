@@ -967,15 +967,15 @@ export async function updateLancamentoBulkAction(
       hasDueDateUpdate && data.dueDate
         ? parseLocalDateString(data.dueDate)
         : hasDueDateUpdate
-        ? null
-        : undefined;
+          ? null
+          : undefined;
 
     const baseBoletoPaymentDate =
       hasBoletoPaymentDateUpdate && data.boletoPaymentDate
         ? parseLocalDateString(data.boletoPaymentDate)
         : hasBoletoPaymentDateUpdate
-        ? null
-        : undefined;
+          ? null
+          : undefined;
 
     const basePurchaseDate = existing.purchaseDate ?? null;
 
@@ -994,7 +994,7 @@ export async function updateLancamentoBulkAction(
 
       const monthDiff =
         (recordPurchaseDate.getFullYear() - basePurchaseDate.getFullYear()) *
-          12 +
+        12 +
         (recordPurchaseDate.getMonth() - basePurchaseDate.getMonth());
 
       return addMonthsToDate(baseDueDate, monthDiff);
@@ -1264,9 +1264,8 @@ export async function createMassLancamentosAction(
     const count = allRecords.length;
     return {
       success: true,
-      message: `${count} ${
-        count === 1 ? "lançamento criado" : "lançamentos criados"
-      } com sucesso.`,
+      message: `${count} ${count === 1 ? "lançamento criado" : "lançamentos criados"
+        } com sucesso.`,
     };
   } catch (error) {
     return handleActionError(error);
@@ -1356,9 +1355,8 @@ export async function deleteMultipleLancamentosAction(
     const count = existing.length;
     return {
       success: true,
-      message: `${count} ${
-        count === 1 ? "lançamento removido" : "lançamentos removidos"
-      } com sucesso.`,
+      message: `${count} ${count === 1 ? "lançamento removido" : "lançamentos removidos"
+        } com sucesso.`,
     };
   } catch (error) {
     return handleActionError(error);
@@ -1900,16 +1898,14 @@ export async function importCsvTransactionsAction(
     recordCsvImportAttempt(user.id);
 
     // Build success message
-    let message = `${importedCount} ${
-      importedCount === 1 ? "transação importada" : "transações importadas"
-    } com sucesso`;
+    let message = `${importedCount} ${importedCount === 1 ? "transação importada" : "transações importadas"
+      } com sucesso`;
 
     if (skippedDuplicates > 0) {
-      message += `. ${skippedDuplicates} ${
-        skippedDuplicates === 1
+      message += `. ${skippedDuplicates} ${skippedDuplicates === 1
           ? "transação duplicada foi ignorada"
           : "transações duplicadas foram ignoradas"
-      }`;
+        }`;
     }
 
     return {
