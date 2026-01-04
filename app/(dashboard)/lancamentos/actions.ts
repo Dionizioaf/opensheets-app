@@ -9,6 +9,7 @@ import {
 } from "@/lib/accounts/constants";
 import { handleActionError, revalidateForEntity } from "@/lib/actions/helpers";
 import type { ActionResult } from "@/lib/actions/types";
+import { errorResult } from "@/lib/actions/types";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth/server";
 import {
@@ -1438,14 +1439,10 @@ export async function parseCsvFileAction(
     }
 
     // Import CSV parser (dynamic import to avoid client-side bundle)
-    const { parseCsvFile } = await import("@/lib/csv/parser");
+    const { parseCsvString } = await import("@/lib/csv/parser");
 
-    // Convert string content to File-like object for parser
-    const blob = new Blob([fileContent], { type: "text/csv" });
-    const file = new File([blob], "upload.csv", { type: "text/csv" });
-
-    // Parse CSV file
-    const parseResult = await parseCsvFile(file, {
+    // Parse CSV content directly
+    const parseResult = parseCsvString(fileContent, {
       delimiter: delimiter === "auto" ? undefined : delimiter,
       trimHeaders: true,
     });
@@ -1453,7 +1450,7 @@ export async function parseCsvFileAction(
     // Check for parsing errors
     if (!parseResult.success) {
       return errorResult(
-        parseResult.error || "Erro ao processar arquivo CSV."
+        parseResult.errors?.[0]?.message || "Erro ao processar arquivo CSV."
       );
     }
 
@@ -1728,9 +1725,7 @@ export async function importCsvTransactionsAction(
 
     // Check rate limit before processing
     if (isCsvRateLimitExceeded(user.id)) {
-      return errorResult(
-        `Limite de importações excedido. Você atingiu o máximo de ${CSV_RATE_LIMIT_MAX_IMPORTS} importações em 30 minutos. Tente novamente mais tarde.`
-      );
+      return { success: false, error: `Limite de importações excedido. Você atingiu o máximo de ${CSV_RATE_LIMIT_MAX_IMPORTS} importações em 30 minutos. Tente novamente mais tarde.` };
     }
 
     // Validate inputs
@@ -1743,7 +1738,7 @@ export async function importCsvTransactionsAction(
     }
 
     if (transactions.length > 1000) {
-      return errorResult("Máximo de 1000 transações por importação.");
+      return { success: false, error: "Máximo de 1000 transações por importação." };
     }
 
     // Verify account ownership based on account type
@@ -1783,9 +1778,7 @@ export async function importCsvTransactionsAction(
     });
 
     if (!adminPagador) {
-      return errorResult(
-        "Pagador ADMIN não encontrado. Configure seu perfil primeiro."
-      );
+      return { success: false, error: "Pagador ADMIN não encontrado. Configure seu perfil primeiro." };
     }
 
     // Check for existing transactions with same import note pattern to avoid duplicates
@@ -1903,8 +1896,8 @@ export async function importCsvTransactionsAction(
 
     if (skippedDuplicates > 0) {
       message += `. ${skippedDuplicates} ${skippedDuplicates === 1
-          ? "transação duplicada foi ignorada"
-          : "transações duplicadas foram ignoradas"
+        ? "transação duplicada foi ignorada"
+        : "transações duplicadas foram ignoradas"
         }`;
     }
 

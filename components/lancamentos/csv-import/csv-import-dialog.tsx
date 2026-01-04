@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { RiCloseLine } from "react-icons/ri";
+import { RiCloseLine } from "@remixicon/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -184,18 +184,27 @@ export function CsvImportDialog({
             // Automatically detect duplicates and suggest categories
             setIsDetectingDuplicates(true);
             try {
-                // Detect duplicates
+                // Transform transactions to the format expected by the action
+                const transactionsForDuplicateCheck = mappedTransactions.map(t => ({
+                    id: t.id,
+                    name: t.nome || "",
+                    amount: t.valor?.toString() || "0",
+                    purchaseDate: t.data_compra || new Date(),
+                }));
+
+                // Detect duplicates (fix parameter order: accountId, accountType, transactions)
                 const duplicateResult = await detectCsvDuplicatesAction(
-                    mappedTransactions,
                     account.id,
-                    account.tipo
+                    account.tipo === "banco" ? "bank" : "card",
+                    transactionsForDuplicateCheck
                 );
 
                 if (duplicateResult.success && duplicateResult.data) {
                     // Mark duplicates in transaction state
+                    // The data is a Map<string, Array<DuplicateMatch>>
                     const updatedTransactions = mappedTransactions.map((t) => ({
                         ...t,
-                        isDuplicate: duplicateResult.data?.has(t.id) ?? false,
+                        isDuplicate: (duplicateResult.data?.get(t.id)?.length ?? 0) > 0,
                     }));
 
                     // Suggest categories for non-duplicate transactions
@@ -298,10 +307,10 @@ export function CsvImportDialog({
     /**
      * Bulk set category for selected transactions
      */
-    const handleBulkCategorySet = useCallback((categoriaId: string | undefined) => {
+    const handleBulkCategorySet = useCallback((ids: string[], categoriaId: string) => {
         setTransactions((prev) =>
             prev.map((t) =>
-                t.isSelected && !t.isDuplicate
+                ids.includes(t.id)
                     ? { ...t, categoriaId, isEdited: true }
                     : t
             )
@@ -313,67 +322,87 @@ export function CsvImportDialog({
      */
     const summary = useMemo(() => {
         const selected = transactions.filter((t) => t.isSelected && !t.isDuplicate);
+        const duplicates = transactions.filter((t) => t.isDuplicate);
 
-        if (selected.length === 0) {
-            return {
-                selectedCount: 0,
-                totalValue: 0,
-                dateRange: null as { start: string; end: string } | null,
-                categoryBreakdown: [] as Array<{ categoria: string; count: number }>,
-                typeBreakdown: { receita: 0, despesa: 0 },
+        // Calculate totals
+        let despesasCount = 0;
+        let receitasCount = 0;
+        let despesasAmount = 0;
+        let receitasAmount = 0;
+        let totalAmount = 0;
+
+        selected.forEach((t) => {
+            const amount = parseFloat(t.valor);
+            if (t.tipo_transacao === "Receita") {
+                receitasCount++;
+                receitasAmount += amount;
+            } else {
+                despesasCount++;
+                despesasAmount += amount;
+            }
+            totalAmount += amount;
+        });
+
+        // Calculate date range
+        let dateRange: { start: Date; end: Date } | null = null;
+        if (selected.length > 0) {
+            const dates = selected.map((t) => t.data_compra);
+            dateRange = {
+                start: new Date(Math.min(...dates.map((d) => d.getTime()))),
+                end: new Date(Math.max(...dates.map((d) => d.getTime()))),
             };
         }
 
-        // Total value
-        const totalValue = selected.reduce(
-            (sum, t) => sum + parseFloat(t.valor),
-            0
-        );
-
-        // Date range
-        const dates = selected.map((t) => new Date(t.data_compra));
-        const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-        const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-
         // Category breakdown
-        const categoryMap = new Map<string, number>();
+        const categoryMap = new Map<
+            string,
+            { name: string; count: number; amount: number }
+        >();
         selected.forEach((t) => {
-            const catId = t.categoriaId || "sem-categoria";
-            categoryMap.set(catId, (categoryMap.get(catId) || 0) + 1);
+            if (t.categoriaId) {
+                const existing = categoryMap.get(t.categoriaId);
+                const amount = parseFloat(t.valor);
+                if (existing) {
+                    existing.count++;
+                    existing.amount += amount;
+                } else {
+                    const category = categorias.find((c) => c.id === t.categoriaId);
+                    categoryMap.set(t.categoriaId, {
+                        name: category?.nome || "Sem categoria",
+                        count: 1,
+                        amount,
+                    });
+                }
+            }
         });
 
-        const categoryBreakdown = Array.from(categoryMap.entries()).map(
-            ([catId, count]) => {
-                const categoria = categorias.find((c) => c.id === catId);
-                return {
-                    categoria: categoria?.nome || "Sem categoria",
-                    count,
-                };
-            }
-        );
-
-        // Type breakdown
-        const typeBreakdown = selected.reduce(
-            (acc, t) => {
-                if (t.tipo_transacao === "receita") {
-                    acc.receita += 1;
-                } else {
-                    acc.despesa += 1;
-                }
-                return acc;
-            },
-            { receita: 0, despesa: 0 }
-        );
+        const categoryBreakdown = Array.from(categoryMap.entries())
+            .map(([categoriaId, data]) => ({
+                categoriaId,
+                categoryName: data.name,
+                count: data.count,
+                amount: data.amount.toFixed(2),
+            }))
+            .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
 
         return {
             selectedCount: selected.length,
-            totalValue,
-            dateRange: {
-                start: minDate.toLocaleDateString("pt-BR"),
-                end: maxDate.toLocaleDateString("pt-BR"),
-            },
+            totalCount: transactions.length,
+            duplicatesSkipped: duplicates.length,
+            newTransactions: selected.length,
+            totalAmount: totalAmount.toFixed(2),
+            dateRange,
             categoryBreakdown,
-            typeBreakdown,
+            typeBreakdown: {
+                despesas: {
+                    count: despesasCount,
+                    amount: despesasAmount.toFixed(2),
+                },
+                receitas: {
+                    count: receitasCount,
+                    amount: receitasAmount.toFixed(2),
+                },
+            },
         };
     }, [transactions, categorias]);
 
@@ -385,10 +414,13 @@ export function CsvImportDialog({
             setCurrentStep("mapping");
         } else if (currentStep === "mapping" && columnMapping && selectedAccount) {
             setCurrentStep("review");
-        } else if (currentStep === "review" && selectedCount > 0) {
-            setCurrentStep("confirm");
+        } else if (currentStep === "review") {
+            const selected = transactions.filter((t) => t.isSelected && !t.isDuplicate);
+            if (selected.length > 0) {
+                setCurrentStep("confirm");
+            }
         }
-    }, [currentStep, csvData, columnMapping, selectedAccount]);
+    }, [currentStep, csvData, columnMapping, selectedAccount, transactions]);
 
     /**
      * Navigate to previous step
@@ -562,8 +594,8 @@ export function CsvImportDialog({
                                     <div className="flex-1 min-w-0 hidden sm:block">
                                         <p
                                             className={`text-xs font-medium truncate ${index <= currentStepIndex
-                                                    ? "text-foreground"
-                                                    : "text-muted-foreground"
+                                                ? "text-foreground"
+                                                : "text-muted-foreground"
                                                 }`}
                                         >
                                             {step.title}
@@ -573,8 +605,8 @@ export function CsvImportDialog({
                                 {index < WIZARD_STEPS.length - 1 && (
                                     <div
                                         className={`h-[2px] w-8 sm:w-full mx-1 sm:mx-2 ${index < currentStepIndex
-                                                ? "bg-primary"
-                                                : "bg-muted"
+                                            ? "bg-primary"
+                                            : "bg-muted"
                                             }`}
                                     />
                                 )}

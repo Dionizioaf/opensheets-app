@@ -183,3 +183,81 @@ export async function parseCsvFile(
         reader.readAsText(file, config?.encoding || "UTF-8");
     });
 }
+
+/**
+ * Parse CSV string content (server-safe version)
+ * 
+ * @param content - CSV file content as string
+ * @param config - Optional parsing configuration
+ * @returns CsvParseResult
+ */
+export function parseCsvString(
+    content: string,
+    config?: Partial<CsvImportConfig>
+): CsvParseResult {
+    if (!content || content.trim().length === 0) {
+        return {
+            success: false,
+            headers: [],
+            rows: [],
+            rowCount: 0,
+            detectedDelimiter: ";",
+            encoding: "UTF-8",
+            errors: [
+                {
+                    type: "FieldMismatch",
+                    code: "EMPTY_FILE",
+                    message: "O arquivo CSV está vazio",
+                },
+            ],
+        };
+    }
+
+    // Detect delimiter if not provided or set to auto
+    const delimiter =
+        config?.delimiter === "auto" || !config?.delimiter
+            ? detectDelimiter(content)
+            : config.delimiter;
+
+    // Parse with papaparse (synchronous)
+    const results = Papa.parse(content, {
+        delimiter,
+        header: true,
+        skipEmptyLines: config?.skipEmptyLines ?? true,
+    });
+
+    // Get original headers before any transformation
+    const firstLine = content.split("\n")[0];
+    const originalHeaders = firstLine.split(delimiter);
+
+    // Determine if headers should be trimmed (default: true)
+    const shouldTrim = config?.trimHeaders !== false;
+
+    // Extract headers with both trimmed and original names
+    const headers: CsvColumn[] = results.meta.fields?.map((field, index) => ({
+        index,
+        name: shouldTrim ? field.trim() : field,
+        originalName: originalHeaders[index] || field,
+    })) || [];
+
+    // Convert data to CsvRow format
+    const rows: CsvRow[] = results.data as CsvRow[];
+
+    // Map papaparse errors to our error type
+    const errors: CsvParsingError[] = results.errors.map((error) => ({
+        type: error.type as CsvParsingError["type"],
+        code: error.code,
+        message: error.message,
+        row: error.row,
+    }));
+
+    return {
+        success: errors.length === 0,
+        headers,
+        rows,
+        rowCount: rows.length,
+        detectedDelimiter: delimiter,
+        encoding: config?.encoding || "UTF-8",
+        errors: errors.length > 0 ? errors : undefined,
+    };
+}

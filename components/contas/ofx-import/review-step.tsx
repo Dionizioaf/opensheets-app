@@ -302,7 +302,23 @@ export function ReviewStep({
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-12 min-w-[48px]">
-                                {!bulkCategoryMode && (
+                                {bulkCategoryMode ? (
+                                    <Checkbox
+                                        checked={selectedForBulk.size === visibleTransactions.filter(t => !t.isDuplicate).length && selectedForBulk.size > 0}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                // Select all non-duplicate transactions
+                                                visibleTransactions
+                                                    .filter(t => !t.isDuplicate)
+                                                    .forEach(t => setSelectedForBulk(prev => new Set(prev).add(t.id)));
+                                            } else {
+                                                // Deselect all
+                                                setSelectedForBulk(new Set());
+                                            }
+                                        }}
+                                        aria-label="Selecionar todas para edição em massa"
+                                    />
+                                ) : (
                                     <Checkbox
                                         checked={allSelected}
                                         onCheckedChange={handleSelectAll}

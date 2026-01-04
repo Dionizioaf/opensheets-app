@@ -1,17 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -21,40 +13,35 @@ import {
     RiInformationLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils/ui";
-import { parseCsvFile } from "@/lib/csv/parser";
-import type {
-    CsvUploadStepProps,
-    AccountType,
-} from "./types";
-import type { CsvDelimiter } from "@/lib/csv/types";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
 const ALLOWED_EXTENSION = ".csv";
-const ALLOWED_MIME_TYPES = [
-    "text/csv",
-    "application/csv",
-    "text/plain",
-    "application/vnd.ms-excel",
-];
+
+/**
+ * Simplified props for CSV upload step
+ */
+interface SimplifiedCsvUploadStepProps {
+    onFileSelected: (file: File, delimiter: "," | ";") => void;
+    isLoading: boolean;
+    error: string | null;
+}
 
 export function CsvUploadStep({
-    uploadedFile,
-    accountType,
-    selectedAccountId,
-    selectedDelimiter,
+    onFileSelected,
     isLoading,
     error,
-    bankAccounts,
-    creditCards,
-    onFileSelect,
-    onAccountTypeChange,
-    onAccountSelect,
-    onDelimiterChange,
-    onParseComplete,
-    onError,
-}: CsvUploadStepProps) {
+}: SimplifiedCsvUploadStepProps) {
     const [isDragOver, setIsDragOver] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [delimiter, setDelimiter] = useState<"," | ";">(";");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     /**
@@ -91,44 +78,10 @@ export function CsvUploadStep({
     }, []);
 
     /**
-     * Parse CSV file
-     */
-    const handleFileParse = useCallback(
-        async (file: File) => {
-            try {
-                const result = await parseCsvFile(file, {
-                    delimiter: selectedDelimiter,
-                    skipEmptyLines: true,
-                    trimHeaders: true,
-                });
-
-                if (!result.success) {
-                    const errorMsg =
-                        result.errors?.[0]?.message || "Erro ao processar arquivo CSV";
-                    onError(errorMsg);
-                    return;
-                }
-
-                if (result.rowCount === 0) {
-                    onError("O arquivo CSV não contém dados");
-                    return;
-                }
-
-                onParseComplete(result);
-            } catch (err) {
-                const errorMsg =
-                    err instanceof Error ? err.message : "Erro desconhecido ao processar CSV";
-                onError(errorMsg);
-            }
-        },
-        [selectedDelimiter, onParseComplete, onError]
-    );
-
-    /**
      * Handle file selection from input or drag-and-drop
      */
     const handleFileSelect = useCallback(
-        async (file: File) => {
+        (file: File) => {
             setValidationError(null);
 
             const validation = validateFile(file);
@@ -137,10 +90,10 @@ export function CsvUploadStep({
                 return;
             }
 
-            onFileSelect(file);
-            await handleFileParse(file);
+            setUploadedFile(file);
+            onFileSelected(file, delimiter);
         },
-        [validateFile, onFileSelect, handleFileParse]
+        [validateFile, onFileSelected, delimiter]
     );
 
     /**
@@ -204,17 +157,7 @@ export function CsvUploadStep({
         return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
     };
 
-    /**
-     * Re-parse file when delimiter changes
-     */
-    useEffect(() => {
-        if (uploadedFile && !isLoading) {
-            handleFileParse(uploadedFile);
-        }
-    }, [selectedDelimiter]); // eslint-disable-line react-hooks/exhaustive-deps
-
     const displayError = validationError || error;
-    const filteredAccounts = accountType === "bank" ? bankAccounts : creditCards;
 
     return (
         <div className="space-y-6">
@@ -226,86 +169,24 @@ export function CsvUploadStep({
                 </p>
             </div>
 
-            {/* Account Type Selection */}
-            <div className="space-y-4">
-                <Label>Tipo de Conta</Label>
-                <RadioGroup
-                    value={accountType || ""}
-                    onValueChange={(value) => onAccountTypeChange(value as AccountType)}
-                    className="flex gap-4"
-                    disabled={isLoading}
-                >
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="bank" id="bank" />
-                        <Label htmlFor="bank" className="font-normal cursor-pointer">
-                            Conta Bancária
-                        </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="credit-card" id="credit-card" />
-                        <Label htmlFor="credit-card" className="font-normal cursor-pointer">
-                            Cartão de Crédito
-                        </Label>
-                    </div>
-                </RadioGroup>
-            </div>
-
-            {/* Account Selection */}
-            {accountType && (
-                <div className="space-y-4">
-                    <Label htmlFor="account-select">
-                        {accountType === "bank" ? "Conta Bancária" : "Cartão de Crédito"}
-                    </Label>
-                    <Select
-                        value={selectedAccountId || ""}
-                        onValueChange={onAccountSelect}
-                        disabled={isLoading}
-                    >
-                        <SelectTrigger id="account-select">
-                            <SelectValue
-                                placeholder={`Selecione ${accountType === "bank" ? "a conta" : "o cartão"}`}
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {filteredAccounts.map((account) => (
-                                <SelectItem key={account.id} value={account.id}>
-                                    {account.icone && <span className="mr-2">{account.icone}</span>}
-                                    {account.nome}
-                                </SelectItem>
-                            ))}
-                            {filteredAccounts.length === 0 && (
-                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                    Nenhuma {accountType === "bank" ? "conta" : "cartão"} disponível
-                                </div>
-                            )}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-
             {/* Delimiter Selection */}
             <div className="space-y-4">
                 <Label htmlFor="delimiter-select">Separador de Colunas</Label>
                 <Select
-                    value={selectedDelimiter}
-                    onValueChange={(value) =>
-                        onDelimiterChange(value as CsvDelimiter | "auto")
-                    }
+                    value={delimiter}
+                    onValueChange={(value) => setDelimiter(value as "," | ";")}
                     disabled={isLoading}
                 >
                     <SelectTrigger id="delimiter-select">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="auto">Auto-detectar</SelectItem>
                         <SelectItem value=";">Ponto e vírgula (;)</SelectItem>
                         <SelectItem value=",">Vírgula (,)</SelectItem>
-                        <SelectItem value="\t">Tabulação (Tab)</SelectItem>
                     </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                    O separador é detectado automaticamente, mas você pode selecionar manualmente
-                    se necessário
+                    Selecione o separador usado no arquivo CSV
                 </p>
             </div>
 

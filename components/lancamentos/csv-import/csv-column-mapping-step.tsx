@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
+import { parse } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,10 +26,27 @@ import {
     RiInformationLine,
     RiErrorWarningLine,
     RiCheckLine,
+    RiArrowLeftLine,
+    RiArrowRightLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils/ui";
-import type { CsvColumnMappingStepProps } from "./types";
 import type { SystemField, ColumnMapping } from "@/lib/csv/types";
+import type { CsvParseResult } from "@/lib/csv/types";
+import type { AccountOption } from "./csv-import-dialog";
+import type { Categoria } from "@/db/schema";
+
+/**
+ * Actual props being passed by parent
+ */
+interface CsvColumnMappingStepActualProps {
+    csvData: CsvParseResult;
+    contas: AccountOption[];
+    cartoes: AccountOption[];
+    categorias: Categoria[];
+    pagadores: Array<{ id: string; nome: string }>;
+    onMappingComplete: (mapping: any, account: AccountOption, mappedTransactions: any[]) => void;
+    onBack: () => void;
+}
 
 /**
  * System field configuration
@@ -66,28 +84,44 @@ const SYSTEM_FIELDS: Array<{
  * Displays detected CSV headers and allows user to map them to system fields
  */
 export function CsvColumnMappingStep({
-    columnMapping,
-    availableColumns,
-    previewRows,
-    totalRows,
-    isAutoDetecting,
-    error,
-    onMappingChange,
-    onAutoDetect,
-    onValidate,
-}: CsvColumnMappingStepProps) {
+    csvData,
+    contas,
+    cartoes,
+    categorias,
+    pagadores,
+    onMappingComplete,
+    onBack,
+}: CsvColumnMappingStepActualProps) {
+    // Internal state
+    const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
+    const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedAccount, setSelectedAccount] = useState<AccountOption | null>(null);
+
+    // Extract available columns from CSV data
+    const availableColumns = useMemo(() => {
+        return csvData.headers.map(header => ({
+            value: header.name,
+            label: header.name,
+            index: header.index,
+        }));
+    }, [csvData.headers]);
+
+    // Preview rows
+    const previewRows = useMemo(() => csvData.rows.slice(0, 5), [csvData.rows]);
+    const totalRows = csvData.rowCount;
     /**
      * Check if mapping is complete (all required fields mapped)
      */
     const isMappingComplete = useMemo(() => {
-        return Boolean(columnMapping.date && columnMapping.amount);
+        return Boolean(columnMapping?.date && columnMapping?.amount);
     }, [columnMapping]);
 
     /**
      * Get mapped column name for a system field
      */
     const getMappedColumn = (field: SystemField): string | undefined => {
-        return columnMapping[field];
+        return columnMapping?.[field];
     };
 
     /**
@@ -98,14 +132,119 @@ export function CsvColumnMappingStep({
             ...columnMapping,
         };
 
-        if (columnName === null || columnName === "") {
+        if (columnName === null || columnName === "" || columnName === "__none__") {
             delete newMapping[field];
         } else {
             newMapping[field] = columnName;
         }
 
-        onMappingChange(newMapping);
+        setColumnMapping(newMapping);
     };
+
+    /**
+     * Auto-detect column mapping
+     */
+    const handleAutoDetect = useCallback(() => {
+        setIsAutoDetecting(true);
+        setError(null);
+
+        try {
+            const mapping: ColumnMapping = {};
+
+            // Simple auto-detection logic
+            csvData.headers.forEach(header => {
+                const lowerName = header.name.toLowerCase();
+
+                if (lowerName.includes('data') || lowerName.includes('date')) {
+                    mapping.date = header.name;
+                } else if (lowerName.includes('valor') || lowerName.includes('value') || lowerName.includes('amount')) {
+                    mapping.amount = header.name;
+                } else if (lowerName.includes('descri') || lowerName.includes('lancamento') || lowerName.includes('description')) {
+                    mapping.description = header.name;
+                }
+            });
+
+            setColumnMapping(mapping);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Erro ao detectar colunas");
+        } finally {
+            setIsAutoDetecting(false);
+        }
+    }, [csvData.headers]);
+
+    /**
+     * Handle continue to next step
+     */
+    const handleContinue = useCallback(() => {
+        if (!columnMapping.date || !columnMapping.amount) {
+            setError("Preencha os campos obrigatórios (Data e Valor)");
+            return;
+        }
+
+        // Transform CSV rows to transactions using the mapping
+        const mappedTransactions = csvData.rows.map((row, index) => {
+            const dateValue = row[columnMapping.date!];
+            const amountValue = row[columnMapping.amount!];
+            const descriptionValue = columnMapping.description ? row[columnMapping.description] : "";
+
+            // Parse date - try common Brazilian formats
+            let parsedDate: Date | null = null;
+            if (dateValue) {
+                // Try DD/MM/YYYY format first
+                try {
+                    parsedDate = parse(dateValue, "dd/MM/yyyy", new Date());
+                    if (isNaN(parsedDate.getTime())) {
+                        // Try DD/MM/YY format
+                        parsedDate = parse(dateValue, "dd/MM/yy", new Date());
+                    }
+                } catch {
+                    parsedDate = null;
+                }
+            }
+
+            // Parse amount - remove currency symbols and convert to number
+            let parsedAmount = 0;
+            let transactionType: "Despesa" | "Receita" = "Despesa";
+            if (amountValue) {
+                // Remove "R$", spaces, and convert comma to dot
+                const cleanAmount = amountValue
+                    .replace(/R\$\s*/g, "")
+                    .replace(/\./g, "") // Remove thousand separators
+                    .replace(/,/g, ".") // Convert decimal separator
+                    .trim();
+
+                const numericValue = parseFloat(cleanAmount) || 0;
+
+                // Positive values = Despesa (debit), Negative values = Receita (credit)
+                if (numericValue < 0) {
+                    transactionType = "Receita";
+                    parsedAmount = Math.abs(numericValue);
+                } else {
+                    transactionType = "Despesa";
+                    parsedAmount = numericValue;
+                }
+            }
+
+            return {
+                id: `csv-${index}`,
+                data_compra: parsedDate || new Date(),
+                valor: parsedAmount,
+                nome: descriptionValue || "Sem descrição",
+                tipo_transacao: transactionType,
+                categoriaId: null,
+                isSelected: true,
+                isDuplicate: false,
+            };
+        });
+
+        // Validate account selection
+        if (!selectedAccount) {
+            setError("Selecione uma conta para continuar");
+            return;
+        }
+
+        onMappingComplete(columnMapping, selectedAccount, mappedTransactions);
+    }, [columnMapping, csvData.rows, selectedAccount, onMappingComplete]);
 
     /**
      * Get column index for highlighting in preview
@@ -158,7 +297,7 @@ export function CsvColumnMappingStep({
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={onAutoDetect}
+                    onClick={handleAutoDetect}
                     disabled={isAutoDetecting}
                 >
                     {isAutoDetecting ? (
@@ -183,6 +322,64 @@ export function CsvColumnMappingStep({
                 </Alert>
             )}
 
+            {/* Account Selection */}
+            <div className="space-y-4 rounded-lg border bg-card p-6">
+                <h4 className="text-sm font-medium">Selecionar Conta</h4>
+                <div className="space-y-2">
+                    <Label htmlFor="account-select">
+                        Conta de destino <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                        value={selectedAccount?.id || "__none__"}
+                        onValueChange={(value) => {
+                            if (value === "__none__") {
+                                setSelectedAccount(null);
+                            } else {
+                                const account = [...contas, ...cartoes].find(a => a.id === value);
+                                if (account) setSelectedAccount(account);
+                            }
+                        }}
+                    >
+                        <SelectTrigger
+                            id="account-select"
+                            className={cn(!selectedAccount && "border-destructive")}
+                        >
+                            <SelectValue placeholder="Selecione uma conta..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none__">Selecione uma conta...</SelectItem>
+                            {contas.length > 0 && (
+                                <>
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                        Contas Bancárias
+                                    </div>
+                                    {contas.map((conta) => (
+                                        <SelectItem key={conta.id} value={conta.id}>
+                                            {conta.nome}
+                                        </SelectItem>
+                                    ))}
+                                </>
+                            )}
+                            {cartoes.length > 0 && (
+                                <>
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                        Cartões de Crédito
+                                    </div>
+                                    {cartoes.map((cartao) => (
+                                        <SelectItem key={cartao.id} value={cartao.id}>
+                                            {cartao.nome}
+                                        </SelectItem>
+                                    ))}
+                                </>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                        Selecione a conta bancária ou cartão de crédito onde as transações serão importadas
+                    </p>
+                </div>
+            </div>
+
             {/* Mapping form */}
             <div className="space-y-4 rounded-lg border bg-card p-6">
                 <h4 className="text-sm font-medium">Mapeamento de Campos</h4>
@@ -194,7 +391,7 @@ export function CsvColumnMappingStep({
                                 {field.required && <span className="text-destructive">*</span>}
                             </Label>
                             <Select
-                                value={getMappedColumn(field.key) || ""}
+                                value={getMappedColumn(field.key) || "__none__"}
                                 onValueChange={(value) => handleFieldChange(field.key, value || null)}
                             >
                                 <SelectTrigger
@@ -208,7 +405,7 @@ export function CsvColumnMappingStep({
                                     <SelectValue placeholder="Selecione uma coluna..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">
+                                    <SelectItem value="__none__">
                                         <span className="text-muted-foreground">
                                             Nenhuma coluna
                                         </span>
@@ -322,6 +519,26 @@ export function CsvColumnMappingStep({
                         Mostrando {displayPreviewRows.length} de {totalRows} linhas
                     </p>
                 )}
+            </div>
+
+            {/* Navigation buttons */}
+            <div className="flex items-center justify-between pt-4 border-t">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onBack}
+                >
+                    <RiArrowLeftLine className="mr-2 size-4" />
+                    Voltar
+                </Button>
+                <Button
+                    type="button"
+                    onClick={handleContinue}
+                    disabled={!isMappingComplete}
+                >
+                    Continuar
+                    <RiArrowRightLine className="ml-2 size-4" />
+                </Button>
             </div>
         </div>
     );
