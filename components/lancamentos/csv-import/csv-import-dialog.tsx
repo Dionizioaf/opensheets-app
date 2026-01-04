@@ -561,11 +561,10 @@ export function CsvImportDialog({
                                     </Badge>
                                     <div className="flex-1 min-w-0 hidden sm:block">
                                         <p
-                                            className={`text-xs font-medium truncate ${
-                                                index <= currentStepIndex
+                                            className={`text-xs font-medium truncate ${index <= currentStepIndex
                                                     ? "text-foreground"
                                                     : "text-muted-foreground"
-                                            }`}
+                                                }`}
                                         >
                                             {step.title}
                                         </p>
@@ -573,11 +572,10 @@ export function CsvImportDialog({
                                 </div>
                                 {index < WIZARD_STEPS.length - 1 && (
                                     <div
-                                        className={`h-[2px] w-8 sm:w-full mx-1 sm:mx-2 ${
-                                            index < currentStepIndex
+                                        className={`h-[2px] w-8 sm:w-full mx-1 sm:mx-2 ${index < currentStepIndex
                                                 ? "bg-primary"
                                                 : "bg-muted"
-                                        }`}
+                                            }`}
                                     />
                                 )}
                             </div>
