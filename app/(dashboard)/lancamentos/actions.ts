@@ -1847,24 +1847,24 @@ export async function importCsvTransactionsAction(
       const isDuplicate = existingImports.some((existing) => {
         // Compare name (case-insensitive, trimmed)
         const nameMatch = existing.name.trim().toLowerCase() === t.nome.trim().toLowerCase();
-        
+
         // Compare amount (convert both to numbers for comparison)
-        const existingAmount = typeof existing.amount === 'string' 
-          ? parseFloat(existing.amount) 
+        const existingAmount = typeof existing.amount === 'string'
+          ? parseFloat(existing.amount)
           : existing.amount;
         const newAmount = typeof t.valor === 'string'
           ? parseFloat(t.valor)
           : t.valor;
         const amountMatch = Math.abs(existingAmount - newAmount) < 0.01; // Allow for tiny rounding differences
-        
+
         // Compare dates (only year, month, day - ignore time)
         const existingDate = new Date(existing.purchaseDate);
         const newDate = new Date(t.data_compra);
-        const dateMatch = 
+        const dateMatch =
           existingDate.getFullYear() === newDate.getFullYear() &&
           existingDate.getMonth() === newDate.getMonth() &&
           existingDate.getDate() === newDate.getDate();
-        
+
         return nameMatch && amountMatch && dateMatch;
       });
 
