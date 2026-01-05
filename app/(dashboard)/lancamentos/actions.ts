@@ -1823,10 +1823,8 @@ export async function importCsvTransactionsAction(
       adminPagador = created;
     }
 
-    // Check for existing transactions with same import note pattern to avoid duplicates
-    const importDate = new Date().toLocaleDateString("pt-BR");
-    const importNotePattern = `Importado de CSV em ${importDate}`;
-
+    // Check for existing transactions to avoid duplicates
+    // Fetch all existing transactions for this account
     const existingImports = await db.query.lancamentos.findMany({
       where: and(
         normalizedAccountType === "bank"
@@ -1843,16 +1841,32 @@ export async function importCsvTransactionsAction(
       },
     });
 
-    // Filter out potential duplicates (same name, amount, date already imported today)
+    // Filter out duplicates (same name, amount, and purchase date)
     let skippedDuplicates = 0;
     const transactionsToImport = transactions.filter((t) => {
-      const isDuplicate = existingImports.some(
-        (existing) =>
-          existing.note?.includes(importNotePattern) &&
-          existing.name === t.nome &&
-          existing.amount === t.valor &&
-          existing.purchaseDate.toISOString() === t.data_compra.toISOString()
-      );
+      const isDuplicate = existingImports.some((existing) => {
+        // Compare name (case-insensitive, trimmed)
+        const nameMatch = existing.name.trim().toLowerCase() === t.nome.trim().toLowerCase();
+        
+        // Compare amount (convert both to numbers for comparison)
+        const existingAmount = typeof existing.amount === 'string' 
+          ? parseFloat(existing.amount) 
+          : existing.amount;
+        const newAmount = typeof t.valor === 'string'
+          ? parseFloat(t.valor)
+          : t.valor;
+        const amountMatch = Math.abs(existingAmount - newAmount) < 0.01; // Allow for tiny rounding differences
+        
+        // Compare dates (only year, month, day - ignore time)
+        const existingDate = new Date(existing.purchaseDate);
+        const newDate = new Date(t.data_compra);
+        const dateMatch = 
+          existingDate.getFullYear() === newDate.getFullYear() &&
+          existingDate.getMonth() === newDate.getMonth() &&
+          existingDate.getDate() === newDate.getDate();
+        
+        return nameMatch && amountMatch && dateMatch;
+      });
 
       if (isDuplicate) {
         skippedDuplicates++;
