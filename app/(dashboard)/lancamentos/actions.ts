@@ -1702,19 +1702,20 @@ function recordCsvImportAttempt(userId: string): void {
  */
 export async function importCsvTransactionsAction(
   accountId: string,
-  accountType: "bank" | "card",
+  accountType: "bank" | "card" | "banco" | "cartao",
   transactions: Array<{
-    name: string;
-    amount: string;
-    purchaseDate: Date;
-    transactionType: "Despesa" | "Receita";
-    paymentMethod: string;
-    condition: string;
-    period: string;
-    note?: string;
+    nome: string;
+    valor: string;
+    data_compra: Date;
+    tipo_transacao: "Despesa" | "Receita";
+    forma_pagamento?: string;
+    condicao?: string;
+    periodo?: string;
+    anotacao?: string;
     categoriaId?: string;
     pagadorId?: string;
-  }>
+  }>,
+  periodOverride?: string
 ): Promise<ActionResult<{ importedCount: number; skippedCount: number }>> {
   try {
     // Validate user authentication
@@ -1722,6 +1723,12 @@ export async function importCsvTransactionsAction(
     if (!user) {
       return errorResult("Usuário não autenticado.");
     }
+
+    // Normalize account type to English
+    const normalizedAccountType: "bank" | "card" =
+      accountType === "banco" ? "bank" :
+        accountType === "cartao" ? "card" :
+          accountType;
 
     // Check rate limit before processing
     if (isCsvRateLimitExceeded(user.id)) {
@@ -1742,7 +1749,7 @@ export async function importCsvTransactionsAction(
     }
 
     // Verify account ownership based on account type
-    if (accountType === "bank") {
+    if (normalizedAccountType === "bank") {
       const account = await db.query.contas.findFirst({
         where: and(eq(contas.id, accountId), eq(contas.userId, user.id)),
         columns: { id: true },
@@ -1753,11 +1760,15 @@ export async function importCsvTransactionsAction(
           "Conta não encontrada ou você não tem permissão para acessá-la."
         );
       }
-    } else {
+    }
+
+    // Get card details including closing day for period calculation
+    let cardClosingDay: number | null = null;
+    if (normalizedAccountType === "card") {
       const { cartoes } = await import("@/db/schema");
       const card = await db.query.cartoes.findFirst({
         where: and(eq(cartoes.id, accountId), eq(cartoes.userId, user.id)),
-        columns: { id: true },
+        columns: { id: true, closingDay: true },
       });
 
       if (!card) {
@@ -1765,11 +1776,17 @@ export async function importCsvTransactionsAction(
           "Cartão não encontrado ou você não tem permissão para acessá-lo."
         );
       }
+
+      // Parse closing day (stored as string like "02", "15", etc.)
+      const parsed = parseInt(card.closingDay, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
+        cardClosingDay = parsed;
+      }
     }
 
-    // Get user's ADMIN pagador for default fallback
+    // Get user's ADMIN pagador for default fallback (create if doesn't exist)
     const { pagadores, PAGADOR_ROLE_ADMIN } = await import("@/db/schema");
-    const adminPagador = await db.query.pagadores.findFirst({
+    let adminPagador = await db.query.pagadores.findFirst({
       where: and(
         eq(pagadores.userId, user.id),
         eq(pagadores.role, PAGADOR_ROLE_ADMIN)
@@ -1777,8 +1794,33 @@ export async function importCsvTransactionsAction(
       columns: { id: true },
     });
 
+    // Auto-create ADMIN pagador if missing (legacy users or failed setup)
     if (!adminPagador) {
-      return { success: false, error: "Pagador ADMIN não encontrado. Configure seu perfil primeiro." };
+      const { DEFAULT_PAGADOR_AVATAR, PAGADOR_STATUS_OPTIONS } = await import("@/lib/pagadores/constants");
+      const { normalizeNameFromEmail } = await import("@/lib/pagadores/utils");
+
+      const name = user.name?.trim() || normalizeNameFromEmail(user.email) || "Pagador Principal";
+
+      // Create ADMIN pagador directly
+      const [created] = await db.insert(pagadores).values({
+        name,
+        email: user.email ?? null,
+        status: PAGADOR_STATUS_OPTIONS[0],
+        role: PAGADOR_ROLE_ADMIN,
+        avatarUrl: DEFAULT_PAGADOR_AVATAR,
+        note: null,
+        isAutoSend: false,
+        userId: user.id,
+      }).returning({ id: pagadores.id });
+
+      if (!created) {
+        return {
+          success: false,
+          error: "Erro ao criar pagador padrão. Entre em contato com o suporte."
+        };
+      }
+
+      adminPagador = created;
     }
 
     // Check for existing transactions with same import note pattern to avoid duplicates
@@ -1787,7 +1829,7 @@ export async function importCsvTransactionsAction(
 
     const existingImports = await db.query.lancamentos.findMany({
       where: and(
-        accountType === "bank"
+        normalizedAccountType === "bank"
           ? eq(lancamentos.contaId, accountId)
           : eq(lancamentos.cartaoId, accountId),
         eq(lancamentos.userId, user.id)
@@ -1807,9 +1849,9 @@ export async function importCsvTransactionsAction(
       const isDuplicate = existingImports.some(
         (existing) =>
           existing.note?.includes(importNotePattern) &&
-          existing.name === t.name &&
-          existing.amount === t.amount &&
-          existing.purchaseDate.toISOString() === t.purchaseDate.toISOString()
+          existing.name === t.nome &&
+          existing.amount === t.valor &&
+          existing.purchaseDate.toISOString() === t.data_compra.toISOString()
       );
 
       if (isDuplicate) {
@@ -1838,23 +1880,62 @@ export async function importCsvTransactionsAction(
           // Add import metadata to note
           const importTimestamp = new Date().toISOString();
           const importNote = `Importado de CSV em ${importTimestamp}`;
-          const originalNote = t.note ?? "";
+          const originalNote = t.anotacao ?? "";
           const combinedNote = [importNote, originalNote]
             .filter(Boolean)
             .join(" | ");
 
+          // Helper to check if value is undefined marker from frontend
+          const isUndefined = (val: any) => !val || val === "$undefined";
+
+          // Calculate period based on override, card closing day, or transaction date
+          let period: string;
+          if (!isUndefined(t.periodo)) {
+            // Use period from transaction data if provided
+            period = t.periodo;
+          } else if (periodOverride) {
+            // Use manual period override for entire import (credit card option)
+            period = periodOverride;
+          } else if (normalizedAccountType === "card" && cardClosingDay) {
+            // Card period calculation based on closing day
+            const transactionDate = new Date(t.data_compra);
+            const transactionDay = transactionDate.getDate();
+            let year = transactionDate.getFullYear();
+            let month = transactionDate.getMonth() + 1; // 0-indexed to 1-indexed
+
+            // If transaction is after closing day, period is next month
+            if (transactionDay > cardClosingDay) {
+              month += 1;
+              if (month > 12) {
+                month = 1;
+                year += 1;
+              }
+            }
+
+            period = `${year}-${String(month).padStart(2, "0")}`;
+          } else {
+            // Bank account or no closing day: use transaction month
+            period = resolvePeriod(t.data_compra.toISOString());
+          }
+
+          // Ensure required fields have valid defaults based on account type
+          const condition = isUndefined(t.condicao) ? "À vista" : t.condicao;
+          const paymentMethod = isUndefined(t.forma_pagamento)
+            ? (normalizedAccountType === "card" ? "Cartão de Crédito" : "Dinheiro")
+            : t.forma_pagamento;
+
           return {
-            name: t.name,
-            amount: t.amount,
-            purchaseDate: t.purchaseDate,
-            transactionType: t.transactionType,
-            paymentMethod: t.paymentMethod,
-            condition: t.condition,
-            period: t.period,
+            name: t.nome,
+            amount: t.valor,
+            purchaseDate: t.data_compra,
+            transactionType: t.tipo_transacao,
+            paymentMethod,
+            condition,
+            period,
             note: combinedNote,
             isSettled: true, // Always true for CSV imports (already settled)
-            contaId: accountType === "bank" ? accountId : null,
-            cartaoId: accountType === "card" ? accountId : null,
+            contaId: normalizedAccountType === "bank" ? accountId : null,
+            cartaoId: normalizedAccountType === "card" ? accountId : null,
             categoriaId,
             pagadorId,
             userId: user.id,

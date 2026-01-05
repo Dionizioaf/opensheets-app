@@ -111,6 +111,7 @@ export function CsvImportDialog({
     // Mapping step state
     const [columnMapping, setColumnMapping] = useState<CsvColumnMapping | null>(null);
     const [selectedAccount, setSelectedAccount] = useState<AccountOption | null>(null);
+    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
 
     // Review step state
     const [transactions, setTransactions] = useState<CsvTransactionWithUiState[]>([]);
@@ -176,10 +177,11 @@ export function CsvImportDialog({
      * Handle column mapping completion
      */
     const handleMappingComplete = useCallback(
-        async (mapping: CsvColumnMapping, account: AccountOption, mappedTransactions: CsvTransactionWithUiState[]) => {
+        async (mapping: CsvColumnMapping, account: AccountOption, mappedTransactions: CsvTransactionWithUiState[], periodOverride?: string | null) => {
             setColumnMapping(mapping);
             setSelectedAccount(account);
             setTransactions(mappedTransactions);
+            setSelectedPeriod(periodOverride ?? null);
 
             // Automatically detect duplicates and suggest categories
             setIsDetectingDuplicates(true);
@@ -461,8 +463,9 @@ export function CsvImportDialog({
                     condicao: "À vista" as const,
                     periodo: t.periodo,
                     anotacao: t.anotacao,
-                    // Only include categoriaId if it's a valid string
+                    // Only include categoriaId and pagadorId if they're valid strings
                     ...(t.categoriaId && { categoriaId: t.categoriaId }),
+                    ...(t.pagadorId && { pagadorId: t.pagadorId }),
                 }));
 
             // Simulate progress during import
@@ -474,7 +477,8 @@ export function CsvImportDialog({
             const result = await importCsvTransactionsAction(
                 selectedAccount.id,
                 selectedAccount.tipo,
-                transactionsToImport
+                transactionsToImport,
+                selectedAccount.tipo === "cartao" ? selectedPeriod ?? undefined : undefined
             );
 
             clearInterval(progressInterval);

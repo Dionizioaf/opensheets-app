@@ -44,7 +44,7 @@ interface CsvColumnMappingStepActualProps {
     cartoes: AccountOption[];
     categorias: Categoria[];
     pagadores: Array<{ id: string; nome: string }>;
-    onMappingComplete: (mapping: any, account: AccountOption, mappedTransactions: any[]) => void;
+    onMappingComplete: (mapping: any, account: AccountOption, mappedTransactions: any[], selectedPeriod?: string | null) => void;
     onBack: () => void;
 }
 
@@ -97,6 +97,8 @@ export function CsvColumnMappingStep({
     const [isAutoDetecting, setIsAutoDetecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedAccount, setSelectedAccount] = useState<AccountOption | null>(null);
+    const [selectedPagador, setSelectedPagador] = useState<string | null>(null);
+    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
 
     // Extract available columns from CSV data
     const availableColumns = useMemo(() => {
@@ -232,6 +234,7 @@ export function CsvColumnMappingStep({
                 nome: descriptionValue || "Sem descrição",
                 tipo_transacao: transactionType,
                 categoriaId: null,
+                pagadorId: selectedPagador || undefined,
                 isSelected: true,
                 isDuplicate: false,
             };
@@ -243,8 +246,14 @@ export function CsvColumnMappingStep({
             return;
         }
 
-        onMappingComplete(columnMapping, selectedAccount, mappedTransactions);
-    }, [columnMapping, csvData.rows, selectedAccount, onMappingComplete]);
+        // Validate period for credit card imports
+        if (selectedAccount.tipo === "cartao" && !selectedPeriod) {
+            setError("Selecione o período da fatura do cartão de crédito");
+            return;
+        }
+
+        onMappingComplete(columnMapping, selectedAccount, mappedTransactions, selectedPeriod);
+    }, [columnMapping, csvData.rows, selectedAccount, selectedPeriod, selectedPagador, onMappingComplete]);
 
     /**
      * Get column index for highlighting in preview
@@ -324,59 +333,130 @@ export function CsvColumnMappingStep({
 
             {/* Account Selection */}
             <div className="space-y-4 rounded-lg border bg-card p-6">
-                <h4 className="text-sm font-medium">Selecionar Conta</h4>
-                <div className="space-y-2">
-                    <Label htmlFor="account-select">
-                        Conta de destino <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                        value={selectedAccount?.id || "__none__"}
-                        onValueChange={(value) => {
-                            if (value === "__none__") {
-                                setSelectedAccount(null);
-                            } else {
-                                const account = [...contas, ...cartoes].find(a => a.id === value);
-                                if (account) setSelectedAccount(account);
-                            }
-                        }}
-                    >
-                        <SelectTrigger
-                            id="account-select"
-                            className={cn(!selectedAccount && "border-destructive")}
+                <h4 className="text-sm font-medium">Selecionar Conta e Pagador</h4>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="account-select">
+                            Conta de destino <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                            value={selectedAccount?.id || "__none__"}
+                            onValueChange={(value) => {
+                                if (value === "__none__") {
+                                    setSelectedAccount(null);
+                                } else {
+                                    const account = [...contas, ...cartoes].find(a => a.id === value);
+                                    if (account) setSelectedAccount(account);
+                                }
+                            }}
                         >
-                            <SelectValue placeholder="Selecione uma conta..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__none__">Selecione uma conta...</SelectItem>
-                            {contas.length > 0 && (
-                                <>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                                        Contas Bancárias
-                                    </div>
-                                    {contas.map((conta) => (
-                                        <SelectItem key={conta.id} value={conta.id}>
-                                            {conta.nome}
-                                        </SelectItem>
-                                    ))}
-                                </>
-                            )}
-                            {cartoes.length > 0 && (
-                                <>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                                        Cartões de Crédito
-                                    </div>
-                                    {cartoes.map((cartao) => (
-                                        <SelectItem key={cartao.id} value={cartao.id}>
-                                            {cartao.nome}
-                                        </SelectItem>
-                                    ))}
-                                </>
-                            )}
-                        </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                        Selecione a conta bancária ou cartão de crédito onde as transações serão importadas
-                    </p>
+                            <SelectTrigger
+                                id="account-select"
+                                className={cn(!selectedAccount && "border-destructive")}
+                            >
+                                <SelectValue placeholder="Selecione uma conta..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">Selecione uma conta...</SelectItem>
+                                {contas.length > 0 && (
+                                    <>
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                            Contas Bancárias
+                                        </div>
+                                        {contas.map((conta) => (
+                                            <SelectItem key={conta.id} value={conta.id}>
+                                                {conta.nome}
+                                            </SelectItem>
+                                        ))}
+                                    </>
+                                )}
+                                {cartoes.length > 0 && (
+                                    <>
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                            Cartões de Crédito
+                                        </div>
+                                        {cartoes.map((cartao) => (
+                                            <SelectItem key={cartao.id} value={cartao.id}>
+                                                {cartao.nome}
+                                            </SelectItem>
+                                        ))}
+                                    </>
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Conta bancária ou cartão de crédito
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="pagador-select">
+                            Pagador padrão
+                        </Label>
+                        <Select
+                            value={selectedPagador || "__none__"}
+                            onValueChange={(value) => {
+                                setSelectedPagador(value === "__none__" ? null : value);
+                            }}
+                        >
+                            <SelectTrigger id="pagador-select">
+                                <SelectValue placeholder="Selecione um pagador..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">Nenhum (padrão do sistema)</SelectItem>
+                                {pagadores.map((pagador) => (
+                                    <SelectItem key={pagador.id} value={pagador.id}>
+                                        {pagador.nome}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Pagador aplicado a todas as transações
+                        </p>
+                    </div>
+
+                    {/* Period selector - only for credit cards */}
+                    {selectedAccount?.tipo === "cartao" && (
+                        <div className="space-y-2">
+                            <Label htmlFor="period-select">
+                                Período (fatura) <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                                value={selectedPeriod || "__none__"}
+                                onValueChange={(value) => {
+                                    setSelectedPeriod(value === "__none__" ? null : value);
+                                }}
+                            >
+                                <SelectTrigger
+                                    id="period-select"
+                                    className={cn(!selectedPeriod && "border-destructive")}
+                                >
+                                    <SelectValue placeholder="Selecione o período..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Selecione o período...</SelectItem>
+                                    {(() => {
+                                        const periods = [];
+                                        const now = new Date();
+                                        for (let i = -2; i <= 12; i++) {
+                                            const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                                            const periodValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+                                            const periodLabel = date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                                            periods.push(
+                                                <SelectItem key={periodValue} value={periodValue}>
+                                                    {periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1)}
+                                                </SelectItem>
+                                            );
+                                        }
+                                        return periods;
+                                    })()}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Período da fatura do cartão de crédito
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
