@@ -1,5 +1,6 @@
 import {
     detectDuplicates,
+    detectDuplicatesBatch,
     checkTransactionForDuplicates,
 } from "../duplicate-detector";
 import { db } from "@/lib/db";
@@ -740,6 +741,140 @@ describe("Duplicate Detector", () => {
             );
 
             expect(result).toHaveLength(1);
+        });
+    });
+
+    describe("detectDuplicatesBatch", () => {
+        const userId = "user-123";
+        const accountId = "account-123";
+        const transactionDate = new Date("2024-01-15");
+
+        it("should detect duplicates for bank account (contaId)", async () => {
+            const mockExistingTransaction = {
+                id: "lan-1",
+                name: "NETFLIX",
+                amount: "49.90",
+                purchaseDate: transactionDate,
+                note: null,
+            };
+
+            mockDb.query.lancamentos.findMany.mockResolvedValueOnce([
+                mockExistingTransaction,
+            ]);
+
+            const transactions = [
+                {
+                    id: "temp-1",
+                    name: "NETFLIX",
+                    amount: "49.90",
+                    purchaseDate: transactionDate,
+                },
+            ];
+
+            const result = await detectDuplicatesBatch(
+                userId,
+                accountId,
+                "bank",
+                transactions
+            );
+
+            expect(result.size).toBe(1);
+            expect(result.get("temp-1")).toHaveLength(1);
+            expect(result.get("temp-1")?.[0].matchReason).toBe("exact");
+        });
+
+        it("should detect duplicates for credit card (cartaoId)", async () => {
+            const mockExistingTransaction = {
+                id: "lan-1",
+                name: "SPOTIFY",
+                amount: "19.90",
+                purchaseDate: transactionDate,
+                note: null,
+            };
+
+            mockDb.query.lancamentos.findMany.mockResolvedValueOnce([
+                mockExistingTransaction,
+            ]);
+
+            const transactions = [
+                {
+                    id: "temp-1",
+                    name: "SPOTIFY",
+                    amount: "19.90",
+                    purchaseDate: transactionDate,
+                },
+            ];
+
+            const result = await detectDuplicatesBatch(
+                userId,
+                accountId,
+                "card",
+                transactions
+            );
+
+            expect(result.size).toBe(1);
+            expect(result.get("temp-1")).toHaveLength(1);
+            expect(result.get("temp-1")?.[0].matchReason).toBe("exact");
+        });
+
+        it("should return empty map for empty transaction list", async () => {
+            const result = await detectDuplicatesBatch(
+                userId,
+                accountId,
+                "bank",
+                []
+            );
+
+            expect(result.size).toBe(0);
+        });
+
+        it("should handle multiple transactions with different account types", async () => {
+            const mockExistingTransactions = [
+                {
+                    id: "lan-1",
+                    name: "NETFLIX",
+                    amount: "49.90",
+                    purchaseDate: transactionDate,
+                    note: null,
+                },
+                {
+                    id: "lan-2",
+                    name: "SPOTIFY",
+                    amount: "19.90",
+                    purchaseDate: transactionDate,
+                    note: null,
+                },
+            ];
+
+            mockDb.query.lancamentos.findMany.mockResolvedValueOnce(
+                mockExistingTransactions
+            );
+
+            const transactions = [
+                {
+                    id: "temp-1",
+                    name: "NETFLIX",
+                    amount: "49.90",
+                    purchaseDate: transactionDate,
+                },
+                {
+                    id: "temp-2",
+                    name: "SPOTIFY",
+                    amount: "19.90",
+                    purchaseDate: transactionDate,
+                },
+            ];
+
+            const result = await detectDuplicatesBatch(
+                userId,
+                accountId,
+                "card",
+                transactions
+            );
+
+            expect(result.size).toBe(2);
+            expect(result.get("temp-1")).toHaveLength(1);
+            expect(result.get("temp-2")).toHaveLength(1);
         });
     });
 });

@@ -403,6 +403,7 @@ export async function detectOfxDuplicatesAction(
         const duplicates = await detectDuplicatesBatch(
             user.id,
             contaId,
+            "bank", // OFX imports are always for bank accounts
             transactions.map((t) => ({
                 id: t.id,
                 name: t.name,

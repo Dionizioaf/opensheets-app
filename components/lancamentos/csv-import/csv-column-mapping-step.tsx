@@ -230,7 +230,7 @@ export function CsvColumnMappingStep({
             return {
                 id: `csv-${index}`,
                 data_compra: parsedDate || new Date(),
-                valor: parsedAmount,
+                valor: parsedAmount.toFixed(2), // Format as string with 2 decimals to match DB
                 nome: descriptionValue || "Sem descrição",
                 tipo_transacao: transactionType,
                 categoriaId: null,

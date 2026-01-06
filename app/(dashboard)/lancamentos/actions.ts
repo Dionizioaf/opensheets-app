@@ -1557,17 +1557,52 @@ export async function detectCsvDuplicatesAction(
       "@/lib/ofx/duplicate-detector"
     );
 
+    console.log("[CSV Duplicate Action] Calling duplicate detector with:", {
+      userId: user.id,
+      accountId,
+      accountType,
+      transactionCount: transactions.length,
+      sampleTransaction: transactions[0]
+    });
+
     // Detect duplicates using the same logic as OFX imports
     const duplicates = await detectDuplicatesBatch(
       user.id,
       accountId,
+      accountType,
       transactions
     );
+
+    console.log("[CSV Duplicate Action] Duplicate detection complete:", {
+      duplicatesMapSize: duplicates.size,
+      transactionsWithDuplicates: Array.from(duplicates.entries())
+        .filter(([_, matches]) => matches.length > 0)
+        .map(([id, matches]) => ({ id, matchCount: matches.length }))
+    });
+
+    // Convert Map to plain object for serialization (Next.js server actions don't serialize Maps properly)
+    const duplicatesObject: Record<string, Array<{
+      lancamentoId: string;
+      matchReason: "fitid" | "exact" | "similar" | "likely";
+      similarity: number;
+      existingTransaction: {
+        nome: string;
+        valor: string;
+        purchaseDate: Date;
+        anotacao: string | null;
+      };
+    }>> = {};
+
+    for (const [id, matches] of duplicates.entries()) {
+      duplicatesObject[id] = matches;
+    }
+
+    console.log("[CSV Duplicate Action] Converted to object, sample keys:", Object.keys(duplicatesObject).slice(0, 3));
 
     return {
       success: true,
       message: `Verificação de duplicatas concluída para ${transactions.length} transações.`,
-      data: duplicates,
+      data: duplicatesObject,
     };
   } catch (error) {
     return handleActionError(error);
@@ -1590,7 +1625,7 @@ export async function suggestCsvCategoriesAction(
   }>
 ): Promise<
   ActionResult<
-    Map<
+    Record<
       string,
       {
         categoriaId: string;

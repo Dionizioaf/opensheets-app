@@ -194,6 +194,14 @@ export function CsvImportDialog({
                     purchaseDate: t.data_compra || new Date(),
                 }));
 
+                console.log("[CSV Import] Sample transaction for duplicate check:", {
+                    csvTransaction: transactionsForDuplicateCheck[0],
+                    originalValue: mappedTransactions[0]?.valor,
+                    valueType: typeof mappedTransactions[0]?.valor,
+                    stringValue: mappedTransactions[0]?.valor?.toString(),
+                });
+
+                console.log("[CSV Import] Calling duplicate detection action...");
                 // Detect duplicates (fix parameter order: accountId, accountType, transactions)
                 const duplicateResult = await detectCsvDuplicatesAction(
                     account.id,
@@ -201,13 +209,30 @@ export function CsvImportDialog({
                     transactionsForDuplicateCheck
                 );
 
+                console.log("[CSV Import] Duplicate detection result:", {
+                    success: duplicateResult.success,
+                    hasData: !!duplicateResult.data,
+                    dataSize: duplicateResult.data ? Object.keys(duplicateResult.data).length : 0,
+                    error: duplicateResult.error,
+                    sampleKeys: duplicateResult.data ? Object.keys(duplicateResult.data).slice(0, 3) : [],
+                    sampleData: duplicateResult.data ? Object.entries(duplicateResult.data).slice(0, 2).map(([id, matches]) => ({
+                        id,
+                        matchCount: matches.length
+                    })) : []
+                });
+
                 if (duplicateResult.success && duplicateResult.data) {
                     // Mark duplicates in transaction state
-                    // The data is a Map<string, Array<DuplicateMatch>>
-                    const updatedTransactions = mappedTransactions.map((t) => ({
-                        ...t,
-                        isDuplicate: (duplicateResult.data?.get(t.id)?.length ?? 0) > 0,
-                    }));
+                    // The data is now a plain object, not a Map
+                    const updatedTransactions = mappedTransactions.map((t) => {
+                        const matches = duplicateResult.data?.[t.id] || [];
+                        const isDuplicate = matches.length > 0;
+                        console.log(`[CSV Import] Transaction "${t.nome}" (${t.id}): ${matches.length} duplicates found`);
+                        return {
+                            ...t,
+                            isDuplicate,
+                        };
+                    });
 
                     // Suggest categories for non-duplicate transactions
                     const nonDuplicates = updatedTransactions.filter((t) => !t.isDuplicate);
@@ -215,9 +240,9 @@ export function CsvImportDialog({
                         const categoryResult = await suggestCsvCategoriesAction(nonDuplicates);
 
                         if (categoryResult.success && categoryResult.data) {
-                            // Apply suggested categories
+                            // Apply suggested categories (also a plain object, not a Map)
                             const transactionsWithCategories = updatedTransactions.map((t) => {
-                                const suggestion = categoryResult.data?.get(t.id);
+                                const suggestion = categoryResult.data?.[t.id];
                                 if (suggestion && suggestion.categoriaId) {
                                     return {
                                         ...t,
@@ -240,7 +265,7 @@ export function CsvImportDialog({
 
                     if (categoryResult.success && categoryResult.data) {
                         const transactionsWithCategories = mappedTransactions.map((t) => {
-                            const suggestion = categoryResult.data?.get(t.id);
+                            const suggestion = categoryResult.data?.[t.id];
                             if (suggestion && suggestion.categoriaId) {
                                 return {
                                     ...t,
