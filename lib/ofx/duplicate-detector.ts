@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { lancamentos } from "@/db/schema";
-import { eq, and, between, gte, lte } from "drizzle-orm";
+import { eq, and, between, gte, lte, desc } from "drizzle-orm";
 import Fuzzysort from "fuzzysort";
 
 /**
@@ -265,10 +265,17 @@ export async function detectDuplicatesBatch(
         return results;
     }
 
-    // Find the date range that covers all transactions
-    const allDates = transactions.map((t) => t.purchaseDate.getTime());
-    const minDate = new Date(Math.min(...allDates));
-    const maxDate = new Date(Math.max(...allDates));
+    // Find the date range that covers all transactions (ignore invalid dates)
+    const validDates = transactions
+        .map((t) => new Date(t.purchaseDate))
+        .filter((date) => !Number.isNaN(date.getTime()));
+
+    if (validDates.length === 0) {
+        return results;
+    }
+
+    const minDate = new Date(Math.min(...validDates.map((d) => d.getTime())));
+    const maxDate = new Date(Math.max(...validDates.map((d) => d.getTime())));
 
     // Expand by tolerance
     minDate.setDate(minDate.getDate() - DATE_TOLERANCE_DAYS);
@@ -285,8 +292,16 @@ export async function detectDuplicatesBatch(
     });
     const allAmountsToCheck = new Set<string>();
     amountPairs.forEach((pair) => {
-        allAmountsToCheck.add(pair.positive);
-        allAmountsToCheck.add(pair.negative);
+        const positive = parseFloat(pair.positive);
+        const negative = parseFloat(pair.negative);
+        const deltas = [0, 0.01, -0.01];
+
+        deltas.forEach((delta) => {
+            const pos = (positive + delta).toFixed(2);
+            const neg = (negative + delta).toFixed(2);
+            allAmountsToCheck.add(pos);
+            allAmountsToCheck.add(neg);
+        });
     });
 
     console.log("[Duplicate Detector Batch] Amount pairs to check:", {
@@ -303,28 +318,48 @@ export async function detectDuplicatesBatch(
     // Single query to fetch all potentially matching transactions
     // Note: Query uses Drizzle JS field names (name, amount, note)
     // which map to DB columns (nome, valor, anotacao)
-    const existingTransactions = await db.query.lancamentos.findMany({
-        columns: {
-            id: true,
-            name: true,
-            amount: true,
-            purchaseDate: true,
-            note: true,
-        },
-        where: and(
+    const existingTransactionsQuery = db
+        .select({
+            id: lancamentos.id,
+            name: lancamentos.name,
+            amount: lancamentos.amount,
+            purchaseDate: lancamentos.purchaseDate,
+            note: lancamentos.note,
+        })
+        .from(lancamentos)
+        .where(and(
             eq(lancamentos.userId, userId),
             accountCondition,
             gte(lancamentos.purchaseDate, minDate),
             lte(lancamentos.purchaseDate, maxDate)
-        ),
-        limit: 500, // Reasonable limit for batch checking
-    });
+        ))
+        .orderBy(desc(lancamentos.purchaseDate))
+        .limit(999); // Reasonable limit for batch checking
+
+    const sql = existingTransactionsQuery.toSQL();
+    console.log("[Duplicate Detector Batch] SQL query:", sql.sql, sql.params);
+
+    const existingTransactions = await existingTransactionsQuery;
 
     // Filter by amounts (absolute value comparison to handle signed DB storage)
     const filteredTransactions = existingTransactions.filter(
         (t: typeof existingTransactions[0]) => {
-            const dbAmount = String(t.amount);
-            return allAmountsToCheck.has(dbAmount);
+            if (t.name === "Github  Inc.") {
+                console.log(`[Duplicate Detector Batch] Special case for transaction - DEBUG`);
+            }
+            const dbAmountNum = typeof t.amount === "string"
+                ? parseFloat(t.amount)
+                : t.amount;
+            if (Number.isNaN(dbAmountNum)) {
+                return false;
+            }
+            const dbAmountFixed = dbAmountNum.toFixed(2);
+            const dbAmountAbsFixed = Math.abs(dbAmountNum).toFixed(2);
+
+            return (
+                allAmountsToCheck.has(dbAmountFixed) ||
+                allAmountsToCheck.has(dbAmountAbsFixed)
+            );
         }
     );
 
@@ -343,6 +378,16 @@ export async function detectDuplicatesBatch(
         })),
     });
 
+    console.log(
+        "[Duplicate Detector Batch] Filtered transactions list:",
+        filteredTransactions.map((t) => ({
+            id: t.id,
+            name: t.name,
+            amount: String(t.amount),
+            purchaseDate: t.purchaseDate,
+        }))
+    );
+
     // Check each input transaction against existing ones
     for (const transaction of transactions) {
         const matches: DuplicateMatch[] = [];
@@ -353,17 +398,25 @@ export async function detectDuplicatesBatch(
             continue;
         }
 
-        const transactionTime = transaction.purchaseDate.getTime();
+        const transactionDate = new Date(transaction.purchaseDate);
+        if (Number.isNaN(transactionDate.getTime())) {
+            results.set(transaction.id, []);
+            continue;
+        }
+
+        const transactionTime = transactionDate.getTime();
         const transactionAmountNum = typeof transaction.amount === "string"
             ? parseFloat(transaction.amount)
             : transaction.amount;
         const transactionAbsAmount = Math.abs(transactionAmountNum);
-
+        if (transaction.name === "Github  Inc.") {
+            console.log(`[Duplicate Check] Special case for transaction - DEBUG`);
+        }
         console.log(`[Duplicate Check] Checking transaction:`, {
             name: transaction.name,
             normalizedName,
             amount: transaction.amount,
-            date: transaction.purchaseDate,
+            date: transactionDate,
             candidateCount: filteredTransactions.length
         });
 

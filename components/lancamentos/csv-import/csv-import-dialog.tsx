@@ -27,6 +27,7 @@ import { parseCsvFileAction } from "@/app/(dashboard)/lancamentos/actions";
 import { detectCsvDuplicatesAction } from "@/app/(dashboard)/lancamentos/actions";
 import { suggestCsvCategoriesAction } from "@/app/(dashboard)/lancamentos/actions";
 import { importCsvTransactionsAction } from "@/app/(dashboard)/lancamentos/actions";
+import { convertExcelToCsv } from "@/lib/csv/excel";
 
 /**
  * Wizard step type
@@ -142,13 +143,25 @@ export function CsvImportDialog({
         async (file: File, delimiter: "," | ";") => {
             setIsParsingFile(true);
             setParsingError(null);
+            let isExcel = false;
 
             try {
-                // Read file content
-                const fileContent = await file.text();
+                const fileName = file.name.toLowerCase();
+                isExcel = fileName.endsWith(".xls") || fileName.endsWith(".xlsx");
+                let fileContent = "";
+                let effectiveDelimiter: "," | ";";
+
+                if (isExcel) {
+                    const converted = await convertExcelToCsv(file);
+                    fileContent = converted.csv;
+                    effectiveDelimiter = converted.delimiter;
+                } else {
+                    fileContent = await file.text();
+                    effectiveDelimiter = delimiter;
+                }
 
                 // Call server action to parse CSV
-                const result = await parseCsvFileAction(fileContent, delimiter);
+                const result = await parseCsvFileAction(fileContent, effectiveDelimiter);
 
                 if (!result.success || !result.data) {
                     throw new Error(result.error || "Erro ao analisar arquivo CSV");
@@ -164,8 +177,11 @@ export function CsvImportDialog({
                     error instanceof Error
                         ? error.message
                         : "Erro ao processar arquivo CSV";
-                setParsingError(errorMessage);
-                toast.error(errorMessage);
+                const finalError = isExcel
+                    ? "Não foi possível converter o arquivo Excel"
+                    : errorMessage;
+                setParsingError(finalError);
+                toast.error(finalError);
             } finally {
                 setIsParsingFile(false);
             }

@@ -14,6 +14,55 @@ import type {
     CsvParsingError,
 } from "./types";
 
+type NormalizedCsv = {
+    headers: CsvColumn[];
+    rows: CsvRow[];
+};
+
+const normalizeHeadersAndRows = (
+    fields: string[],
+    rows: CsvRow[],
+    originalHeaders: string[],
+    shouldTrim: boolean
+): NormalizedCsv => {
+    const normalizedFields: string[] = [];
+    const nameCounts = new Map<string, number>();
+
+    fields.forEach((field, index) => {
+        let baseName = shouldTrim ? field.trim() : field;
+        if (!baseName) {
+            baseName = `Coluna ${index + 1}`;
+        }
+
+        const currentCount = nameCounts.get(baseName) ?? 0;
+        nameCounts.set(baseName, currentCount + 1);
+
+        const normalizedName =
+            currentCount === 0 ? baseName : `${baseName} (${currentCount + 1})`;
+        normalizedFields.push(normalizedName);
+    });
+
+    const normalizedRows = rows.map((row) => {
+        const normalizedRow: CsvRow = {};
+        fields.forEach((field, index) => {
+            const normalizedName = normalizedFields[index];
+            normalizedRow[normalizedName] = row?.[field] ?? "";
+        });
+        return normalizedRow;
+    });
+
+    const headers: CsvColumn[] = normalizedFields.map((name, index) => ({
+        index,
+        name,
+        originalName: originalHeaders[index] || fields[index] || name,
+    }));
+
+    return {
+        headers,
+        rows: normalizedRows,
+    };
+};
+
 /**
  * Detect delimiter from CSV file content
  * Analyzes first few rows to determine most likely delimiter
@@ -111,15 +160,14 @@ export async function parseCsvFile(
                     // Determine if headers should be trimmed (default: true)
                     const shouldTrim = config?.trimHeaders !== false;
 
-                    // Extract headers with both trimmed and original names
-                    const headers: CsvColumn[] = results.meta.fields?.map((field, index) => ({
-                        index,
-                        name: shouldTrim ? field.trim() : field,
-                        originalName: originalHeaders[index] || field,
-                    })) || [];
-
-                    // Convert data to CsvRow format
-                    const rows: CsvRow[] = results.data as CsvRow[];
+                    const fields = results.meta.fields ?? [];
+                    const rawRows: CsvRow[] = results.data as CsvRow[];
+                    const { headers, rows } = normalizeHeadersAndRows(
+                        fields,
+                        rawRows,
+                        originalHeaders,
+                        shouldTrim
+                    );
 
                     // Map papaparse errors to our error type
                     const errors: CsvParsingError[] = results.errors.map((error) => ({
@@ -233,15 +281,14 @@ export function parseCsvString(
     // Determine if headers should be trimmed (default: true)
     const shouldTrim = config?.trimHeaders !== false;
 
-    // Extract headers with both trimmed and original names
-    const headers: CsvColumn[] = results.meta.fields?.map((field, index) => ({
-        index,
-        name: shouldTrim ? field.trim() : field,
-        originalName: originalHeaders[index] || field,
-    })) || [];
-
-    // Convert data to CsvRow format
-    const rows: CsvRow[] = results.data as CsvRow[];
+    const fields = results.meta.fields ?? [];
+    const rawRows: CsvRow[] = results.data as CsvRow[];
+    const { headers, rows } = normalizeHeadersAndRows(
+        fields,
+        rawRows,
+        originalHeaders,
+        shouldTrim
+    );
 
     // Map papaparse errors to our error type
     const errors: CsvParsingError[] = results.errors.map((error) => ({

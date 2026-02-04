@@ -1571,12 +1571,17 @@ export async function detectCsvDuplicatesAction(
       }
     });
 
+    const normalizedTransactions = transactions.map((t) => ({
+      ...t,
+      purchaseDate: new Date(t.purchaseDate),
+    }));
+
     // Detect duplicates using the same logic as OFX imports
     const duplicates = await detectDuplicatesBatch(
       user.id,
       accountId,
       accountType,
-      transactions
+      normalizedTransactions
     );
 
     console.log("[CSV Duplicate Action] Duplicate detection complete:", {

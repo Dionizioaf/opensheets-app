@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { parse } from "date-fns";
+import { parse, isValid } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -102,12 +102,17 @@ export function CsvColumnMappingStep({
 
     // Extract available columns from CSV data
     const availableColumns = useMemo(() => {
-        return csvData.headers.map(header => ({
-            value: header.name,
-            label: header.name,
-            index: header.index,
-        }));
-    }, [csvData.headers]);
+        const hasColumnData = (columnName: string) =>
+            csvData.rows.some((row) => (row?.[columnName] ?? "").trim());
+
+        return csvData.headers
+            .map((header) => ({
+                value: header.name,
+                label: header.name,
+                index: header.index,
+            }))
+            .filter((column) => hasColumnData(column.value));
+    }, [csvData.headers, csvData.rows]);
 
     // Preview rows
     const previewRows = useMemo(() => csvData.rows.slice(0, 5), [csvData.rows]);
@@ -184,7 +189,8 @@ export function CsvColumnMappingStep({
         }
 
         // Transform CSV rows to transactions using the mapping
-        const mappedTransactions = csvData.rows.map((row, index) => {
+        const mappedTransactions = csvData.rows
+            .map((row, index) => {
             const dateValue = row[columnMapping.date!];
             const amountValue = row[columnMapping.amount!];
             const descriptionValue = columnMapping.description ? row[columnMapping.description] : "";
@@ -203,19 +209,35 @@ export function CsvColumnMappingStep({
                     parsedDate = null;
                 }
             }
+            if (parsedDate && !isValid(parsedDate)) {
+                parsedDate = null;
+            }
 
             // Parse amount - remove currency symbols and convert to number
             let parsedAmount = 0;
             let transactionType: "Despesa" | "Receita" = "Despesa";
             if (amountValue) {
-                // Remove "R$", spaces, and convert comma to dot
-                const cleanAmount = amountValue
-                    .replace(/R\$\s*/g, "")
-                    .replace(/\./g, "") // Remove thousand separators
-                    .replace(/,/g, ".") // Convert decimal separator
-                    .trim();
+                // Remove "R$", spaces, and normalize decimal separator
+                const rawAmount = amountValue.replace(/R\$\s*/g, "").trim();
+                const lastDot = rawAmount.lastIndexOf(".");
+                const lastComma = rawAmount.lastIndexOf(",");
+                const usesDotDecimal = lastDot > lastComma;
 
-                const numericValue = parseFloat(cleanAmount) || 0;
+                const cleanAmount = lastDot !== -1 || lastComma !== -1
+                    ? usesDotDecimal
+                        ? rawAmount.replace(/,/g, "")
+                        : rawAmount.replace(/\./g, "").replace(/,/g, ".")
+                    : rawAmount;
+
+                let numericValue = parseFloat(cleanAmount) || 0;
+                const shouldScaleDown =
+                    amountValue.includes(".") &&
+                    amountValue.includes(",") &&
+                    amountValue.trim().endsWith(",00");
+
+                if (shouldScaleDown) {
+                    numericValue = numericValue / 100;
+                }
 
                 // Positive values = Despesa (debit), Negative values = Receita (credit)
                 if (numericValue < 0) {
@@ -225,6 +247,10 @@ export function CsvColumnMappingStep({
                     transactionType = "Despesa";
                     parsedAmount = numericValue;
                 }
+            }
+
+            if (parsedAmount === 0) {
+                return null;
             }
 
             return {
@@ -238,7 +264,8 @@ export function CsvColumnMappingStep({
                 isSelected: true,
                 isDuplicate: false,
             };
-        });
+        })
+        .filter((transaction): transaction is NonNullable<typeof transaction> => Boolean(transaction));
 
         // Validate account selection
         if (!selectedAccount) {

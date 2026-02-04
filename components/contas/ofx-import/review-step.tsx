@@ -35,7 +35,7 @@ import {
     RiEyeOffLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils/ui";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ImportTransaction, CategoryOption } from "./types";
 
@@ -346,6 +346,11 @@ export function ReviewStep({
                                 const suggestedCategory = getCategoryById(transaction.suggestedCategoriaId);
                                 const isEditing = editingId === transaction.id;
 
+                                const isValidDate = isValid(transaction.data_compra);
+                                const formattedDate = isValidDate
+                                    ? format(transaction.data_compra, "dd/MM/yy", { locale: ptBR })
+                                    : "-";
+
                                 return (
                                     <TableRow
                                         key={transaction.id}
@@ -373,7 +378,14 @@ export function ReviewStep({
 
                                         {/* Date */}
                                         <TableCell className="text-sm">
-                                            {format(transaction.data_compra, "dd/MM/yy", { locale: ptBR })}
+                                            <span className={cn(!isValidDate && "text-destructive")}>
+                                                {formattedDate}
+                                            </span>
+                                            {!isValidDate && (
+                                                <Badge variant="destructive" className="ml-2">
+                                                    Data inválida
+                                                </Badge>
+                                            )}
                                         </TableCell>
 
                                         {/* Description (editable) */}

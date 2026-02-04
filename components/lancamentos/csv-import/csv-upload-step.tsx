@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/select";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
-const ALLOWED_EXTENSION = ".csv";
+const ALLOWED_EXTENSIONS = [".csv", ".xls", ".xlsx"];
+const ACCEPTED_FILES = ALLOWED_EXTENSIONS.join(",");
 
 /**
  * Simplified props for CSV upload step
@@ -67,10 +68,10 @@ export function CsvUploadStep({
 
         // Check file extension
         const fileName = file.name.toLowerCase();
-        if (!fileName.endsWith(ALLOWED_EXTENSION)) {
+        if (!ALLOWED_EXTENSIONS.some((ext) => fileName.endsWith(ext))) {
             return {
                 isValid: false,
-                error: "Apenas arquivos .csv são permitidos",
+                error: "Apenas arquivos .csv, .xls ou .xlsx são permitidos",
             };
         }
 
@@ -192,7 +193,7 @@ export function CsvUploadStep({
 
             {/* Upload Area */}
             <div className="space-y-4">
-                <Label htmlFor="file-upload">Arquivo CSV</Label>
+                <Label htmlFor="file-upload">Arquivo CSV ou Excel</Label>
 
                 <div
                     onDragOver={handleDragOver}
@@ -232,7 +233,7 @@ export function CsvUploadStep({
                                     Arraste e solte seu arquivo aqui, ou clique para selecionar
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Arquivos .csv até 5MB
+                                    Arquivos .csv, .xls ou .xlsx até 5MB
                                 </p>
                             </div>
 
@@ -252,7 +253,7 @@ export function CsvUploadStep({
                         ref={fileInputRef}
                         id="file-upload"
                         type="file"
-                        accept={ALLOWED_EXTENSION}
+                        accept={ACCEPTED_FILES}
                         onChange={handleInputChange}
                         className="hidden"
                         disabled={isLoading}
