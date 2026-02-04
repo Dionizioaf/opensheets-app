@@ -92,7 +92,16 @@ export async function detectDuplicates(
     const endDate = new Date(transactionDate);
     endDate.setDate(endDate.getDate() + DATE_TOLERANCE_DAYS);
 
+    // Note: DB stores amounts with sign (negative for expenses, positive for income)
+    // but OFX transactions use absolute values, so we need to check both signed values
+    const transactionAmountNum = typeof transactionAmount === "string"
+        ? parseFloat(transactionAmount)
+        : transactionAmount;
+    const positiveAmount = Math.abs(transactionAmountNum).toFixed(2);
+    const negativeAmount = (-Math.abs(transactionAmountNum)).toFixed(2);
+
     // Query existing transactions for the same account with similar dates and amounts
+    // Check both positive and negative amounts to handle signed DB storage
     const existingTransactions = await db.query.lancamentos.findMany({
         columns: {
             id: true,
@@ -104,19 +113,24 @@ export async function detectDuplicates(
         where: and(
             eq(lancamentos.userId, userId),
             eq(lancamentos.contaId, contaId),
-            eq(lancamentos.amount, transactionAmount),
             gte(lancamentos.purchaseDate, startDate),
             lte(lancamentos.purchaseDate, endDate)
         ),
         limit: 100, // Reasonable limit for duplicate checking
     });
 
-    if (existingTransactions.length === 0) {
+    // Filter by amount (absolute value comparison)
+    const filteredTransactions = existingTransactions.filter((t) => {
+        const dbAmount = typeof t.amount === "string" ? t.amount : String(t.amount);
+        return dbAmount === positiveAmount || dbAmount === negativeAmount;
+    });
+
+    if (filteredTransactions.length === 0) {
         return [];
     }
 
     // Check each existing transaction for duplicates
-    for (const existing of existingTransactions) {
+    for (const existing of filteredTransactions) {
         // Priority 1: Check for FITID match in notes
         if (fitId && existing.note) {
             const fitIdPattern = new RegExp(`FITID:\\s*${fitId}`, "i");
@@ -260,8 +274,26 @@ export async function detectDuplicatesBatch(
     minDate.setDate(minDate.getDate() - DATE_TOLERANCE_DAYS);
     maxDate.setDate(maxDate.getDate() + DATE_TOLERANCE_DAYS);
 
-    // Get all amounts to check
-    const amounts = [...new Set(transactions.map((t) => t.amount))];
+    // Get all amounts to check (both positive and negative for signed DB storage)
+    const amountPairs = transactions.map((t) => {
+        const amountNum = typeof t.amount === "string" ? parseFloat(t.amount) : t.amount;
+        const absAmount = Math.abs(amountNum);
+        return {
+            positive: absAmount.toFixed(2),
+            negative: (-absAmount).toFixed(2),
+        };
+    });
+    const allAmountsToCheck = new Set<string>();
+    amountPairs.forEach((pair) => {
+        allAmountsToCheck.add(pair.positive);
+        allAmountsToCheck.add(pair.negative);
+    });
+
+    console.log("[Duplicate Detector Batch] Amount pairs to check:", {
+        samplePairs: amountPairs.slice(0, 3),
+        allAmountsSize: allAmountsToCheck.size,
+        allAmountsSample: Array.from(allAmountsToCheck).slice(0, 6),
+    });
 
     // Build query condition based on account type
     const accountCondition = accountType === "bank"
@@ -288,11 +320,28 @@ export async function detectDuplicatesBatch(
         limit: 500, // Reasonable limit for batch checking
     });
 
-    // Filter by amounts (since we can't use IN clause easily with Drizzle)
-    // Convert to strings for comparison since DB might return numeric as number or string
+    // Filter by amounts (absolute value comparison to handle signed DB storage)
     const filteredTransactions = existingTransactions.filter(
-        (t: typeof existingTransactions[0]) => amounts.includes(String(t.amount))
+        (t: typeof existingTransactions[0]) => {
+            const dbAmount = String(t.amount);
+            return allAmountsToCheck.has(dbAmount);
+        }
     );
+
+    console.log("[Duplicate Detector Batch] Filtered transactions:", {
+        totalExisting: existingTransactions.length,
+        afterFiltering: filteredTransactions.length,
+        sampleExisting: existingTransactions.slice(0, 3).map((t) => ({
+            name: t.name,
+            amount: String(t.amount),
+            amountType: typeof t.amount,
+        })),
+        sampleFiltered: filteredTransactions.slice(0, 3).map((t) => ({
+            name: t.name,
+            amount: String(t.amount),
+            amountType: typeof t.amount,
+        })),
+    });
 
     // Check each input transaction against existing ones
     for (const transaction of transactions) {
@@ -305,6 +354,10 @@ export async function detectDuplicatesBatch(
         }
 
         const transactionTime = transaction.purchaseDate.getTime();
+        const transactionAmountNum = typeof transaction.amount === "string"
+            ? parseFloat(transaction.amount)
+            : transaction.amount;
+        const transactionAbsAmount = Math.abs(transactionAmountNum);
 
         console.log(`[Duplicate Check] Checking transaction:`, {
             name: transaction.name,
@@ -315,15 +368,20 @@ export async function detectDuplicatesBatch(
         });
 
         for (const existing of filteredTransactions) {
-            // Skip if amount doesn't match - convert both to strings for comparison
-            // Database might return numeric as number or string depending on driver
-            const existingAmount = String(existing.amount);
-            const transactionAmount = String(transaction.amount);
+            // Compare absolute amounts to handle signed DB storage
+            const existingAmountNum = typeof existing.amount === "string"
+                ? parseFloat(existing.amount)
+                : existing.amount;
+            const existingAbsAmount = Math.abs(existingAmountNum);
 
-            if (existingAmount !== transactionAmount) {
-                console.log(`  [Skip] Amount mismatch: "${existingAmount}" (${typeof existing.amount}) !== "${transactionAmount}" (${typeof transaction.amount})`);
+            console.log(`[Duplicate Detector] Comparing transaction "${transaction.name}" (${transactionAbsAmount}) with existing "${existing.name}" (${existingAbsAmount})`);
+
+            if (Math.abs(existingAbsAmount - transactionAbsAmount) >= 0.01) {
+                console.log(`  [Skip] Amount mismatch: ${existingAbsAmount} !== ${transactionAbsAmount}`);
                 continue;
             }
+
+            console.log(`  [Match] Amount matches! Checking other criteria...`);
 
             // Calculate date difference
             const daysDifference = Math.abs(

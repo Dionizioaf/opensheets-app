@@ -603,9 +603,14 @@ export async function importOfxTransactionsAction(
                         .filter(Boolean)
                         .join(" | ");
 
+                    // Apply sign based on transaction type (Despesa = negative, Receita = positive)
+                    const amountSign = t.tipo_transacao === "Despesa" ? -1 : 1;
+                    const amountValue = typeof t.valor === "string" ? parseFloat(t.valor) : t.valor;
+                    const signedAmount = (Math.abs(amountValue) * amountSign).toFixed(2);
+
                     return {
                         name: t.nome,
-                        amount: t.valor,
+                        amount: signedAmount,
                         purchaseDate: t.data_compra,
                         transactionType: t.tipo_transacao,
                         paymentMethod: formaPagamento,

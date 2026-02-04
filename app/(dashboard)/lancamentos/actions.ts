@@ -1490,7 +1490,7 @@ export async function detectCsvDuplicatesAction(
   }>
 ): Promise<
   ActionResult<
-    Map<
+    Record<
       string,
       Array<{
         lancamentoId: string;
@@ -1562,7 +1562,13 @@ export async function detectCsvDuplicatesAction(
       accountId,
       accountType,
       transactionCount: transactions.length,
-      sampleTransaction: transactions[0]
+      sampleTransaction: transactions[0],
+      sampleTransactionDetails: {
+        name: transactions[0]?.name,
+        amount: transactions[0]?.amount,
+        amountType: typeof transactions[0]?.amount,
+        purchaseDate: transactions[0]?.purchaseDate,
+      }
     });
 
     // Detect duplicates using the same logic as OFX imports
@@ -1884,12 +1890,13 @@ export async function importCsvTransactionsAction(
         const nameMatch = existing.name.trim().toLowerCase() === t.nome.trim().toLowerCase();
 
         // Compare amount (convert both to numbers for comparison)
+        // Use absolute values because DB stores expenses as negative
         const existingAmount = typeof existing.amount === 'string'
-          ? parseFloat(existing.amount)
-          : existing.amount;
+          ? Math.abs(parseFloat(existing.amount))
+          : Math.abs(existing.amount);
         const newAmount = typeof t.valor === 'string'
-          ? parseFloat(t.valor)
-          : t.valor;
+          ? Math.abs(parseFloat(t.valor))
+          : Math.abs(t.valor);
         const amountMatch = Math.abs(existingAmount - newAmount) < 0.01; // Allow for tiny rounding differences
 
         // Compare dates (only year, month, day - ignore time)
@@ -1973,9 +1980,14 @@ export async function importCsvTransactionsAction(
             ? (normalizedAccountType === "card" ? "Cartão de Crédito" : "Dinheiro")
             : t.forma_pagamento;
 
+          // Apply sign based on transaction type (Despesa = negative, Receita = positive)
+          const amountSign = t.tipo_transacao === "Despesa" ? -1 : 1;
+          const amountValue = typeof t.valor === "string" ? parseFloat(t.valor) : t.valor;
+          const signedAmount = (Math.abs(amountValue) * amountSign).toFixed(2);
+
           return {
             name: t.nome,
-            amount: t.valor,
+            amount: signedAmount,
             purchaseDate: t.data_compra,
             transactionType: t.tipo_transacao,
             paymentMethod,
