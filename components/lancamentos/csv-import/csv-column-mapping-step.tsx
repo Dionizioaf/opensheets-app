@@ -95,6 +95,7 @@ export function CsvColumnMappingStep({
     // Internal state
     const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
     const [isAutoDetecting, setIsAutoDetecting] = useState(false);
+    const [isContinuing, setIsContinuing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedAccount, setSelectedAccount] = useState<AccountOption | null>(null);
     const [selectedPagador, setSelectedPagador] = useState<string | null>(null);
@@ -182,7 +183,7 @@ export function CsvColumnMappingStep({
     /**
      * Handle continue to next step
      */
-    const handleContinue = useCallback(() => {
+    const handleContinue = useCallback(async () => {
         if (!columnMapping.date || !columnMapping.amount) {
             setError("Preencha os campos obrigatórios (Data e Valor)");
             return;
@@ -279,7 +280,12 @@ export function CsvColumnMappingStep({
             return;
         }
 
-        onMappingComplete(columnMapping, selectedAccount, mappedTransactions, selectedPeriod);
+        setIsContinuing(true);
+        try {
+            await onMappingComplete(columnMapping, selectedAccount, mappedTransactions, selectedPeriod);
+        } finally {
+            setIsContinuing(false);
+        }
     }, [columnMapping, csvData.rows, selectedAccount, selectedPeriod, selectedPagador, onMappingComplete]);
 
     /**
@@ -634,6 +640,7 @@ export function CsvColumnMappingStep({
                     type="button"
                     variant="outline"
                     onClick={onBack}
+                    disabled={isContinuing}
                 >
                     <RiArrowLeftLine className="mr-2 size-4" />
                     Voltar
@@ -641,10 +648,19 @@ export function CsvColumnMappingStep({
                 <Button
                     type="button"
                     onClick={handleContinue}
-                    disabled={!isMappingComplete}
+                    disabled={!isMappingComplete || isContinuing}
                 >
-                    Continuar
-                    <RiArrowRightLine className="ml-2 size-4" />
+                    {isContinuing ? (
+                        <>
+                            <Spinner className="mr-2 size-4" />
+                            Processando...
+                        </>
+                    ) : (
+                        <>
+                            Continuar
+                            <RiArrowRightLine className="ml-2 size-4" />
+                        </>
+                    )}
                 </Button>
             </div>
         </div>
