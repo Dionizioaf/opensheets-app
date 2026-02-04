@@ -1,6 +1,17 @@
 #!/bin/bash
 
 # ============================================
+# Command Validation
+# ============================================
+REQUIRED_CMDS=(psql pg_dump gzip gunzip)
+for cmd in "${REQUIRED_CMDS[@]}"; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "\033[0;31mError: Required command '$cmd' not found. Please install it and try again.\033[0m"
+    exit 1
+  fi
+done
+
+# ============================================
 # Database Dump & Restore Manager
 # ============================================
 # Usage:
@@ -153,6 +164,7 @@ restore_database() {
   echo -e "${BLUE}Starting database restore...${NC}"
   
   # Handle gzipped files
+  local restore_status=0
   if [[ "$filepath" =~ \.gz$ ]]; then
     echo -e "${BLUE}Decompressing backup file...${NC}"
     gunzip -c "$filepath" | psql \
@@ -160,8 +172,8 @@ restore_database() {
       --port="$PGPORT" \
       --username="$PGUSER" \
       --no-password \
-      --quiet \
-      2>&1 | grep -v "^psql:"
+      --quiet
+    restore_status=${PIPESTATUS[1]}
   else
     psql \
       --host="$PGHOST" \
@@ -169,13 +181,15 @@ restore_database() {
       --username="$PGUSER" \
       --no-password \
       --quiet \
-      --file="$filepath" 2>&1 | grep -v "^psql:"
+      --file="$filepath"
+    restore_status=$?
   fi
   
-  if [ $? -eq 0 ]; then
+  if [ $restore_status -eq 0 ]; then
     echo -e "${GREEN}✓ Database restored successfully!${NC}"
   else
     echo -e "${RED}✗ Database restore failed!${NC}"
+    echo -e "${RED}See above for error details from psql.${NC}"
     exit 1
   fi
 }
