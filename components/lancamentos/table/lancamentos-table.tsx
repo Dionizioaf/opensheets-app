@@ -520,24 +520,40 @@ const buildColumns = ({
             const loading = isSettlementLoading(row.original.id);
             const settled = Boolean(row.original.isSettled);
             const Icon = settled ? RiThumbUpFill : RiThumbUpLine;
+            const tooltipLabel = loading
+              ? "Atualizando pagamento"
+              : readOnly
+                ? "Lançamento somente leitura"
+                : !canToggleSettlement
+                  ? "Pagamento conciliado automaticamente"
+                  : settled
+                    ? "Desfazer pagamento"
+                    : "Marcar como pago";
 
             return (
-              <Button
-                variant={settled ? "secondary" : "ghost"}
-                size="icon-sm"
-                onClick={() => handleToggleSettlement(row.original)}
-                disabled={loading || readOnly || !canToggleSettlement}
-                className={canToggleSettlement ? undefined : "opacity-70"}
-              >
-                {loading ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <Icon className={cn("size-4", settled && "text-green-600")} />
-                )}
-                <span className="sr-only">
-                  {settled ? "Desfazer pagamento" : "Marcar como pago"}
-                </span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant={settled ? "secondary" : "ghost"}
+                      size="icon-sm"
+                      onClick={() => handleToggleSettlement(row.original)}
+                      disabled={loading || readOnly || !canToggleSettlement}
+                      className={canToggleSettlement ? undefined : "opacity-70"}
+                    >
+                      {loading ? (
+                        <Spinner className="size-4" />
+                      ) : (
+                        <Icon
+                          className={cn("size-4", settled && "text-green-600")}
+                        />
+                      )}
+                      <span className="sr-only">{tooltipLabel}</span>
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top">{tooltipLabel}</TooltipContent>
+              </Tooltip>
             );
           })()}
 
