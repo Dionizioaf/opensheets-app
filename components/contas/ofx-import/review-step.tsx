@@ -35,7 +35,7 @@ import {
     RiEyeOffLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils/ui";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ImportTransaction, CategoryOption } from "./types";
 
@@ -302,7 +302,23 @@ export function ReviewStep({
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-12 min-w-[48px]">
-                                {!bulkCategoryMode && (
+                                {bulkCategoryMode ? (
+                                    <Checkbox
+                                        checked={selectedForBulk.size === visibleTransactions.filter(t => !t.isDuplicate).length && selectedForBulk.size > 0}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                // Select all non-duplicate transactions
+                                                visibleTransactions
+                                                    .filter(t => !t.isDuplicate)
+                                                    .forEach(t => setSelectedForBulk(prev => new Set(prev).add(t.id)));
+                                            } else {
+                                                // Deselect all
+                                                setSelectedForBulk(new Set());
+                                            }
+                                        }}
+                                        aria-label="Selecionar todas para edição em massa"
+                                    />
+                                ) : (
                                     <Checkbox
                                         checked={allSelected}
                                         onCheckedChange={handleSelectAll}
@@ -329,6 +345,11 @@ export function ReviewStep({
                                 const category = getCategoryById(transaction.categoriaId);
                                 const suggestedCategory = getCategoryById(transaction.suggestedCategoriaId);
                                 const isEditing = editingId === transaction.id;
+
+                                const isValidDate = isValid(transaction.data_compra);
+                                const formattedDate = isValidDate
+                                    ? format(transaction.data_compra, "dd/MM/yy", { locale: ptBR })
+                                    : "-";
 
                                 return (
                                     <TableRow
@@ -357,7 +378,14 @@ export function ReviewStep({
 
                                         {/* Date */}
                                         <TableCell className="text-sm">
-                                            {format(transaction.data_compra, "dd/MM/yy", { locale: ptBR })}
+                                            <span className={cn(!isValidDate && "text-destructive")}>
+                                                {formattedDate}
+                                            </span>
+                                            {!isValidDate && (
+                                                <Badge variant="destructive" className="ml-2">
+                                                    Data inválida
+                                                </Badge>
+                                            )}
                                         </TableCell>
 
                                         {/* Description (editable) */}

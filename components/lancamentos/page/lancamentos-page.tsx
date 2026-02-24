@@ -21,6 +21,7 @@ import { LancamentoDetailsDialog } from "../dialogs/lancamento-details-dialog";
 import { LancamentoDialog } from "../dialogs/lancamento-dialog/lancamento-dialog";
 import { LancamentosTable } from "../table/lancamentos-table";
 import { MassAddDialog, type MassAddFormData } from "../dialogs/mass-add-dialog";
+import { CsvImportDialog } from "../csv-import/csv-import-dialog";
 import type {
   ContaCartaoFilterOption,
   LancamentoFilterOption,
@@ -75,6 +76,7 @@ export function LancamentosPage({
   const [lancamentoToCopy, setLancamentoToCopy] =
     useState<LancamentoItem | null>(null);
   const [massAddOpen, setMassAddOpen] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [lancamentoToDelete, setLancamentoToDelete] =
     useState<LancamentoItem | null>(null);
@@ -93,6 +95,22 @@ export function LancamentosPage({
     },
     [lancamentos]
   );
+
+  /**
+   * Handle CSV import dialog open
+   */
+  const handleCsvImport = useCallback(() => {
+    setCsvImportOpen(true);
+  }, []);
+
+  /**
+   * Handle CSV import completion
+   */
+  const handleCsvImportComplete = useCallback((importedCount: number) => {
+    toast.success(`${importedCount} transações importadas com sucesso`);
+    setCsvImportOpen(false);
+    // Page will auto-refresh via revalidation in server action
+  }, []);
 
   // Memoize settlement loading check to prevent table re-renders
   const checkSettlementLoading = useCallback(
@@ -382,6 +400,7 @@ export function LancamentosPage({
           contaCartaoFilterOptions={contaCartaoFilterOptions}
           onCreate={allowCreate ? handleCreate : undefined}
           onMassAdd={allowCreate ? handleMassAdd : undefined}
+          onCsvImport={allowCreate ? handleCsvImport : undefined}
           onEdit={handleEdit}
           onCopy={handleCopy}
           onConfirmDelete={handleConfirmDelete}
@@ -527,6 +546,41 @@ export function LancamentosPage({
           estabelecimentos={estabelecimentos}
           selectedPeriod={selectedPeriod}
           defaultPagadorId={defaultPagadorId}
+        />
+      ) : null}
+
+      {allowCreate ? (
+        <CsvImportDialog
+          open={csvImportOpen}
+          onOpenChange={setCsvImportOpen}
+          trigger={null}
+          contas={contaOptions.map((c) => ({
+            id: c.value,
+            nome: c.label,
+            tipo: "banco" as const,
+          }))}
+          cartoes={cartaoOptions.map((c) => ({
+            id: c.value,
+            nome: c.label,
+            tipo: "cartao" as const,
+          }))}
+          categorias={categoriaOptions.map((c) => {
+            // Map SelectOption to Categoria type
+            return {
+              id: c.value,
+              nome: c.label,
+              tipo: "despesa" as const, // Default to despesa, actual type doesn't matter for display
+              icone: c.icon ?? null,
+              createdAt: new Date(),
+              userId: "", // Not used in import flow
+            };
+          })}
+          pagadores={pagadorOptions.map((p) => ({
+            id: p.value,
+            nome: p.label,
+          }))}
+          onImportComplete={handleCsvImportComplete}
+          onCancel={() => setCsvImportOpen(false)}
         />
       ) : null}
 

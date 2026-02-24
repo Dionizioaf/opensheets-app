@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { lancamentos } from "@/db/schema";
-import { eq, and, between, gte, lte } from "drizzle-orm";
+import { eq, and, between, gte, lte, desc } from "drizzle-orm";
 import Fuzzysort from "fuzzysort";
 
 /**
@@ -92,7 +92,16 @@ export async function detectDuplicates(
     const endDate = new Date(transactionDate);
     endDate.setDate(endDate.getDate() + DATE_TOLERANCE_DAYS);
 
+    // Note: DB stores amounts with sign (negative for expenses, positive for income)
+    // but OFX transactions use absolute values, so we need to check both signed values
+    const transactionAmountNum = typeof transactionAmount === "string"
+        ? parseFloat(transactionAmount)
+        : transactionAmount;
+    const positiveAmount = Math.abs(transactionAmountNum).toFixed(2);
+    const negativeAmount = (-Math.abs(transactionAmountNum)).toFixed(2);
+
     // Query existing transactions for the same account with similar dates and amounts
+    // Check both positive and negative amounts to handle signed DB storage
     const existingTransactions = await db.query.lancamentos.findMany({
         columns: {
             id: true,
@@ -104,19 +113,24 @@ export async function detectDuplicates(
         where: and(
             eq(lancamentos.userId, userId),
             eq(lancamentos.contaId, contaId),
-            eq(lancamentos.amount, transactionAmount),
             gte(lancamentos.purchaseDate, startDate),
             lte(lancamentos.purchaseDate, endDate)
         ),
         limit: 100, // Reasonable limit for duplicate checking
     });
 
-    if (existingTransactions.length === 0) {
+    // Filter by amount (absolute value comparison)
+    const filteredTransactions = existingTransactions.filter((t) => {
+        const dbAmount = typeof t.amount === "string" ? t.amount : String(t.amount);
+        return dbAmount === positiveAmount || dbAmount === negativeAmount;
+    });
+
+    if (filteredTransactions.length === 0) {
         return [];
     }
 
     // Check each existing transaction for duplicates
-    for (const existing of existingTransactions) {
+    for (const existing of filteredTransactions) {
         // Priority 1: Check for FITID match in notes
         if (fitId && existing.note) {
             const fitIdPattern = new RegExp(`FITID:\\s*${fitId}`, "i");
@@ -228,13 +242,15 @@ export async function detectDuplicates(
  * in results is mapped to DB column names (nome/valor/anotacao) for compatibility.
  *
  * @param userId - User ID who owns the transactions
- * @param contaId - Account ID to check for duplicates
+ * @param accountId - Account ID to check for duplicates (contaId or cartaoId)
+ * @param accountType - Type of account: "bank" for contaId, "card" for cartaoId
  * @param transactions - Array of transactions to check (with JS field names)
  * @returns Map of transaction IDs to their duplicate matches
  */
 export async function detectDuplicatesBatch(
     userId: string,
-    contaId: string,
+    accountId: string,
+    accountType: "bank" | "card",
     transactions: Array<{
         id: string;
         name: string;
@@ -249,41 +265,127 @@ export async function detectDuplicatesBatch(
         return results;
     }
 
-    // Find the date range that covers all transactions
-    const allDates = transactions.map((t) => t.purchaseDate.getTime());
-    const minDate = new Date(Math.min(...allDates));
-    const maxDate = new Date(Math.max(...allDates));
+    // Find the date range that covers all transactions (ignore invalid dates)
+    const validDates = transactions
+        .map((t) => new Date(t.purchaseDate))
+        .filter((date) => !Number.isNaN(date.getTime()));
+
+    if (validDates.length === 0) {
+        return results;
+    }
+
+    const minDate = new Date(Math.min(...validDates.map((d) => d.getTime())));
+    const maxDate = new Date(Math.max(...validDates.map((d) => d.getTime())));
 
     // Expand by tolerance
     minDate.setDate(minDate.getDate() - DATE_TOLERANCE_DAYS);
     maxDate.setDate(maxDate.getDate() + DATE_TOLERANCE_DAYS);
 
-    // Get all amounts to check
-    const amounts = [...new Set(transactions.map((t) => t.amount))];
+    // Get all amounts to check (both positive and negative for signed DB storage)
+    const amountPairs = transactions.map((t) => {
+        const amountNum = typeof t.amount === "string" ? parseFloat(t.amount) : t.amount;
+        const absAmount = Math.abs(amountNum);
+        return {
+            positive: absAmount.toFixed(2),
+            negative: (-absAmount).toFixed(2),
+        };
+    });
+    const allAmountsToCheck = new Set<string>();
+    amountPairs.forEach((pair) => {
+        const positive = parseFloat(pair.positive);
+        const negative = parseFloat(pair.negative);
+        const deltas = [0, 0.01, -0.01];
+
+        deltas.forEach((delta) => {
+            const pos = (positive + delta).toFixed(2);
+            const neg = (negative + delta).toFixed(2);
+            allAmountsToCheck.add(pos);
+            allAmountsToCheck.add(neg);
+        });
+    });
+
+    console.log("[Duplicate Detector Batch] Amount pairs to check:", {
+        samplePairs: amountPairs.slice(0, 3),
+        allAmountsSize: allAmountsToCheck.size,
+        allAmountsSample: Array.from(allAmountsToCheck).slice(0, 6),
+    });
+
+    // Build query condition based on account type
+    const accountCondition = accountType === "bank"
+        ? eq(lancamentos.contaId, accountId)
+        : eq(lancamentos.cartaoId, accountId);
 
     // Single query to fetch all potentially matching transactions
     // Note: Query uses Drizzle JS field names (name, amount, note)
     // which map to DB columns (nome, valor, anotacao)
-    const existingTransactions = await db.query.lancamentos.findMany({
-        columns: {
-            id: true,
-            name: true,
-            amount: true,
-            purchaseDate: true,
-            note: true,
-        },
-        where: and(
+    const existingTransactionsQuery = db
+        .select({
+            id: lancamentos.id,
+            name: lancamentos.name,
+            amount: lancamentos.amount,
+            purchaseDate: lancamentos.purchaseDate,
+            note: lancamentos.note,
+        })
+        .from(lancamentos)
+        .where(and(
             eq(lancamentos.userId, userId),
-            eq(lancamentos.contaId, contaId),
+            accountCondition,
             gte(lancamentos.purchaseDate, minDate),
             lte(lancamentos.purchaseDate, maxDate)
-        ),
-        limit: 500, // Reasonable limit for batch checking
+        ))
+        .orderBy(desc(lancamentos.purchaseDate))
+        .limit(999); // Reasonable limit for batch checking
+
+    const sql = existingTransactionsQuery.toSQL();
+    console.log("[Duplicate Detector Batch] SQL query:", sql.sql, sql.params);
+
+    const existingTransactions = await existingTransactionsQuery;
+
+    // Filter by amounts (absolute value comparison to handle signed DB storage)
+    const filteredTransactions = existingTransactions.filter(
+        (t: typeof existingTransactions[0]) => {
+            if (t.name === "Github  Inc.") {
+                console.log(`[Duplicate Detector Batch] Special case for transaction - DEBUG`);
+            }
+            const dbAmountNum = typeof t.amount === "string"
+                ? parseFloat(t.amount)
+                : t.amount;
+            if (Number.isNaN(dbAmountNum)) {
+                return false;
+            }
+            const dbAmountFixed = dbAmountNum.toFixed(2);
+            const dbAmountAbsFixed = Math.abs(dbAmountNum).toFixed(2);
+
+            return (
+                allAmountsToCheck.has(dbAmountFixed) ||
+                allAmountsToCheck.has(dbAmountAbsFixed)
+            );
+        }
+    );
+
+    console.log("[Duplicate Detector Batch] Filtered transactions:", {
+        totalExisting: existingTransactions.length,
+        afterFiltering: filteredTransactions.length,
+        sampleExisting: existingTransactions.slice(0, 3).map((t) => ({
+            name: t.name,
+            amount: String(t.amount),
+            amountType: typeof t.amount,
+        })),
+        sampleFiltered: filteredTransactions.slice(0, 3).map((t) => ({
+            name: t.name,
+            amount: String(t.amount),
+            amountType: typeof t.amount,
+        })),
     });
 
-    // Filter by amounts (since we can't use IN clause easily with Drizzle)
-    const filteredTransactions = existingTransactions.filter(
-        (t: typeof existingTransactions[0]) => amounts.includes(t.amount)
+    console.log(
+        "[Duplicate Detector Batch] Filtered transactions list:",
+        filteredTransactions.map((t) => ({
+            id: t.id,
+            name: t.name,
+            amount: String(t.amount),
+            purchaseDate: t.purchaseDate,
+        }))
     );
 
     // Check each input transaction against existing ones
@@ -296,11 +398,43 @@ export async function detectDuplicatesBatch(
             continue;
         }
 
-        const transactionTime = transaction.purchaseDate.getTime();
+        const transactionDate = new Date(transaction.purchaseDate);
+        if (Number.isNaN(transactionDate.getTime())) {
+            results.set(transaction.id, []);
+            continue;
+        }
+
+        const transactionTime = transactionDate.getTime();
+        const transactionAmountNum = typeof transaction.amount === "string"
+            ? parseFloat(transaction.amount)
+            : transaction.amount;
+        const transactionAbsAmount = Math.abs(transactionAmountNum);
+        if (transaction.name === "Github  Inc.") {
+            console.log(`[Duplicate Check] Special case for transaction - DEBUG`);
+        }
+        console.log(`[Duplicate Check] Checking transaction:`, {
+            name: transaction.name,
+            normalizedName,
+            amount: transaction.amount,
+            date: transactionDate,
+            candidateCount: filteredTransactions.length
+        });
 
         for (const existing of filteredTransactions) {
-            // Skip if amount doesn't match
-            if (existing.amount !== transaction.amount) continue;
+            // Compare absolute amounts to handle signed DB storage
+            const existingAmountNum = typeof existing.amount === "string"
+                ? parseFloat(existing.amount)
+                : existing.amount;
+            const existingAbsAmount = Math.abs(existingAmountNum);
+
+            console.log(`[Duplicate Detector] Comparing transaction "${transaction.name}" (${transactionAbsAmount}) with existing "${existing.name}" (${existingAbsAmount})`);
+
+            if (Math.abs(existingAbsAmount - transactionAbsAmount) >= 0.01) {
+                console.log(`  [Skip] Amount mismatch: ${existingAbsAmount} !== ${transactionAbsAmount}`);
+                continue;
+            }
+
+            console.log(`  [Match] Amount matches! Checking other criteria...`);
 
             // Calculate date difference
             const daysDifference = Math.abs(
@@ -339,8 +473,11 @@ export async function detectDuplicatesBatch(
 
             const existingNormalized = existing.name.trim().toLowerCase();
 
+            console.log(`    [Compare] Existing: "${existing.name}" (normalized: "${existingNormalized}"), amount: "${existing.amount}", days diff: ${daysDifference}`);
+
             // Check for exact match
             if (daysDifference === 0 && normalizedName === existingNormalized) {
+                console.log(`    [MATCH] Exact match found!`);
                 matches.push({
                     lancamentoId: existing.id,
                     matchReason: "exact",
@@ -364,7 +501,10 @@ export async function detectDuplicatesBatch(
                     Math.min(1, (fuzzyResult.score + 1000) / 1000)
                 );
 
+                console.log(`    [Fuzzy] Similarity score: ${normalizedScore.toFixed(3)}`);
+
                 if (normalizedScore >= SIMILARITY_THRESHOLDS.HIGH) {
+                    console.log(`    [MATCH] Similar match (HIGH confidence)`);
                     matches.push({
                         lancamentoId: existing.id,
                         matchReason: "similar",
@@ -377,6 +517,7 @@ export async function detectDuplicatesBatch(
                         },
                     });
                 } else if (normalizedScore >= SIMILARITY_THRESHOLDS.MEDIUM) {
+                    console.log(`    [MATCH] Likely match (MEDIUM confidence)`);
                     matches.push({
                         lancamentoId: existing.id,
                         matchReason: "likely",
@@ -403,9 +544,11 @@ export async function detectDuplicatesBatch(
             return b.similarity - a.similarity;
         });
 
+        console.log(`[Duplicate Check] Transaction "${transaction.name}" found ${matches.length} matches`);
         results.set(transaction.id, matches);
     }
 
+    console.log(`[Duplicate Check] Batch complete: checked ${transactions.length} transactions, found duplicates for ${Array.from(results.values()).filter(m => m.length > 0).length} transactions`);
     return results;
 }
 

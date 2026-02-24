@@ -9,6 +9,7 @@ import {
 } from "@/lib/accounts/constants";
 import { handleActionError, revalidateForEntity } from "@/lib/actions/helpers";
 import type { ActionResult } from "@/lib/actions/types";
+import { errorResult } from "@/lib/actions/types";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth/server";
 import {
@@ -27,6 +28,7 @@ import {
   getTodayDateString,
   parseLocalDateString,
 } from "@/lib/utils/date";
+import { revalidatePath } from "next/cache";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -44,6 +46,69 @@ const resolvePeriod = (purchaseDate: string, period?: string | null) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
+};
+
+const normalizeAccountType = (accountType: string): "bank" | "card" | null => {
+  const raw = (accountType ?? "").trim().toLowerCase();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (normalized === "banco" || normalized === "bank") {
+    return "bank";
+  }
+
+  if (
+    normalized === "cartao" ||
+    normalized === "card" ||
+    normalized === "credit-card" ||
+    normalized === "creditcard"
+  ) {
+    return "card";
+  }
+
+  return null;
+};
+
+const normalizePaymentMethod = (
+  method: string | undefined,
+  accountType: "bank" | "card"
+) => {
+  const fallback = accountType === "card" ? "Cartão de crédito" : "Dinheiro";
+  const raw = (method ?? "").trim();
+  if (!raw) {
+    return fallback;
+  }
+
+  const normalized = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized.includes("cartao") && normalized.includes("credito")) {
+    return "Cartão de crédito";
+  }
+  if (normalized.includes("cartao") && normalized.includes("debito")) {
+    return "Cartão de débito";
+  }
+  if (normalized.includes("debito")) {
+    return "Cartão de débito";
+  }
+  if (normalized.includes("credito")) {
+    return "Cartão de crédito";
+  }
+  if (normalized.includes("pix")) {
+    return "Pix";
+  }
+  if (normalized.includes("boleto")) {
+    return "Boleto";
+  }
+  if (normalized.includes("dinheiro")) {
+    return "Dinheiro";
+  }
+
+  return fallback;
 };
 
 const baseFields = z.object({
@@ -967,15 +1032,15 @@ export async function updateLancamentoBulkAction(
       hasDueDateUpdate && data.dueDate
         ? parseLocalDateString(data.dueDate)
         : hasDueDateUpdate
-        ? null
-        : undefined;
+          ? null
+          : undefined;
 
     const baseBoletoPaymentDate =
       hasBoletoPaymentDateUpdate && data.boletoPaymentDate
         ? parseLocalDateString(data.boletoPaymentDate)
         : hasBoletoPaymentDateUpdate
-        ? null
-        : undefined;
+          ? null
+          : undefined;
 
     const basePurchaseDate = existing.purchaseDate ?? null;
 
@@ -994,7 +1059,7 @@ export async function updateLancamentoBulkAction(
 
       const monthDiff =
         (recordPurchaseDate.getFullYear() - basePurchaseDate.getFullYear()) *
-          12 +
+        12 +
         (recordPurchaseDate.getMonth() - basePurchaseDate.getMonth());
 
       return addMonthsToDate(baseDueDate, monthDiff);
@@ -1264,9 +1329,8 @@ export async function createMassLancamentosAction(
     const count = allRecords.length;
     return {
       success: true,
-      message: `${count} ${
-        count === 1 ? "lançamento criado" : "lançamentos criados"
-      } com sucesso.`,
+      message: `${count} ${count === 1 ? "lançamento criado" : "lançamentos criados"
+        } com sucesso.`,
     };
   } catch (error) {
     return handleActionError(error);
@@ -1356,9 +1420,8 @@ export async function deleteMultipleLancamentosAction(
     const count = existing.length;
     return {
       success: true,
-      message: `${count} ${
-        count === 1 ? "lançamento removido" : "lançamentos removidos"
-      } com sucesso.`,
+      message: `${count} ${count === 1 ? "lançamento removido" : "lançamentos removidos"
+        } com sucesso.`,
     };
   } catch (error) {
     return handleActionError(error);
@@ -1405,5 +1468,662 @@ export async function getRecentEstablishmentsAction(): Promise<string[]> {
   } catch (error) {
     console.error("Error fetching recent establishments:", error);
     return [];
+  }
+}
+
+/**
+ * CSV Import Server Actions
+ */
+
+/**
+ * Parse CSV file content
+ * Validates file content and returns parsed data with headers and rows
+ */
+export async function parseCsvFileAction(
+  fileContent: string,
+  delimiter?: ";" | "," | "\t" | "auto"
+): Promise<
+  ActionResult<{
+    headers: Array<{ name: string; originalName: string }>;
+    rows: Array<Record<string, string>>;
+    rowCount: number;
+    detectedDelimiter: ";" | "," | "\t";
+  }>
+> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Validate file content
+    if (!fileContent || fileContent.trim().length === 0) {
+      return errorResult("Arquivo CSV vazio.");
+    }
+
+    // Import CSV parser (dynamic import to avoid client-side bundle)
+    const { parseCsvString } = await import("@/lib/csv/parser");
+
+    // Parse CSV content directly
+    const parseResult = parseCsvString(fileContent, {
+      delimiter: delimiter === "auto" ? undefined : delimiter,
+      trimHeaders: true,
+    });
+
+    // Check for parsing errors
+    if (!parseResult.success) {
+      return errorResult(
+        parseResult.errors?.[0]?.message || "Erro ao processar arquivo CSV."
+      );
+    }
+
+    // Return parsed data
+    return {
+      success: true,
+      message: "Arquivo CSV processado com sucesso.",
+      data: {
+        headers: parseResult.headers,
+        rows: parseResult.rows,
+        rowCount: parseResult.rowCount,
+        detectedDelimiter: parseResult.detectedDelimiter,
+      },
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/**
+ * Detect duplicate CSV transactions
+ * Server action for detecting potential duplicates in existing transactions
+ *
+ * @param accountId - Account ID (contaId or cartaoId) to check for duplicates
+ * @param accountType - Type of account ("bank" or "card")
+ * @param transactions - Array of CSV transactions to check for duplicates
+ * @returns Map of transaction IDs to their duplicate matches
+ */
+export async function detectCsvDuplicatesAction(
+  accountId: string,
+  accountType: "bank" | "card",
+  transactions: Array<{
+    id: string;
+    name: string;
+    amount: string;
+    purchaseDate: Date;
+  }>
+): Promise<
+  ActionResult<
+    Record<
+      string,
+      Array<{
+        lancamentoId: string;
+        matchReason: "fitid" | "exact" | "similar" | "likely";
+        similarity: number;
+        existingTransaction: {
+          nome: string;
+          valor: string;
+          purchaseDate: Date;
+          anotacao: string | null;
+        };
+      }>
+    >
+  >
+> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Validate inputs
+    if (!accountId || !z.string().uuid().safeParse(accountId).success) {
+      return errorResult("ID da conta inválido.");
+    }
+
+    if (transactions.length === 0) {
+      return errorResult("Lista de transações vazia.");
+    }
+
+    if (transactions.length > 1000) {
+      return errorResult("Máximo de 1000 transações por verificação.");
+    }
+
+    // Verify account ownership based on account type
+    if (accountType === "bank") {
+      const account = await db.query.contas.findFirst({
+        where: and(eq(contas.id, accountId), eq(contas.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!account) {
+        return errorResult(
+          "Conta não encontrada ou você não tem permissão para acessá-la."
+        );
+      }
+    } else {
+      const { cartoes } = await import("@/db/schema");
+      const card = await db.query.cartoes.findFirst({
+        where: and(eq(cartoes.id, accountId), eq(cartoes.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!card) {
+        return errorResult(
+          "Cartão não encontrado ou você não tem permissão para acessá-lo."
+        );
+      }
+    }
+
+    // Import duplicate detector
+    const { detectDuplicatesBatch } = await import(
+      "@/lib/ofx/duplicate-detector"
+    );
+
+    console.log("[CSV Duplicate Action] Calling duplicate detector with:", {
+      userId: user.id,
+      accountId,
+      accountType,
+      transactionCount: transactions.length,
+      sampleTransaction: transactions[0],
+      sampleTransactionDetails: {
+        name: transactions[0]?.name,
+        amount: transactions[0]?.amount,
+        amountType: typeof transactions[0]?.amount,
+        purchaseDate: transactions[0]?.purchaseDate,
+      }
+    });
+
+    const normalizedTransactions = transactions.map((t) => ({
+      ...t,
+      purchaseDate: new Date(t.purchaseDate),
+    }));
+
+    // Detect duplicates using the same logic as OFX imports
+    const duplicates = await detectDuplicatesBatch(
+      user.id,
+      accountId,
+      accountType,
+      normalizedTransactions
+    );
+
+    console.log("[CSV Duplicate Action] Duplicate detection complete:", {
+      duplicatesMapSize: duplicates.size,
+      transactionsWithDuplicates: Array.from(duplicates.entries())
+        .filter(([_, matches]) => matches.length > 0)
+        .map(([id, matches]) => ({ id, matchCount: matches.length }))
+    });
+
+    // Convert Map to plain object for serialization (Next.js server actions don't serialize Maps properly)
+    const duplicatesObject: Record<string, Array<{
+      lancamentoId: string;
+      matchReason: "fitid" | "exact" | "similar" | "likely";
+      similarity: number;
+      existingTransaction: {
+        nome: string;
+        valor: string;
+        purchaseDate: Date;
+        anotacao: string | null;
+      };
+    }>> = {};
+
+    for (const [id, matches] of duplicates.entries()) {
+      duplicatesObject[id] = matches;
+    }
+
+    console.log("[CSV Duplicate Action] Converted to object, sample keys:", Object.keys(duplicatesObject).slice(0, 3));
+
+    return {
+      success: true,
+      message: `Verificação de duplicatas concluída para ${transactions.length} transações.`,
+      data: duplicatesObject,
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/**
+ * Suggest categories for CSV transactions
+ * Server action for getting category suggestions based on historical data
+ *
+ * @param transactions - Array of CSV transactions to get suggestions for
+ * @returns Map of transaction ID to category suggestion
+ */
+export async function suggestCsvCategoriesAction(
+  transactions: Array<{
+    id: string;
+    name: string;
+    amount: string;
+    transactionType: string;
+  }>
+): Promise<
+  ActionResult<
+    Record<
+      string,
+      {
+        categoriaId: string;
+        confidence: "high" | "medium" | "low";
+        score: number;
+        matchReason: "exact" | "fuzzy" | "amount-pattern";
+      }
+    >
+  >
+> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Validate input
+    if (transactions.length === 0) {
+      return errorResult("Lista de transações vazia.");
+    }
+
+    if (transactions.length > 1000) {
+      return errorResult("Máximo de 1000 transações por sugestão.");
+    }
+
+    // Import category suggester
+    const { suggestCategoriesForTransactions } = await import(
+      "@/lib/ofx/category-suggester"
+    );
+
+    // Get category suggestions using the same logic as OFX imports
+    const suggestions = await suggestCategoriesForTransactions(
+      user.id,
+      transactions.map((t) => ({
+        id: t.id,
+        name: t.name,
+        amount: t.amount,
+        transactionType: t.transactionType,
+      }))
+    );
+
+    return {
+      success: true,
+      message: `Sugestões geradas para ${suggestions.size} transações.`,
+      data: suggestions,
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/**
+ * Rate limit configuration for CSV imports
+ * Reuses OFX import rate limits
+ */
+const CSV_RATE_LIMIT_MAX_IMPORTS = 60;
+const CSV_RATE_LIMIT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * In-memory store for CSV import rate limiting
+ * Maps userId to array of import timestamps
+ */
+const csvImportAttemptsStore = new Map<string, number[]>();
+
+/**
+ * Check if user has exceeded rate limit for CSV imports
+ */
+function isCsvRateLimitExceeded(userId: string): boolean {
+  const now = Date.now();
+  const attempts = csvImportAttemptsStore.get(userId) || [];
+
+  const recentAttempts = attempts.filter(
+    (timestamp) => now - timestamp < CSV_RATE_LIMIT_WINDOW_MS
+  );
+
+  if (recentAttempts.length === 0) {
+    csvImportAttemptsStore.delete(userId);
+  } else {
+    csvImportAttemptsStore.set(userId, recentAttempts);
+  }
+
+  return recentAttempts.length >= CSV_RATE_LIMIT_MAX_IMPORTS;
+}
+
+/**
+ * Record a CSV import attempt for rate limiting
+ */
+function recordCsvImportAttempt(userId: string): void {
+  const now = Date.now();
+  const attempts = csvImportAttemptsStore.get(userId) || [];
+  attempts.push(now);
+
+  const recentAttempts = attempts.filter(
+    (timestamp) => now - timestamp < CSV_RATE_LIMIT_WINDOW_MS
+  );
+
+  csvImportAttemptsStore.set(userId, recentAttempts);
+}
+
+/**
+ * Import CSV transactions to database
+ * Server action for batch inserting validated CSV transactions
+ *
+ * @param accountId - Account ID (contaId or cartaoId) to import transactions to
+ * @param accountType - Type of account ("bank" or "card")
+ * @param transactions - Array of validated transactions to import
+ * @returns Success result with imported count or error
+ */
+export async function importCsvTransactionsAction(
+  accountId: string,
+  accountType: "bank" | "card" | "banco" | "cartao",
+  transactions: Array<{
+    nome: string;
+    valor: string;
+    data_compra: Date;
+    tipo_transacao: "Despesa" | "Receita";
+    forma_pagamento?: string;
+    condicao?: string;
+    periodo?: string;
+    anotacao?: string;
+    categoriaId?: string;
+    pagadorId?: string;
+  }>,
+  periodOverride?: string
+): Promise<ActionResult<{ importedCount: number; skippedCount: number }>> {
+  try {
+    // Validate user authentication
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    // Normalize account type to English
+    const normalizedAccountType = normalizeAccountType(accountType);
+    if (!normalizedAccountType) {
+      return errorResult("Tipo de conta inválido.");
+    }
+
+    // Check rate limit before processing
+    if (isCsvRateLimitExceeded(user.id)) {
+      return { success: false, error: `Limite de importações excedido. Você atingiu o máximo de ${CSV_RATE_LIMIT_MAX_IMPORTS} importações em 30 minutos. Tente novamente mais tarde.` };
+    }
+
+    // Validate inputs
+    if (!accountId || !z.string().uuid().safeParse(accountId).success) {
+      return errorResult("ID da conta inválido.");
+    }
+
+    if (transactions.length === 0) {
+      return errorResult("Lista de transações vazia.");
+    }
+
+    if (transactions.length > 1000) {
+      return { success: false, error: "Máximo de 1000 transações por importação." };
+    }
+
+    // Verify account ownership based on account type
+    if (normalizedAccountType === "bank") {
+      const account = await db.query.contas.findFirst({
+        where: and(eq(contas.id, accountId), eq(contas.userId, user.id)),
+        columns: { id: true },
+      });
+
+      if (!account) {
+        return errorResult(
+          "Conta não encontrada ou você não tem permissão para acessá-la."
+        );
+      }
+    }
+
+    // Get card details including closing day for period calculation
+    let cardClosingDay: number | null = null;
+    if (normalizedAccountType === "card") {
+      const { cartoes } = await import("@/db/schema");
+      const card = await db.query.cartoes.findFirst({
+        where: and(eq(cartoes.id, accountId), eq(cartoes.userId, user.id)),
+        columns: { id: true, closingDay: true },
+      });
+
+      if (!card) {
+        return errorResult(
+          "Cartão não encontrado ou você não tem permissão para acessá-lo."
+        );
+      }
+
+      // Parse closing day (stored as string like "02", "15", etc.)
+      const parsed = parseInt(card.closingDay, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
+        cardClosingDay = parsed;
+      }
+    }
+
+    // Get user's ADMIN pagador for default fallback (create if doesn't exist)
+    const { pagadores, PAGADOR_ROLE_ADMIN } = await import("@/db/schema");
+    let adminPagador = await db.query.pagadores.findFirst({
+      where: and(
+        eq(pagadores.userId, user.id),
+        eq(pagadores.role, PAGADOR_ROLE_ADMIN)
+      ),
+      columns: { id: true },
+    });
+
+    // Auto-create ADMIN pagador if missing (legacy users or failed setup)
+    if (!adminPagador) {
+      const { DEFAULT_PAGADOR_AVATAR, PAGADOR_STATUS_OPTIONS } = await import("@/lib/pagadores/constants");
+      const { normalizeNameFromEmail } = await import("@/lib/pagadores/utils");
+
+      const name = user.name?.trim() || normalizeNameFromEmail(user.email) || "Pagador Principal";
+
+      // Create ADMIN pagador directly
+      const [created] = await db.insert(pagadores).values({
+        name,
+        email: user.email ?? null,
+        status: PAGADOR_STATUS_OPTIONS[0],
+        role: PAGADOR_ROLE_ADMIN,
+        avatarUrl: DEFAULT_PAGADOR_AVATAR,
+        note: null,
+        isAutoSend: false,
+        userId: user.id,
+      }).returning({ id: pagadores.id });
+
+      if (!created) {
+        return {
+          success: false,
+          error: "Erro ao criar pagador padrão. Entre em contato com o suporte."
+        };
+      }
+
+      adminPagador = created;
+    }
+
+    // Check for existing transactions to avoid duplicates
+    // Fetch all existing transactions for this account
+    const existingImports = await db.query.lancamentos.findMany({
+      where: and(
+        normalizedAccountType === "bank"
+          ? eq(lancamentos.contaId, accountId)
+          : eq(lancamentos.cartaoId, accountId),
+        eq(lancamentos.userId, user.id)
+      ),
+      columns: {
+        id: true,
+        note: true,
+        name: true,
+        amount: true,
+        purchaseDate: true,
+      },
+    });
+
+    // Filter out duplicates (same name, amount, and purchase date)
+    let skippedDuplicates = 0;
+    const transactionsToImport = transactions.filter((t) => {
+      const isDuplicate = existingImports.some((existing) => {
+        // Compare name (case-insensitive, trimmed)
+        const nameMatch = existing.name.trim().toLowerCase() === t.nome.trim().toLowerCase();
+
+        // Compare amount (convert both to numbers for comparison)
+        // Use absolute values because DB stores expenses as negative
+        const existingAmount = typeof existing.amount === 'string'
+          ? Math.abs(parseFloat(existing.amount))
+          : Math.abs(existing.amount);
+        const newAmount = typeof t.valor === 'string'
+          ? Math.abs(parseFloat(t.valor))
+          : Math.abs(t.valor);
+        const amountMatch = Math.abs(existingAmount - newAmount) < 0.01; // Allow for tiny rounding differences
+
+        // Compare dates (only year, month, day - ignore time)
+        const existingDate = new Date(existing.purchaseDate);
+        const newDate = new Date(t.data_compra);
+        const dateMatch =
+          existingDate.getFullYear() === newDate.getFullYear() &&
+          existingDate.getMonth() === newDate.getMonth() &&
+          existingDate.getDate() === newDate.getDate();
+
+        return nameMatch && amountMatch && dateMatch;
+      });
+
+      if (isDuplicate) {
+        skippedDuplicates++;
+        return false;
+      }
+      return true;
+    });
+
+    // If all transactions are duplicates, return early
+    if (transactionsToImport.length === 0) {
+      return errorResult(
+        "Todas as transações já foram importadas anteriormente."
+      );
+    }
+
+    // Use database transaction for atomic batch insert
+    let importedCount: number;
+    try {
+      importedCount = await db.transaction(async (tx) => {
+        // Transform transactions to lancamentos format
+        const lancamentosToInsert = transactionsToImport.map((t) => {
+          const categoriaId = t.categoriaId ?? null;
+          const pagadorId = t.pagadorId ?? adminPagador.id;
+
+          // Add import metadata to note
+          const importTimestamp = new Date().toISOString();
+          const importNote = `Importado de CSV em ${importTimestamp}`;
+          const originalNote = t.anotacao ?? "";
+          const combinedNote = [importNote, originalNote]
+            .filter(Boolean)
+            .join(" | ");
+
+          // Helper to check if value is undefined marker from frontend
+          const isUndefined = (val: any) => !val || val === "$undefined";
+
+          // Calculate period based on override, card closing day, or transaction date
+          let period: string;
+          if (!isUndefined(t.periodo)) {
+            // Use period from transaction data if provided
+            period = t.periodo;
+          } else if (periodOverride) {
+            // Use manual period override for entire import (credit card option)
+            period = periodOverride;
+          } else if (normalizedAccountType === "card" && cardClosingDay) {
+            // Card period calculation based on closing day
+            const transactionDate = new Date(t.data_compra);
+            const transactionDay = transactionDate.getDate();
+            let year = transactionDate.getFullYear();
+            let month = transactionDate.getMonth() + 1; // 0-indexed to 1-indexed
+
+            // If transaction is after closing day, period is next month
+            if (transactionDay > cardClosingDay) {
+              month += 1;
+              if (month > 12) {
+                month = 1;
+                year += 1;
+              }
+            }
+
+            period = `${year}-${String(month).padStart(2, "0")}`;
+          } else {
+            // Bank account or no closing day: use transaction month
+            period = resolvePeriod(t.data_compra.toISOString());
+          }
+
+          // Ensure required fields have valid defaults based on account type
+          const condition = isUndefined(t.condicao) ? "À vista" : t.condicao;
+          const paymentMethod = normalizePaymentMethod(
+            isUndefined(t.forma_pagamento) ? undefined : t.forma_pagamento,
+            normalizedAccountType
+          );
+
+          // Apply sign based on transaction type (Despesa = negative, Receita = positive)
+          const amountSign = t.tipo_transacao === "Despesa" ? -1 : 1;
+          const amountValue = typeof t.valor === "string" ? parseFloat(t.valor) : t.valor;
+          const signedAmount = (Math.abs(amountValue) * amountSign).toFixed(2);
+
+          return {
+            name: t.nome,
+            amount: signedAmount,
+            purchaseDate: t.data_compra,
+            transactionType: t.tipo_transacao,
+            paymentMethod,
+            condition,
+            period,
+            note: combinedNote,
+            isSettled: normalizedAccountType === "card" ? false : true,
+            contaId: normalizedAccountType === "bank" ? accountId : null,
+            cartaoId: normalizedAccountType === "card" ? accountId : null,
+            categoriaId,
+            pagadorId,
+            userId: user.id,
+            // Optional fields set to null
+            installmentCount: null,
+            currentInstallment: null,
+            recurrenceCount: null,
+            dueDate: null,
+            boletoPaymentDate: null,
+            isDivided: false,
+            isAnticipated: false,
+            anticipationId: null,
+            seriesId: null,
+            transferId: null,
+          };
+        });
+
+        // Batch insert all transactions
+        await tx.insert(lancamentos).values(lancamentosToInsert);
+
+        return lancamentosToInsert.length;
+      });
+    } catch (dbError) {
+      console.error("[CSV Import] Database error", dbError);
+      return errorResult(
+        "Erro ao salvar transações no banco de dados. Tente novamente."
+      );
+    }
+
+    // Revalidate lancamentos pages
+    revalidateForEntity("lancamentos");
+    if (normalizedAccountType === "card") {
+      revalidatePath("/cartoes");
+      revalidatePath(`/cartoes/${accountId}/fatura`);
+    }
+
+    // Record successful import attempt for rate limiting
+    recordCsvImportAttempt(user.id);
+
+    // Build success message
+    let message = `${importedCount} ${importedCount === 1 ? "transação importada" : "transações importadas"
+      } com sucesso`;
+
+    if (skippedDuplicates > 0) {
+      message += `. ${skippedDuplicates} ${skippedDuplicates === 1
+        ? "transação duplicada foi ignorada"
+        : "transações duplicadas foram ignoradas"
+        }`;
+    }
+
+    return {
+      success: true,
+      message,
+      data: { importedCount, skippedCount: skippedDuplicates },
+    };
+  } catch (error) {
+    console.error("[CSV Import] Unexpected error", error);
+    return handleActionError(error);
   }
 }
