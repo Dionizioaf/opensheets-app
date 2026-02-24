@@ -54,10 +54,16 @@ export function buildLancamentoInitialState(
     ? lancamento.purchaseDate.slice(0, 10)
     : overrides?.defaultPurchaseDate ?? "";
 
-  const paymentMethod =
-    lancamento?.paymentMethod ??
-    overrides?.defaultPaymentMethod ??
-    LANCAMENTO_PAYMENT_METHODS[0];
+  const fallbackPaymentMethod =
+    overrides?.defaultPaymentMethod ?? LANCAMENTO_PAYMENT_METHODS[0];
+  const candidatePaymentMethod = lancamento?.paymentMethod ?? fallbackPaymentMethod;
+  const paymentMethod = LANCAMENTO_PAYMENT_METHODS.includes(
+    candidatePaymentMethod as (typeof LANCAMENTO_PAYMENT_METHODS)[number]
+  )
+    ? candidatePaymentMethod
+    : lancamento?.cartaoId
+      ? "Cartão de crédito"
+      : fallbackPaymentMethod;
 
   const derivedPeriod = derivePeriodFromDate(purchaseDate);
   const fallbackPeriod =

@@ -28,6 +28,7 @@ import {
   getTodayDateString,
   parseLocalDateString,
 } from "@/lib/utils/date";
+import { revalidatePath } from "next/cache";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -45,6 +46,69 @@ const resolvePeriod = (purchaseDate: string, period?: string | null) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
+};
+
+const normalizeAccountType = (accountType: string): "bank" | "card" | null => {
+  const raw = (accountType ?? "").trim().toLowerCase();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (normalized === "banco" || normalized === "bank") {
+    return "bank";
+  }
+
+  if (
+    normalized === "cartao" ||
+    normalized === "card" ||
+    normalized === "credit-card" ||
+    normalized === "creditcard"
+  ) {
+    return "card";
+  }
+
+  return null;
+};
+
+const normalizePaymentMethod = (
+  method: string | undefined,
+  accountType: "bank" | "card"
+) => {
+  const fallback = accountType === "card" ? "Cartão de crédito" : "Dinheiro";
+  const raw = (method ?? "").trim();
+  if (!raw) {
+    return fallback;
+  }
+
+  const normalized = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized.includes("cartao") && normalized.includes("credito")) {
+    return "Cartão de crédito";
+  }
+  if (normalized.includes("cartao") && normalized.includes("debito")) {
+    return "Cartão de débito";
+  }
+  if (normalized.includes("debito")) {
+    return "Cartão de débito";
+  }
+  if (normalized.includes("credito")) {
+    return "Cartão de crédito";
+  }
+  if (normalized.includes("pix")) {
+    return "Pix";
+  }
+  if (normalized.includes("boleto")) {
+    return "Boleto";
+  }
+  if (normalized.includes("dinheiro")) {
+    return "Dinheiro";
+  }
+
+  return fallback;
 };
 
 const baseFields = z.object({
@@ -1771,10 +1835,10 @@ export async function importCsvTransactionsAction(
     }
 
     // Normalize account type to English
-    const normalizedAccountType: "bank" | "card" =
-      accountType === "banco" ? "bank" :
-        accountType === "cartao" ? "card" :
-          accountType;
+    const normalizedAccountType = normalizeAccountType(accountType);
+    if (!normalizedAccountType) {
+      return errorResult("Tipo de conta inválido.");
+    }
 
     // Check rate limit before processing
     if (isCsvRateLimitExceeded(user.id)) {
@@ -1981,9 +2045,10 @@ export async function importCsvTransactionsAction(
 
           // Ensure required fields have valid defaults based on account type
           const condition = isUndefined(t.condicao) ? "À vista" : t.condicao;
-          const paymentMethod = isUndefined(t.forma_pagamento)
-            ? (normalizedAccountType === "card" ? "Cartão de Crédito" : "Dinheiro")
-            : t.forma_pagamento;
+          const paymentMethod = normalizePaymentMethod(
+            isUndefined(t.forma_pagamento) ? undefined : t.forma_pagamento,
+            normalizedAccountType
+          );
 
           // Apply sign based on transaction type (Despesa = negative, Receita = positive)
           const amountSign = t.tipo_transacao === "Despesa" ? -1 : 1;
@@ -1999,7 +2064,7 @@ export async function importCsvTransactionsAction(
             condition,
             period,
             note: combinedNote,
-            isSettled: true, // Always true for CSV imports (already settled)
+            isSettled: normalizedAccountType === "card" ? false : true,
             contaId: normalizedAccountType === "bank" ? accountId : null,
             cartaoId: normalizedAccountType === "card" ? accountId : null,
             categoriaId,
@@ -2033,6 +2098,10 @@ export async function importCsvTransactionsAction(
 
     // Revalidate lancamentos pages
     revalidateForEntity("lancamentos");
+    if (normalizedAccountType === "card") {
+      revalidatePath("/cartoes");
+      revalidatePath(`/cartoes/${accountId}/fatura`);
+    }
 
     // Record successful import attempt for rate limiting
     recordCsvImportAttempt(user.id);
