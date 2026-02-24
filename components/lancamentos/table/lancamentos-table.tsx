@@ -50,12 +50,15 @@ import {
   RiAddCircleFill,
   RiAddCircleLine,
   RiArrowLeftRightLine,
+  RiArrowDownLine,
+  RiArrowUpLine,
   RiBankCard2Line,
   RiBankLine,
   RiChat1Line,
   RiCheckLine,
   RiDeleteBin5Line,
   RiEyeLine,
+  RiExpandUpDownLine,
   RiFileCopyLine,
   RiGroupLine,
   RiHistoryLine,
@@ -703,6 +706,23 @@ export function LancamentosTable({
     preferences?.columnOrder ?? DEFAULT_COLUMN_ORDER
   );
 
+  const renderSortIcon = (direction: false | "asc" | "desc") => {
+    if (!direction) {
+      return (
+        <RiExpandUpDownLine
+          className="h-4 w-4 text-muted-foreground"
+          aria-hidden
+        />
+      );
+    }
+
+    return direction === "asc" ? (
+      <RiArrowUpLine className="h-4 w-4" aria-hidden />
+    ) : (
+      <RiArrowDownLine className="h-4 w-4" aria-hidden />
+    );
+  };
+
   const columns = useMemo(
     () =>
       buildColumns({
@@ -923,13 +943,36 @@ export function LancamentosTable({
                           <TableHead
                             key={header.id}
                             className="whitespace-nowrap"
+                            aria-sort={
+                              header.column.getIsSorted() === "asc"
+                                ? "ascending"
+                                : header.column.getIsSorted() === "desc"
+                                  ? "descending"
+                                  : "none"
+                            }
                           >
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
+                            {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="-ml-2 h-8 px-2 text-xs font-semibold"
+                                onClick={header.column.getToggleSortingHandler()}
+                              >
+                                <span className="flex items-center gap-1">
+                                  {flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                                  {renderSortIcon(header.column.getIsSorted())}
+                                </span>
+                              </Button>
+                            ) : (
+                              flexRender(
                                 header.column.columnDef.header,
                                 header.getContext()
-                              )}
+                              )
+                            )}
                           </TableHead>
                         ))}
                       </TableRow>
