@@ -47,6 +47,7 @@ export type SelectOption = {
 };
 
 export type LancamentoFilterOption = {
+  id?: string;
   slug: string;
   label: string;
   icon?: string | null;

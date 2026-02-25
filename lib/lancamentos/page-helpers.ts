@@ -32,6 +32,7 @@ export type LancamentoSearchFilters = {
   paymentFilter: string | null;
   pagadorFilter: string | null;
   categoriaFilter: string | null;
+  categoriaIdFilter: string | null;
   contaCartaoFilter: string | null;
   searchFilter: string | null;
 };
@@ -116,6 +117,7 @@ export const extractLancamentoSearchFilters = (
   paymentFilter: getSingleParam(params, "pagamento"),
   pagadorFilter: getSingleParam(params, "pagador"),
   categoriaFilter: getSingleParam(params, "categoria"),
+  categoriaIdFilter: getSingleParam(params, "categoriaId"),
   contaCartaoFilter: getSingleParam(params, "contaCartao"),
   searchFilter: getSingleParam(params, "q"),
 });
@@ -341,7 +343,11 @@ export const buildLancamentoWhere = ({
     }
   }
 
-  if (filters.categoriaFilter) {
+  if (filters.categoriaIdFilter) {
+    where.push(eq(lancamentos.categoriaId, filters.categoriaIdFilter));
+  }
+
+  if (!filters.categoriaIdFilter && filters.categoriaFilter) {
     const id = slugMaps.categoria.get(filters.categoriaFilter);
     if (id) {
       where.push(eq(lancamentos.categoriaId, id));
@@ -490,7 +496,12 @@ export const buildOptionSets = ({
   );
 
   const categoriaFilterOptions = sortByLabel(
-    categoriaFiltersRaw.map(({ slug, label, icon }) => ({ slug, label, icon }))
+    categoriaFiltersRaw.map(({ id, slug, label, icon }) => ({
+      id,
+      slug,
+      label,
+      icon,
+    }))
   );
 
   const contaCartaoFilterOptions = sortByLabel(

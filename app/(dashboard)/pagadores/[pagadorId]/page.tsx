@@ -56,6 +56,7 @@ const EMPTY_FILTERS: LancamentoSearchFilters = {
   paymentFilter: null,
   pagadorFilter: null,
   categoriaFilter: null,
+  categoriaIdFilter: null,
   contaCartaoFilter: null,
   searchFilter: null,
 };
@@ -352,6 +353,7 @@ function buildReadOnlyOptionSets(
 
   const categoriaFilterOptions: LancamentoFilterOption[] = categoriaOptions.map(
     (option) => ({
+      id: option.value,
       slug: option.value,
       label: option.label,
     })
