@@ -20,6 +20,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { ImportModelSelector } from "@/components/ai/import-model-selector";
 import {
     Tooltip,
     TooltipContent,
@@ -51,6 +53,12 @@ interface ReviewStepProps {
     showDuplicates: boolean;
     onToggleDuplicates: (show: boolean) => void;
     isDetectingDuplicates?: boolean;
+    isSuggestingCategories?: boolean;
+    aiFeatureAvailable?: boolean;
+    aiEnabled?: boolean;
+    onToggleAi?: (enabled: boolean) => void;
+    aiModelId?: string;
+    onAiModelChange?: (modelId: string) => void;
 }
 
 export function ReviewStep({
@@ -65,6 +73,12 @@ export function ReviewStep({
     showDuplicates,
     onToggleDuplicates,
     isDetectingDuplicates = false,
+    isSuggestingCategories = false,
+    aiFeatureAvailable = true,
+    aiEnabled = false,
+    onToggleAi,
+    aiModelId,
+    onAiModelChange,
 }: ReviewStepProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [bulkCategoryMode, setBulkCategoryMode] = useState(false);
@@ -199,6 +213,34 @@ export function ReviewStep({
                 </p>
             </div>
 
+            {aiFeatureAvailable && (
+                <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 sm:p-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-medium">Auto-categorizar com IA</p>
+                            <p className="text-xs text-muted-foreground">
+                                Aplica automaticamente apenas quando a confiança é alta.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={aiEnabled}
+                            onCheckedChange={(value) => onToggleAi?.(value)}
+                            disabled={!onToggleAi}
+                            aria-label="Ativar auto categorização por IA"
+                        />
+                    </div>
+
+                    {aiEnabled && onAiModelChange && aiModelId && (
+                        <ImportModelSelector
+                            value={aiModelId}
+                            onValueChange={onAiModelChange}
+                            disabled={isSuggestingCategories}
+                        />
+                    )}
+
+                </div>
+            )}
+
             {/* Summary and Actions */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border bg-muted/50">
                 <div className="flex flex-wrap items-center gap-4 sm:gap-6">
@@ -214,6 +256,14 @@ export function ReviewStep({
                             <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />
                             <div>
                                 <p className="text-sm font-medium">Detectando duplicatas...</p>
+                                <p className="text-xs text-muted-foreground">Aguarde</p>
+                            </div>
+                        </div>
+                    ) : isSuggestingCategories ? (
+                        <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" />
+                            <div>
+                                <p className="text-sm font-medium">Sugerindo categorias...</p>
                                 <p className="text-xs text-muted-foreground">Aguarde</p>
                             </div>
                         </div>

@@ -23,6 +23,13 @@ export function CsvReviewStep({
     onBulkCategorySet,
     showDuplicates,
     onToggleDuplicates,
+    isDetectingDuplicates,
+    aiFeatureAvailable,
+    aiEnabled,
+    onToggleAi,
+    aiModelId,
+    onAiModelChange,
+    isSuggestingCategories,
 }: CsvReviewStepProps) {
     return (
         <div className="space-y-6">
@@ -47,6 +54,13 @@ export function CsvReviewStep({
                 onBulkCategorySet={onBulkCategorySet}
                 showDuplicates={showDuplicates}
                 onToggleDuplicates={onToggleDuplicates}
+                isDetectingDuplicates={isDetectingDuplicates}
+                aiFeatureAvailable={aiFeatureAvailable}
+                aiEnabled={aiEnabled}
+                onToggleAi={onToggleAi}
+                aiModelId={aiModelId}
+                onAiModelChange={onAiModelChange}
+                isSuggestingCategories={isSuggestingCategories}
             />
         </div>
     );

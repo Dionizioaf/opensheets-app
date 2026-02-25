@@ -646,6 +646,8 @@ type LancamentosTableProps = {
   onCreate?: () => void;
   onMassAdd?: () => void;
   onCsvImport?: () => void;
+  onRunCategorization?: () => void;
+  onSelectionChange?: (items: LancamentoItem[]) => void;
   onEdit?: (item: LancamentoItem) => void;
   onCopy?: (item: LancamentoItem) => void;
   onConfirmDelete?: (item: LancamentoItem) => void;
@@ -694,6 +696,8 @@ export function LancamentosTable({
   onCreate,
   onMassAdd,
   onCsvImport,
+  onRunCategorization,
+  onSelectionChange,
   onEdit,
   onCopy,
   onConfirmDelete,
@@ -797,6 +801,10 @@ export function LancamentosTable({
     0
   );
 
+  useEffect(() => {
+    onSelectionChange?.(selectedRows.map((row) => row.original));
+  }, [onSelectionChange, selectedRows]);
+
   // Initialize column visibility from preferences on mount
   useEffect(() => {
     if (!preferences?.visibleColumns) {
@@ -870,13 +878,17 @@ export function LancamentosTable({
   };
 
   const showTopControls =
-    Boolean(onCreate) || Boolean(onMassAdd) || Boolean(onCsvImport) || showFilters;
+    Boolean(onCreate) ||
+    Boolean(onMassAdd) ||
+    Boolean(onCsvImport) ||
+    Boolean(onRunCategorization) ||
+    showFilters;
 
   return (
     <TooltipProvider>
       {showTopControls ? (
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {onCreate || onMassAdd || onCsvImport ? (
+          {onCreate || onMassAdd || onCsvImport || onRunCategorization ? (
             <div className="flex gap-2">
               {onCreate ? (
                 <Button onClick={onCreate} className="w-full sm:w-auto">
@@ -907,6 +919,19 @@ export function LancamentosTable({
                   <RiFileUploadLine className="size-4" />
                   <span className="sr-only">
                     Importar arquivo CSV
+                  </span>
+                </Button>
+              ) : null}
+              {onRunCategorization ? (
+                <Button
+                  onClick={onRunCategorization}
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                >
+                  <RiChat1Line className="size-4" />
+                  <span className="sr-only">
+                    Classificar com IA
                   </span>
                 </Button>
               ) : null}

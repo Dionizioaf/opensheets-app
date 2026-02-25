@@ -1,6 +1,6 @@
 "use server";
 
-import { contas, lancamentos } from "@/db/schema";
+import { categorias, contas, lancamentos } from "@/db/schema";
 import {
   INITIAL_BALANCE_CONDITION,
   INITIAL_BALANCE_NOTE,
@@ -22,6 +22,13 @@ import {
   sendPagadorAutoEmails,
 } from "@/lib/pagadores/notifications";
 import { noteSchema, uuidSchema } from "@/lib/schemas/common";
+import { DEFAULT_MODEL } from "@/app/(dashboard)/insights/data";
+import {
+  suggestAiCategories,
+  type AiTransactionInput,
+} from "@/lib/ai/categorization";
+import { isAiCategorizationEnabled } from "@/lib/ai/flags";
+import { suggestCategoriesForTransactions } from "@/lib/ofx/category-suggester";
 import { formatDecimalForDbRequired } from "@/lib/utils/currency";
 import {
   getTodayDate,
@@ -1747,6 +1754,414 @@ export async function suggestCsvCategoriesAction(
       success: true,
       message: `Sugestões geradas para ${suggestions.size} transações.`,
       data: suggestions,
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+const suggestAiCsvCategoriesSchema = z.object({
+  modelId: z.string().optional(),
+  transactions: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+        amount: z.string().min(1),
+        transactionType: z.enum(["Despesa", "Receita"]),
+        categoriaId: z.string().uuid().nullable().optional(),
+      })
+    )
+    .min(1, "Lista de transações vazia.")
+    .max(200, "Máximo de 200 transações por sugestão."),
+});
+
+/**
+ * Suggest categories for CSV transactions using AI
+ */
+export async function suggestAiCsvCategoriesAction(
+  transactions: Array<{
+    id: string;
+    name: string;
+    amount: string;
+    transactionType: "Despesa" | "Receita";
+    categoriaId?: string | null;
+  }>,
+  modelId?: string
+): Promise<
+  ActionResult<
+    Record<
+      string,
+      { categoriaId: string | null; confidence: "high" | "medium" | "low" }
+    >
+  >
+> {
+  try {
+    if (!isAiCategorizationEnabled()) {
+      return errorResult("IA desativada.");
+    }
+
+    const user = await getUser();
+    if (!user) {
+      return errorResult("Usuário não autenticado.");
+    }
+
+    const validation = suggestAiCsvCategoriesSchema.safeParse({
+      modelId,
+      transactions,
+    });
+    if (!validation.success) {
+      return errorResult(
+        validation.error.issues[0]?.message ?? "Dados inválidos."
+      );
+    }
+
+    const categoryRows = await db.query.categorias.findMany({
+      where: eq(categorias.userId, user.id),
+      columns: { id: true, name: true, type: true },
+    });
+
+    if (categoryRows.length === 0) {
+      return errorResult("Nenhuma categoria encontrada.");
+    }
+
+    const categoryMap = new Map(
+      categoryRows.map((category) => [category.id, category])
+    );
+
+    const aiTransactions: AiTransactionInput[] = transactions.map(
+      (transaction) => ({
+        id: transaction.id,
+        nome: transaction.name,
+        valor: transaction.amount,
+        tipo_transacao: transaction.transactionType,
+        categoriaId: transaction.categoriaId ?? null,
+        categoriaNome: transaction.categoriaId
+          ? categoryMap.get(transaction.categoriaId)?.name ?? null
+          : null,
+      })
+    );
+
+    const result = await suggestAiCategories(
+      modelId ?? DEFAULT_MODEL,
+      categoryRows.map((category) => ({
+        id: category.id,
+        name: category.name,
+        type: category.type === "despesa" ? "despesa" : "receita",
+      })),
+      aiTransactions
+    );
+
+    const allowedCategoriesByType = {
+      Despesa: new Set(
+        categoryRows
+          .filter((category) => category.type === "despesa")
+          .map((category) => category.id)
+      ),
+      Receita: new Set(
+        categoryRows
+          .filter((category) => category.type === "receita")
+          .map((category) => category.id)
+      ),
+    };
+
+    const response: Record<
+      string,
+      { categoriaId: string | null; confidence: "high" | "medium" | "low" }
+    > = {};
+
+    result.suggestions.forEach((suggestion) => {
+      const transaction = aiTransactions.find(
+        (item) => item.id === suggestion.id
+      );
+
+      if (!transaction) {
+        return;
+      }
+
+      const allowedSet = allowedCategoriesByType[transaction.tipo_transacao];
+      const categoriaId =
+        suggestion.categoriaId && allowedSet.has(suggestion.categoriaId)
+          ? suggestion.categoriaId
+          : null;
+
+      response[suggestion.id] = {
+        categoriaId,
+        confidence: suggestion.confidence,
+      };
+    });
+
+    return {
+      success: true,
+      message: `Sugestões geradas para ${Object.keys(response).length} transações.`,
+      data: response,
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+const suggestLancamentoCategoriesSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(300),
+  modelId: z.string().optional(),
+  useAi: z.boolean().optional(),
+});
+
+type SuggestLancamentoCategoriesInput = z.infer<
+  typeof suggestLancamentoCategoriesSchema
+>;
+
+type LancamentoCategorySuggestion = {
+  id: string;
+  name: string;
+  currentCategoriaId: string | null;
+  currentCategoriaName: string | null;
+  suggestedCategoriaId: string | null;
+  suggestedCategoriaName: string | null;
+  confidence: "high" | "medium" | "low";
+};
+
+export async function suggestLancamentoCategoriesAction(
+  input: SuggestLancamentoCategoriesInput
+): Promise<
+  ActionResult<{
+    appliedCount: number;
+    reviewSuggestions: LancamentoCategorySuggestion[];
+  }>
+> {
+  try {
+    const user = await getUser();
+    const data = suggestLancamentoCategoriesSchema.parse(input);
+
+    const transactions = await db.query.lancamentos.findMany({
+      where: and(eq(lancamentos.userId, user.id), inArray(lancamentos.id, data.ids)),
+      columns: {
+        id: true,
+        name: true,
+        amount: true,
+        transactionType: true,
+        categoriaId: true,
+      },
+    });
+
+    if (transactions.length === 0) {
+      return errorResult("Nenhum lançamento encontrado.");
+    }
+
+    const categoryRows = await db.query.categorias.findMany({
+      where: eq(categorias.userId, user.id),
+      columns: { id: true, name: true, type: true },
+    });
+
+    if (categoryRows.length === 0) {
+      return errorResult("Nenhuma categoria encontrada.");
+    }
+
+    const categoryMap = new Map(
+      categoryRows.map((category) => [category.id, category])
+    );
+
+    const allowedCategoriesByType = {
+      Despesa: new Set(
+        categoryRows
+          .filter((category) => category.type === "despesa")
+          .map((category) => category.id)
+      ),
+      Receita: new Set(
+        categoryRows
+          .filter((category) => category.type === "receita")
+          .map((category) => category.id)
+      ),
+    };
+
+    const shouldUseAi = (data.useAi ?? true) && isAiCategorizationEnabled();
+
+    const eligibleTransactions = transactions.filter(
+      (transaction) =>
+        transaction.transactionType === "Despesa" ||
+        transaction.transactionType === "Receita"
+    );
+
+    if (eligibleTransactions.length === 0) {
+      return errorResult("Nenhum lançamento elegível para classificação.");
+    }
+
+    const rawSuggestions: Record<
+      string,
+      { categoriaId: string | null; confidence: "high" | "medium" | "low" }
+    > = {};
+
+    const fuzzySuggestions = await suggestCategoriesForTransactions(
+      user.id,
+      eligibleTransactions.map((transaction) => ({
+        id: transaction.id,
+        name: transaction.name,
+        amount: transaction.amount,
+        transactionType: transaction.transactionType,
+      }))
+    );
+
+    const fuzzyHighIds = new Set<string>();
+    fuzzySuggestions.forEach((suggestion, id) => {
+      rawSuggestions[id] = {
+        categoriaId: suggestion.categoriaId,
+        confidence: suggestion.confidence,
+      };
+      if (suggestion.confidence === "high") {
+        fuzzyHighIds.add(id);
+      }
+    });
+
+    if (shouldUseAi) {
+      const aiTransactions: AiTransactionInput[] = eligibleTransactions
+        .filter((transaction) => !fuzzyHighIds.has(transaction.id))
+        .map((transaction) => ({
+          id: transaction.id,
+          nome: transaction.name,
+          valor: transaction.amount,
+          tipo_transacao: transaction.transactionType,
+          categoriaId: transaction.categoriaId ?? null,
+          categoriaNome: transaction.categoriaId
+            ? categoryMap.get(transaction.categoriaId)?.name ?? null
+            : null,
+        }));
+
+      if (aiTransactions.length > 0) {
+        const aiResult = await suggestAiCategories(
+          data.modelId ?? DEFAULT_MODEL,
+          categoryRows.map((category) => ({
+            id: category.id,
+            name: category.name,
+            type: category.type === "despesa" ? "despesa" : "receita",
+          })),
+          aiTransactions
+        );
+
+        aiResult.suggestions.forEach((suggestion) => {
+          if (!suggestion.categoriaId) {
+            return;
+          }
+
+          rawSuggestions[suggestion.id] = {
+            categoriaId: suggestion.categoriaId,
+            confidence: suggestion.confidence,
+          };
+        });
+      }
+    }
+
+    const highConfidenceUpdates: Array<{ id: string; categoriaId: string }> = [];
+    const reviewSuggestions: LancamentoCategorySuggestion[] = [];
+
+    eligibleTransactions.forEach((transaction) => {
+      const suggestion = rawSuggestions[transaction.id];
+      if (!suggestion) {
+        return;
+      }
+
+      const allowedSet =
+        allowedCategoriesByType[transaction.transactionType] ?? new Set();
+      const categoriaId =
+        suggestion.categoriaId && allowedSet.has(suggestion.categoriaId)
+          ? suggestion.categoriaId
+          : null;
+
+      const suggestedCategoriaName = categoriaId
+        ? categoryMap.get(categoriaId)?.name ?? null
+        : null;
+
+      const item: LancamentoCategorySuggestion = {
+        id: transaction.id,
+        name: transaction.name,
+        currentCategoriaId: transaction.categoriaId ?? null,
+        currentCategoriaName: transaction.categoriaId
+          ? categoryMap.get(transaction.categoriaId)?.name ?? null
+          : null,
+        suggestedCategoriaId: categoriaId,
+        suggestedCategoriaName,
+        confidence: suggestion.confidence,
+      };
+
+      if (categoriaId && suggestion.confidence === "high") {
+        highConfidenceUpdates.push({ id: transaction.id, categoriaId });
+      } else if (categoriaId) {
+        reviewSuggestions.push(item);
+      }
+    });
+
+    if (highConfidenceUpdates.length > 0) {
+      await Promise.all(
+        highConfidenceUpdates.map((update) =>
+          db
+            .update(lancamentos)
+            .set({ categoriaId: update.categoriaId })
+            .where(
+              and(
+                eq(lancamentos.id, update.id),
+                eq(lancamentos.userId, user.id)
+              )
+            )
+        )
+      );
+
+      revalidateForEntity("lancamentos");
+    }
+
+    return {
+      success: true,
+      message: "Sugestões geradas com sucesso.",
+      data: {
+        appliedCount: highConfidenceUpdates.length,
+        reviewSuggestions,
+      },
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+const applyLancamentoCategorySuggestionsSchema = z.object({
+  suggestions: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        categoriaId: z.string().uuid(),
+      })
+    )
+    .min(1, "Nenhuma sugestão selecionada."),
+});
+
+type ApplyLancamentoCategorySuggestionsInput = z.infer<
+  typeof applyLancamentoCategorySuggestionsSchema
+>;
+
+export async function applyLancamentoCategorySuggestionsAction(
+  input: ApplyLancamentoCategorySuggestionsInput
+): Promise<ActionResult<{ appliedCount: number }>> {
+  try {
+    const user = await getUser();
+    const data = applyLancamentoCategorySuggestionsSchema.parse(input);
+
+    await Promise.all(
+      data.suggestions.map((suggestion) =>
+        db
+          .update(lancamentos)
+          .set({ categoriaId: suggestion.categoriaId })
+          .where(
+            and(
+              eq(lancamentos.id, suggestion.id),
+              eq(lancamentos.userId, user.id)
+            )
+          )
+      )
+    );
+
+    revalidateForEntity("lancamentos");
+
+    return {
+      success: true,
+      message: "Categorias atualizadas com sucesso.",
+      data: { appliedCount: data.suggestions.length },
     };
   } catch (error) {
     return handleActionError(error);
