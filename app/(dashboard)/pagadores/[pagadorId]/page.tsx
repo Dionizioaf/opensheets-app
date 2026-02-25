@@ -194,8 +194,8 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const pagadorFilterOptions = pagadorSlug
     ? optionSets.pagadorFilterOptions.filter(
-        (option) => option.slug === pagadorSlug
-      )
+      (option) => option.slug === pagadorSlug
+    )
     : optionSets.pagadorFilterOptions;
 
   const pagadorData = {
