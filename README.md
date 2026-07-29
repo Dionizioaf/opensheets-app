@@ -24,6 +24,7 @@
 ## 📖 Índice
 
 - [Sobre o Projeto](#-sobre-o-projeto)
+- [Claude via MCP](#-claude-via-mcp)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
 - [Início Rápido](#-início-rápido)
@@ -36,6 +37,16 @@
 - [Banco de Dados](#-banco-de-dados)
 - [Arquitetura](#-arquitetura)
 - [Contribuindo](#-contribuindo)
+
+## 🤖 Claude via MCP
+
+O projeto inclui um servidor MCP local para consultar e gerenciar dados do
+Opensheets com Claude Desktop ou Claude Code. Ele usa transporte `stdio`,
+identidade fixa por processo, modo somente leitura por padrão, idempotência e
+auditoria para escritas permitidas.
+
+Consulte [o guia de instalação do MCP](docs/MCP_SETUP.md) e
+[o plano de arquitetura](docs/MCP_PLAN.md).
 
 ---
 

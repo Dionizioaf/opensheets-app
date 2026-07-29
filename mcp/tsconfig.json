@@ -1,0 +1,24 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": [
+    "./**/*.ts",
+    "../lib/finance/mcp/**/*.ts",
+    "../lib/db.ts",
+    "../lib/accounts/constants.ts",
+    "../lib/lancamentos/constants.ts",
+    "../lib/pagadores/constants.ts",
+    "../lib/transferencias/constants.ts",
+    "../lib/relatorios/**/*.ts",
+    "../lib/utils/currency.ts",
+    "../lib/utils/period/**/*.ts",
+    "../db/schema.ts"
+  ],
+  "exclude": [
+    "../node_modules",
+    "../**/__tests__/**"
+  ]
+}

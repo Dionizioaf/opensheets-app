@@ -334,6 +334,44 @@ export const savedInsights = pgTable(
   })
 );
 
+export const mcpAuditLogs = pgTable(
+  "mcp_audit_logs",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toolName: text("tool_name").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    arguments: jsonb("arguments").notNull().$type<Record<string, unknown>>(),
+    status: text("status").notNull(),
+    result: jsonb("result").$type<Record<string, unknown> | null>(),
+    error: text("error"),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userToolKeyIdx: uniqueIndex("mcp_audit_logs_user_tool_key_idx").on(
+      table.userId,
+      table.toolName,
+      table.idempotencyKey
+    ),
+  })
+);
+
 
 export const lancamentos = pgTable(
   "lancamentos",
@@ -465,6 +503,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   orcamentos: many(orcamentos),
   pagadores: many(pagadores),
   installmentAnticipations: many(installmentAnticipations),
+  mcpAuditLogs: many(mcpAuditLogs),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -572,6 +611,13 @@ export const savedInsightsRelations = relations(savedInsights, ({ one }) => ({
   }),
 }));
 
+export const mcpAuditLogsRelations = relations(mcpAuditLogs, ({ one }) => ({
+  user: one(user, {
+    fields: [mcpAuditLogs.userId],
+    references: [user.id],
+  }),
+}));
+
 export const lancamentosRelations = relations(lancamentos, ({ one }) => ({
   user: one(user, {
     fields: [lancamentos.userId],
@@ -634,6 +680,7 @@ export type Fatura = typeof faturas.$inferSelect;
 export type Orcamento = typeof orcamentos.$inferSelect;
 export type Anotacao = typeof anotacoes.$inferSelect;
 export type SavedInsight = typeof savedInsights.$inferSelect;
+export type McpAuditLog = typeof mcpAuditLogs.$inferSelect;
 export type Lancamento = typeof lancamentos.$inferSelect;
 export type InstallmentAnticipation =
   typeof installmentAnticipations.$inferSelect;

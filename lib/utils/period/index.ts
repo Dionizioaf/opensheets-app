@@ -243,7 +243,7 @@ export function parsePeriodParam(
 
   const [rawMonth, rawYear] = periodParam.split("-");
   const normalizedMonth = normalize(rawMonth);
-  const monthIndex = MONTH_MAP.get(normalizedMonth);
+  const monthIndex = MONTH_MAP.get(normalizedMonth as MonthName);
   const parsedYear = Number.parseInt(rawYear ?? "", 10);
 
   if (monthIndex === undefined || Number.isNaN(parsedYear)) {
