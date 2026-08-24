@@ -37,10 +37,11 @@ OPENSHEETS_MCP_WRITE_MODE=readonly
 Available modes:
 
 - `readonly`: default; every mutation is rejected.
-- `safe-writes`: enables simple transaction creation/update/settlement,
-  transfers, and budget upserts.
-- `full`: currently equivalent to `safe-writes`; reserved for future
-  high-risk tools.
+- `safe-writes`: enables the guarded daily-write tools — simple transaction
+  creation/update/settlement, transfers, and budget upserts.
+- `full`: everything `safe-writes` allows, plus high-risk tools (deletion,
+  reversal, invoice payment, series editing, anticipation, import). High-risk
+  tools are gated separately and remain rejected under `safe-writes`.
 
 Start with `readonly`. Switch to `safe-writes` only after confirming that
 Claude is connected to the intended database and user.

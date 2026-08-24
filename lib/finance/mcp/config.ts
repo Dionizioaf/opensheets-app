@@ -60,3 +60,16 @@ export function assertSafeWrites(principal: McpPrincipal): void {
     );
   }
 }
+
+/**
+ * Gate for high-risk tools (deletion, reversal, invoice payment, series editing,
+ * anticipation, import). Only the `full` write mode unlocks these; both
+ * `readonly` and `safe-writes` are rejected.
+ */
+export function assertFullWrites(principal: McpPrincipal): void {
+  if (principal.writeMode !== "full") {
+    throw new Error(
+      "This operation is high-risk and requires OPENSHEETS_MCP_WRITE_MODE=full."
+    );
+  }
+}

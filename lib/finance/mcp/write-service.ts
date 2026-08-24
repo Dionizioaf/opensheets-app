@@ -20,12 +20,34 @@ import {
   TRANSFER_PAYMENT_METHOD,
 } from "@/lib/transferencias/constants";
 import { formatDecimalForDbRequired } from "@/lib/utils/currency";
+import { INVOICE_PAYMENT_STATUS } from "@/lib/faturas";
+import {
+  applyInvoicePaymentStatus,
+  previewInvoicePaymentStatus,
+} from "@/lib/finance/invoice-payment-service";
+import {
+  applySeriesDelete,
+  applySeriesUpdate,
+  previewSeriesDelete,
+  previewSeriesUpdate,
+} from "@/lib/finance/series-service";
+import {
+  applyAnticipation,
+  previewAnticipation,
+} from "@/lib/finance/anticipation-service";
 import { createHash, randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import type {
+  AnticipateInstallmentsInput,
   CreateTransactionInput,
+  DeleteSeriesInput,
+  DeleteTransactionInput,
+  PayInvoiceInput,
+  ReverseInvoicePaymentInput,
+  ReverseTransferInput,
   SettleTransactionInput,
   TransferInput,
+  UpdateSeriesInput,
   UpdateTransactionInput,
   UpsertBudgetInput,
 } from "./schemas";
@@ -152,6 +174,50 @@ export async function runAuditedMutation<T extends MutationResult>({
       .where(eq(mcpAuditLogs.id, claim.id));
     throw error;
   }
+}
+
+/**
+ * Two-step wrapper for high-risk tools. In `preview` mode it runs `preview` and
+ * returns its impact summary tagged `{ mode: "preview", applied: false }` without
+ * any write or audit record. In `apply` mode it runs `apply` through
+ * `runAuditedMutation` (idempotency + audit) and tags the result
+ * `{ mode: "apply", applied: true }`.
+ */
+export async function runPreviewableMutation<
+  P extends MutationResult,
+  A extends MutationResult
+>({
+  mode,
+  userId,
+  toolName,
+  idempotencyKey,
+  input,
+  preview,
+  apply,
+}: {
+  mode: "preview" | "apply";
+  userId: string;
+  toolName: string;
+  idempotencyKey: string;
+  input: Record<string, unknown>;
+  preview: () => Promise<P>;
+  apply: () => Promise<A>;
+}): Promise<
+  (P & { mode: "preview"; applied: false }) | (A & { mode: "apply"; applied: true; replayed?: boolean })
+> {
+  if (mode === "preview") {
+    const summary = await preview();
+    return { ...summary, mode: "preview", applied: false };
+  }
+
+  const result = await runAuditedMutation({
+    userId,
+    toolName,
+    idempotencyKey,
+    input,
+    execute: apply,
+  });
+  return { ...result, mode: "apply", applied: true };
 }
 
 async function validateTransactionReferences(
@@ -514,6 +580,389 @@ export async function transferBetweenAccounts(
       });
 
       return { transferId, transactionIds: result, created: true };
+    },
+  });
+}
+
+async function loadDeletableTransaction(userId: string, transactionId: string) {
+  const existing = await db.query.lancamentos.findFirst({
+    where: and(
+      eq(lancamentos.id, transactionId),
+      eq(lancamentos.userId, userId)
+    ),
+    with: { categoria: { columns: { name: true } } },
+  });
+  if (!existing) throw new Error("Transaction not found.");
+  if (existing.seriesId) {
+    throw new Error(
+      "This transaction belongs to a series. Use the series tools to delete it."
+    );
+  }
+  if (existing.transferId) {
+    throw new Error(
+      "This transaction is a transfer leg. Use finance_reverse_transfer instead."
+    );
+  }
+  if (existing.anticipationId || existing.isAnticipated) {
+    throw new Error(
+      "Anticipated transactions must be reversed through the anticipation tools."
+    );
+  }
+  if (
+    existing.note === INITIAL_BALANCE_NOTE ||
+    (existing.categoria?.name &&
+      PROTECTED_CATEGORIES.includes(existing.categoria.name))
+  ) {
+    throw new Error("This protected transaction cannot be deleted.");
+  }
+  return existing;
+}
+
+export async function deleteTransaction(
+  userId: string,
+  input: DeleteTransactionInput
+) {
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_delete_transaction",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: async () => {
+      const row = await loadDeletableTransaction(userId, input.transactionId);
+      return {
+        transactionId: row.id,
+        willDelete: {
+          name: row.name,
+          amount: Number(row.amount),
+          transactionType: row.transactionType,
+          paymentMethod: row.paymentMethod,
+          purchaseDate: row.purchaseDate.toISOString().slice(0, 10),
+          period: row.period,
+          accountId: row.contaId,
+          cardId: row.cartaoId,
+          categoryId: row.categoriaId,
+        },
+      };
+    },
+    apply: async () => {
+      const row = await loadDeletableTransaction(userId, input.transactionId);
+      await db
+        .delete(lancamentos)
+        .where(
+          and(
+            eq(lancamentos.id, input.transactionId),
+            eq(lancamentos.userId, userId)
+          )
+        );
+      // Store the full pre-delete snapshot in the audit result so the deletion
+      // is reconstructable (no soft-delete column exists).
+      return {
+        transactionId: row.id,
+        deleted: true,
+        snapshot: {
+          name: row.name,
+          amount: row.amount,
+          transactionType: row.transactionType,
+          paymentMethod: row.paymentMethod,
+          note: row.note,
+          purchaseDate: row.purchaseDate.toISOString().slice(0, 10),
+          dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : null,
+          period: row.period,
+          isSettled: row.isSettled,
+          contaId: row.contaId,
+          cartaoId: row.cartaoId,
+          categoriaId: row.categoriaId,
+          pagadorId: row.pagadorId,
+        },
+      };
+    },
+  });
+}
+
+async function loadTransferLegs(userId: string, transferId: string) {
+  const legs = await db.query.lancamentos.findMany({
+    where: and(
+      eq(lancamentos.transferId, transferId),
+      eq(lancamentos.userId, userId)
+    ),
+    columns: {
+      id: true,
+      name: true,
+      amount: true,
+      contaId: true,
+      purchaseDate: true,
+      period: true,
+    },
+  });
+  if (legs.length === 0) throw new Error("Transfer not found.");
+  if (legs.length !== 2) {
+    throw new Error(
+      `Expected exactly two transfer legs but found ${legs.length}. Refusing to reverse a malformed transfer.`
+    );
+  }
+  return legs;
+}
+
+export async function reverseTransfer(
+  userId: string,
+  input: ReverseTransferInput
+) {
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_reverse_transfer",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: async () => {
+      const legs = await loadTransferLegs(userId, input.transferId);
+      return {
+        transferId: input.transferId,
+        willDelete: legs.map((leg) => ({
+          transactionId: leg.id,
+          name: leg.name,
+          accountId: leg.contaId,
+          amount: Number(leg.amount),
+          period: leg.period,
+        })),
+      };
+    },
+    apply: async () => {
+      const deletedIds = await db.transaction(async (tx) => {
+        const legs = await tx.query.lancamentos.findMany({
+          where: and(
+            eq(lancamentos.transferId, input.transferId),
+            eq(lancamentos.userId, userId)
+          ),
+          columns: { id: true },
+        });
+        if (legs.length !== 2) {
+          throw new Error(
+            `Expected exactly two transfer legs but found ${legs.length}. Refusing to reverse a malformed transfer.`
+          );
+        }
+        await tx
+          .delete(lancamentos)
+          .where(
+            and(
+              eq(lancamentos.transferId, input.transferId),
+              eq(lancamentos.userId, userId)
+            )
+          );
+        return legs.map((leg) => leg.id);
+      });
+      return { transferId: input.transferId, transactionIds: deletedIds, reversed: true };
+    },
+  });
+}
+
+export async function payInvoice(userId: string, input: PayInvoiceInput) {
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_pay_invoice",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: () =>
+      previewInvoicePaymentStatus(userId, {
+        cartaoId: input.cardId,
+        period: input.period,
+        status: INVOICE_PAYMENT_STATUS.PAID,
+      }),
+    apply: async () => {
+      const result = await db.transaction((tx) =>
+        applyInvoicePaymentStatus(tx, {
+          userId,
+          cartaoId: input.cardId,
+          period: input.period,
+          status: INVOICE_PAYMENT_STATUS.PAID,
+          paymentDate: input.paymentDate,
+        })
+      );
+      return { ...result, paid: true };
+    },
+  });
+}
+
+export async function reverseInvoicePayment(
+  userId: string,
+  input: ReverseInvoicePaymentInput
+) {
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_reverse_invoice_payment",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: () =>
+      previewInvoicePaymentStatus(userId, {
+        cartaoId: input.cardId,
+        period: input.period,
+        status: INVOICE_PAYMENT_STATUS.PENDING,
+      }),
+    apply: async () => {
+      const result = await db.transaction((tx) =>
+        applyInvoicePaymentStatus(tx, {
+          userId,
+          cartaoId: input.cardId,
+          period: input.period,
+          status: INVOICE_PAYMENT_STATUS.PENDING,
+        })
+      );
+      return { ...result, reversed: true };
+    },
+  });
+}
+
+/** Maps the MCP schema's field names to the shared service's column names. */
+function seriesUpdateFields(input: UpdateSeriesInput) {
+  const updates: {
+    name?: string;
+    amount?: number;
+    categoriaId?: string | null;
+    pagadorId?: string | null;
+    contaId?: string | null;
+    cartaoId?: string | null;
+    note?: string | null;
+    dueDate?: string | null;
+    boletoPaymentDate?: string | null;
+  } = {};
+  if (input.name !== undefined) updates.name = input.name;
+  if (input.amount !== undefined) updates.amount = input.amount;
+  if (input.categoryId !== undefined) updates.categoriaId = input.categoryId;
+  if (input.payerId !== undefined) updates.pagadorId = input.payerId;
+  if (input.accountId !== undefined) updates.contaId = input.accountId;
+  if (input.cardId !== undefined) updates.cartaoId = input.cardId;
+  if (input.note !== undefined) updates.note = input.note;
+  if (input.dueDate !== undefined) updates.dueDate = input.dueDate;
+  if (input.boletoPaymentDate !== undefined)
+    updates.boletoPaymentDate = input.boletoPaymentDate;
+  return updates;
+}
+
+export async function updateSeries(userId: string, input: UpdateSeriesInput) {
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_update_series",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: () =>
+      previewSeriesUpdate({
+        userId,
+        transactionId: input.transactionId,
+        scope: input.scope,
+        updates: seriesUpdateFields(input),
+      }),
+    apply: async () => {
+      const result = await db.transaction((tx) =>
+        applySeriesUpdate(tx, {
+          userId,
+          transactionId: input.transactionId,
+          scope: input.scope,
+          updates: seriesUpdateFields(input),
+        })
+      );
+      return { ...result, updated: true };
+    },
+  });
+}
+
+export async function deleteSeries(userId: string, input: DeleteSeriesInput) {
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_delete_series",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: () =>
+      previewSeriesDelete({
+        userId,
+        transactionId: input.transactionId,
+        scope: input.scope,
+      }),
+    apply: async () => {
+      const result = await db.transaction((tx) =>
+        applySeriesDelete(tx, {
+          userId,
+          transactionId: input.transactionId,
+          scope: input.scope,
+        })
+      );
+      return { ...result, deleted: true };
+    },
+  });
+}
+
+/**
+ * Resolves the tool's installment selector (explicit ids, next-N count, or a
+ * through-period) to concrete eligible installment ids ordered by installment
+ * number. Read-only, so it is safe to run in preview mode.
+ */
+async function resolveAnticipationInstallmentIds(
+  userId: string,
+  input: AnticipateInstallmentsInput
+): Promise<string[]> {
+  if (input.installmentIds) return input.installmentIds;
+
+  const eligible = await db.query.lancamentos.findMany({
+    where: and(
+      eq(lancamentos.seriesId, input.seriesId),
+      eq(lancamentos.userId, userId),
+      eq(lancamentos.condition, "Parcelado"),
+      or(eq(lancamentos.isSettled, false), isNull(lancamentos.isSettled)),
+      eq(lancamentos.isAnticipated, false)
+    ),
+    orderBy: [asc(lancamentos.currentInstallment)],
+    columns: { id: true, period: true },
+  });
+
+  let selected = eligible;
+  if (input.throughPeriod) {
+    selected = eligible.filter((row) => row.period <= input.throughPeriod!);
+  } else if (input.count !== undefined) {
+    if (eligible.length < input.count) {
+      throw new Error(
+        `Only ${eligible.length} eligible installment(s) available to anticipate.`
+      );
+    }
+    selected = eligible.slice(0, input.count);
+  }
+
+  if (selected.length === 0) {
+    throw new Error("Nenhuma parcela elegível para antecipação.");
+  }
+  return selected.map((row) => row.id);
+}
+
+export async function anticipateInstallments(
+  userId: string,
+  input: AnticipateInstallmentsInput
+) {
+  const installmentIds = await resolveAnticipationInstallmentIds(userId, input);
+  const params = {
+    userId,
+    seriesId: input.seriesId,
+    installmentIds,
+    anticipationPeriod: input.anticipationPeriod,
+    discount: input.discount,
+    pagadorId: input.payerId ?? null,
+    categoriaId: input.categoryId ?? null,
+    note: input.note ?? null,
+  };
+
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_anticipate_installments",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: () => previewAnticipation(params),
+    apply: async () => {
+      const result = await db.transaction((tx) =>
+        applyAnticipation(tx, params)
+      );
+      return { ...result, anticipated: true };
     },
   });
 }

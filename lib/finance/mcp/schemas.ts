@@ -23,6 +23,17 @@ export const idempotencyKeySchema = z
   .max(120)
   .regex(/^[A-Za-z0-9._:-]+$/, "Use a stable, non-secret idempotency key.");
 
+/**
+ * Two-step protocol for high-risk mutations. `preview` performs zero writes and
+ * returns a structured impact summary; `apply` runs the audited, transactional
+ * mutation. Defaults to `preview` so an accidental call never mutates.
+ */
+export const mcpMutationModeSchema = z
+  .enum(["preview", "apply"])
+  .default("preview");
+
+export type McpMutationMode = z.infer<typeof mcpMutationModeSchema>;
+
 export const overviewInputSchema = z.object({
   period: mcpPeriodSchema,
 });
@@ -126,6 +137,106 @@ export const transferInputSchema = z
     message: "Source and destination accounts must be different.",
   });
 
+export const deleteTransactionInputSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  transactionId: mcpUuidSchema,
+  mode: mcpMutationModeSchema,
+});
+
+export const reverseTransferInputSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  transferId: mcpUuidSchema,
+  mode: mcpMutationModeSchema,
+});
+
+export const payInvoiceInputSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  cardId: mcpUuidSchema,
+  period: mcpPeriodSchema,
+  paymentDate: mcpDateSchema.optional(),
+  mode: mcpMutationModeSchema,
+});
+
+export const reverseInvoicePaymentInputSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  cardId: mcpUuidSchema,
+  period: mcpPeriodSchema,
+  mode: mcpMutationModeSchema,
+});
+
+/**
+ * Which rows of a recurring/installment series a bulk edit or delete touches,
+ * relative to the anchor transaction: only it, it plus every later period, or
+ * the whole series. Mirrors the dashboard bulk actions.
+ */
+export const seriesScopeSchema = z.enum(["current", "future", "all"]);
+
+export const updateSeriesInputSchema = z
+  .object({
+    idempotencyKey: idempotencyKeySchema,
+    transactionId: mcpUuidSchema,
+    scope: seriesScopeSchema,
+    mode: mcpMutationModeSchema,
+    name: z.string().trim().min(1).max(200).optional(),
+    amount: z.number().positive().max(999_999_999.99).optional(),
+    categoryId: mcpUuidSchema.nullish(),
+    payerId: mcpUuidSchema.nullish(),
+    accountId: mcpUuidSchema.nullish(),
+    cardId: mcpUuidSchema.nullish(),
+    note: z.string().trim().max(500).nullish(),
+    dueDate: mcpDateSchema.nullish(),
+    boletoPaymentDate: mcpDateSchema.nullish(),
+  })
+  .refine(
+    (value) =>
+      [
+        value.name,
+        value.amount,
+        value.categoryId,
+        value.payerId,
+        value.accountId,
+        value.cardId,
+        value.note,
+        value.dueDate,
+        value.boletoPaymentDate,
+      ].some((field) => field !== undefined),
+    { message: "Provide at least one field to update." }
+  );
+
+export const deleteSeriesInputSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  transactionId: mcpUuidSchema,
+  scope: seriesScopeSchema,
+  mode: mcpMutationModeSchema,
+});
+
+export const anticipateInstallmentsInputSchema = z
+  .object({
+    idempotencyKey: idempotencyKeySchema,
+    seriesId: mcpUuidSchema,
+    /** Period the consolidated anticipation lançamento is recorded in. */
+    anticipationPeriod: mcpPeriodSchema,
+    // Exactly one selector for which eligible installments to anticipate.
+    installmentIds: z.array(mcpUuidSchema).min(1).max(120).optional(),
+    count: z.number().int().min(1).max(120).optional(),
+    throughPeriod: mcpPeriodSchema.optional(),
+    discount: z.number().min(0).max(999_999_999.99).optional(),
+    payerId: mcpUuidSchema.optional(),
+    categoryId: mcpUuidSchema.optional(),
+    note: z.string().trim().max(500).optional(),
+    mode: mcpMutationModeSchema,
+  })
+  .refine(
+    (value) =>
+      [value.installmentIds, value.count, value.throughPeriod].filter(
+        (selector) => selector !== undefined
+      ).length === 1,
+    {
+      message:
+        "Provide exactly one of installmentIds, count, or throughPeriod.",
+    }
+  );
+
 export const upsertBudgetInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   categoryId: mcpUuidSchema,
@@ -147,3 +258,17 @@ export type SettleTransactionInput = z.infer<
 >;
 export type TransferInput = z.infer<typeof transferInputSchema>;
 export type UpsertBudgetInput = z.infer<typeof upsertBudgetInputSchema>;
+export type DeleteTransactionInput = z.infer<
+  typeof deleteTransactionInputSchema
+>;
+export type ReverseTransferInput = z.infer<typeof reverseTransferInputSchema>;
+export type AnticipateInstallmentsInput = z.infer<
+  typeof anticipateInstallmentsInputSchema
+>;
+export type SeriesScope = z.infer<typeof seriesScopeSchema>;
+export type UpdateSeriesInput = z.infer<typeof updateSeriesInputSchema>;
+export type DeleteSeriesInput = z.infer<typeof deleteSeriesInputSchema>;
+export type PayInvoiceInput = z.infer<typeof payInvoiceInputSchema>;
+export type ReverseInvoicePaymentInput = z.infer<
+  typeof reverseInvoicePaymentInputSchema
+>;

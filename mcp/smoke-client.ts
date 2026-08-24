@@ -24,11 +24,36 @@ async function main() {
     await client.connect(transport);
 
     const tools = await client.listTools();
-    assert.equal(tools.tools.length, 16);
+    assert.equal(tools.tools.length, 23);
     assert.ok(tools.tools.some((tool) => tool.name === "finance_overview"));
     assert.ok(
       tools.tools.some(
         (tool) => tool.name === "finance_transfer_between_accounts"
+      )
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_delete_transaction")
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_reverse_transfer")
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_pay_invoice")
+    );
+    assert.ok(
+      tools.tools.some(
+        (tool) => tool.name === "finance_reverse_invoice_payment"
+      )
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_update_series")
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_delete_series")
+    );
+    assert.ok(
+      tools.tools.some(
+        (tool) => tool.name === "finance_anticipate_installments"
       )
     );
 

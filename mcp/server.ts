@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
 import {
+  assertFullWrites,
   assertSafeWrites,
   resolveMcpPrincipal,
 } from "@/lib/finance/mcp/config";
@@ -20,24 +21,38 @@ import {
 } from "@/lib/finance/mcp/read-service";
 import {
   accountStatementInputSchema,
+  anticipateInstallmentsInputSchema,
   budgetsInputSchema,
   categoryReportInputSchema,
   createTransactionInputSchema,
+  deleteSeriesInputSchema,
+  deleteTransactionInputSchema,
   entityIdInputSchema,
   invoiceInputSchema,
+  payInvoiceInputSchema,
+  reverseInvoicePaymentInputSchema,
+  reverseTransferInputSchema,
   listTransactionsInputSchema,
   lookupInputSchema,
   overviewInputSchema,
   settleTransactionInputSchema,
   transferInputSchema,
   upcomingInputSchema,
+  updateSeriesInputSchema,
   updateTransactionInputSchema,
   upsertBudgetInputSchema,
 } from "@/lib/finance/mcp/schemas";
 import {
+  anticipateInstallments,
   createTransaction,
+  deleteSeries,
+  deleteTransaction,
+  payInvoice,
+  reverseInvoicePayment,
+  reverseTransfer,
   setTransactionSettled,
   transferBetweenAccounts,
+  updateSeries,
   updateTransaction,
   upsertBudget,
 } from "@/lib/finance/mcp/write-service";
@@ -76,6 +91,13 @@ const readAnnotations = {
 const writeAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const destructiveAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
   idempotentHint: true,
   openWorldHint: false,
 } as const;
@@ -482,6 +504,160 @@ server.registerTool(
   }
 );
 
+server.registerTool(
+  "finance_delete_transaction",
+  {
+    title: "Delete a transaction",
+    description:
+      "Permanently delete one simple transaction. Rejects protected, transfer, series, and anticipated records. Requires full write mode. Call with mode='preview' to see the impact, then mode='apply' with the same idempotency key to delete.",
+    inputSchema: deleteTransactionInputSchema.shape,
+    annotations: destructiveAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = deleteTransactionInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await deleteTransaction(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_reverse_transfer",
+  {
+    title: "Reverse a transfer",
+    description:
+      "Atomically delete both legs of an internal account transfer. Requires full write mode. Call with mode='preview' to see both legs, then mode='apply' with the same idempotency key to reverse.",
+    inputSchema: reverseTransferInputSchema.shape,
+    annotations: destructiveAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = reverseTransferInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await reverseTransfer(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_pay_invoice",
+  {
+    title: "Pay a credit-card invoice",
+    description:
+      "Mark a card invoice paid for one period: settle its transactions and record the admin payment lançamento. Requires full write mode. Call with mode='preview' to see the impact, then mode='apply' with the same idempotency key to pay.",
+    inputSchema: payInvoiceInputSchema.shape,
+    annotations: writeAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = payInvoiceInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await payInvoice(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_reverse_invoice_payment",
+  {
+    title: "Reverse a credit-card invoice payment",
+    description:
+      "Undo an invoice payment for one period: mark its transactions unsettled and delete the admin payment lançamento. Requires full write mode. Call with mode='preview' to see the impact, then mode='apply' with the same idempotency key to reverse.",
+    inputSchema: reverseInvoicePaymentInputSchema.shape,
+    annotations: destructiveAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = reverseInvoicePaymentInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await reverseInvoicePayment(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_update_series",
+  {
+    title: "Edit a recurring/installment series",
+    description:
+      "Bulk-edit the rows of a recurring or installment series relative to an anchor transaction (scope='current' | 'future' | 'all'). Only the fields you pass change; due dates shift by each row's month offset from the anchor. Requires full write mode. Call with mode='preview' to see the affected rows, then mode='apply' with the same idempotency key to edit.",
+    inputSchema: updateSeriesInputSchema.shape,
+    annotations: writeAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = updateSeriesInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await updateSeries(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_delete_series",
+  {
+    title: "Delete a recurring/installment series",
+    description:
+      "Bulk-delete the rows of a recurring or installment series relative to an anchor transaction (scope='current' | 'future' | 'all'). Requires full write mode. Call with mode='preview' to see the affected rows, then mode='apply' with the same idempotency key to delete.",
+    inputSchema: deleteSeriesInputSchema.shape,
+    annotations: destructiveAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = deleteSeriesInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await deleteSeries(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_anticipate_installments",
+  {
+    title: "Anticipate installments",
+    description:
+      "Anticipate future installments of a series into a single consolidated lançamento for one period, optionally applying a discount. Select the installments with exactly one of installmentIds, count (the next N eligible), or throughPeriod (all eligible up to that period). Requires full write mode. Call with mode='preview' to see the discount/total/final breakdown and affected installments, then mode='apply' with the same idempotency key to anticipate.",
+    inputSchema: anticipateInstallmentsInputSchema.shape,
+    annotations: writeAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = anticipateInstallmentsInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await anticipateInstallments(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
 const rules = {
   currency: "BRL",
   periodFormat: "YYYY-MM",
@@ -491,7 +667,7 @@ const rules = {
   cardSettlement:
     "Credit-card purchases use null settlement until their invoice is reconciled.",
   safety:
-    "The MCP safe-write surface does not delete records, edit series, pay invoices, import files, anticipate installments, or send payer email.",
+    "The MCP safe-write surface does not delete records, edit series, import files, anticipate installments, or send payer email. High-risk tools (deletion, transfer reversal, invoice payment and reversal, series edit and delete, installment anticipation) require full write mode and a preview/apply confirmation; preview never mutates.",
 };
 
 server.registerResource(

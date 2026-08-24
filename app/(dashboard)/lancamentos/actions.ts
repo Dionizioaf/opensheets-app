@@ -11,6 +11,10 @@ import { handleActionError, revalidateForEntity } from "@/lib/actions/helpers";
 import type { ActionResult } from "@/lib/actions/types";
 import { errorResult } from "@/lib/actions/types";
 import { db } from "@/lib/db";
+import {
+  applySeriesDelete,
+  applySeriesUpdate,
+} from "@/lib/finance/series-service";
 import { getUser } from "@/lib/auth/server";
 import {
   LANCAMENTO_CONDITIONS,
@@ -873,75 +877,23 @@ export async function deleteLancamentoBulkAction(
     const user = await getUser();
     const data = deleteBulkSchema.parse(input);
 
-    const existing = await db.query.lancamentos.findFirst({
-      columns: {
-        id: true,
-        name: true,
-        seriesId: true,
-        period: true,
-        condition: true,
-      },
-      where: and(eq(lancamentos.id, data.id), eq(lancamentos.userId, user.id)),
-    });
+    // Single-sourced with the MCP `finance_delete_series` tool.
+    await db.transaction((tx: typeof db) =>
+      applySeriesDelete(tx, {
+        userId: user.id,
+        transactionId: data.id,
+        scope: data.scope,
+      })
+    );
 
-    if (!existing) {
-      return { success: false, error: "Lançamento não encontrado." };
-    }
+    revalidate();
 
-    if (!existing.seriesId) {
-      return {
-        success: false,
-        error: "Este lançamento não faz parte de uma série.",
-      };
-    }
-
-    if (data.scope === "current") {
-      await db
-        .delete(lancamentos)
-        .where(
-          and(eq(lancamentos.id, data.id), eq(lancamentos.userId, user.id))
-        );
-
-      revalidate();
-      return { success: true, message: "Lançamento removido com sucesso." };
-    }
-
-    if (data.scope === "future") {
-      await db
-        .delete(lancamentos)
-        .where(
-          and(
-            eq(lancamentos.seriesId, existing.seriesId),
-            eq(lancamentos.userId, user.id),
-            sql`${lancamentos.period} >= ${existing.period}`
-          )
-        );
-
-      revalidate();
-      return {
-        success: true,
-        message: "Lançamentos removidos com sucesso.",
-      };
-    }
-
-    if (data.scope === "all") {
-      await db
-        .delete(lancamentos)
-        .where(
-          and(
-            eq(lancamentos.seriesId, existing.seriesId),
-            eq(lancamentos.userId, user.id)
-          )
-        );
-
-      revalidate();
-      return {
-        success: true,
-        message: "Todos os lançamentos da série foram removidos.",
-      };
-    }
-
-    return { success: false, error: "Escopo de ação inválido." };
+    const messages: Record<DeleteBulkInput["scope"], string> = {
+      current: "Lançamento removido com sucesso.",
+      future: "Lançamentos removidos com sucesso.",
+      all: "Todos os lançamentos da série foram removidos.",
+    };
+    return { success: true, message: messages[data.scope] };
   } catch (error) {
     return handleActionError(error);
   }
@@ -992,189 +944,41 @@ export async function updateLancamentoBulkAction(
     const user = await getUser();
     const data = updateBulkSchema.parse(input);
 
-    const existing = await db.query.lancamentos.findFirst({
-      columns: {
-        id: true,
-        name: true,
-        seriesId: true,
-        period: true,
-        condition: true,
-        transactionType: true,
-        purchaseDate: true,
-      },
-      where: and(eq(lancamentos.id, data.id), eq(lancamentos.userId, user.id)),
-    });
-
-    if (!existing) {
-      return { success: false, error: "Lançamento não encontrado." };
-    }
-
-    if (!existing.seriesId) {
-      return {
-        success: false,
-        error: "Este lançamento não faz parte de uma série.",
-      };
-    }
-
-    const baseUpdatePayload: Record<string, unknown> = {
-      name: data.name,
-      categoriaId: data.categoriaId ?? null,
-      note: data.note ?? null,
-      pagadorId: data.pagadorId ?? null,
-      contaId: data.contaId ?? null,
-      cartaoId: data.cartaoId ?? null,
-    };
-
-    if (data.amount !== undefined) {
-      const amountSign: 1 | -1 =
-        existing.transactionType === "Despesa" ? -1 : 1;
-      const amountCents = Math.round(Math.abs(data.amount) * 100);
-      baseUpdatePayload.amount = centsToDecimalString(amountCents * amountSign);
-    }
-
-    const hasDueDateUpdate = data.dueDate !== undefined;
-    const hasBoletoPaymentDateUpdate = data.boletoPaymentDate !== undefined;
-
-    const baseDueDate =
-      hasDueDateUpdate && data.dueDate
-        ? parseLocalDateString(data.dueDate)
-        : hasDueDateUpdate
-          ? null
-          : undefined;
-
-    const baseBoletoPaymentDate =
-      hasBoletoPaymentDateUpdate && data.boletoPaymentDate
-        ? parseLocalDateString(data.boletoPaymentDate)
-        : hasBoletoPaymentDateUpdate
-          ? null
-          : undefined;
-
-    const basePurchaseDate = existing.purchaseDate ?? null;
-
-    const buildDueDateForRecord = (recordPurchaseDate: Date | null) => {
-      if (!hasDueDateUpdate) {
-        return undefined;
-      }
-
-      if (!baseDueDate) {
-        return null;
-      }
-
-      if (!basePurchaseDate || !recordPurchaseDate) {
-        return baseDueDate;
-      }
-
-      const monthDiff =
-        (recordPurchaseDate.getFullYear() - basePurchaseDate.getFullYear()) *
-        12 +
-        (recordPurchaseDate.getMonth() - basePurchaseDate.getMonth());
-
-      return addMonthsToDate(baseDueDate, monthDiff);
-    };
-
-    const applyUpdates = async (
-      records: Array<{ id: string; purchaseDate: Date | null }>
-    ) => {
-      if (records.length === 0) {
-        return;
-      }
-
-      await db.transaction(async (tx: typeof db) => {
-        for (const record of records) {
-          const perRecordPayload: Record<string, unknown> = {
-            ...baseUpdatePayload,
-          };
-
-          const dueDateForRecord = buildDueDateForRecord(record.purchaseDate);
-          if (dueDateForRecord !== undefined) {
-            perRecordPayload.dueDate = dueDateForRecord;
-          }
-
-          if (hasBoletoPaymentDateUpdate) {
-            perRecordPayload.boletoPaymentDate = baseBoletoPaymentDate ?? null;
-          }
-
-          await tx
-            .update(lancamentos)
-            .set(perRecordPayload)
-            .where(
-              and(
-                eq(lancamentos.id, record.id),
-                eq(lancamentos.userId, user.id)
-              )
-            );
-        }
-      });
-    };
-
-    if (data.scope === "current") {
-      await applyUpdates([
-        {
-          id: data.id,
-          purchaseDate: existing.purchaseDate ?? null,
+    // Single-sourced with the MCP `finance_update_series` tool. The dashboard
+    // form always submits every field, so passing them all preserves the
+    // previous full-replace behaviour; the shared helper only writes the fields
+    // that are present.
+    await db.transaction((tx: typeof db) =>
+      applySeriesUpdate(tx, {
+        userId: user.id,
+        transactionId: data.id,
+        scope: data.scope,
+        updates: {
+          name: data.name,
+          categoriaId: data.categoriaId ?? null,
+          note: data.note ?? null,
+          pagadorId: data.pagadorId ?? null,
+          contaId: data.contaId ?? null,
+          cartaoId: data.cartaoId ?? null,
+          ...(data.amount !== undefined ? { amount: data.amount } : {}),
+          ...(data.dueDate !== undefined
+            ? { dueDate: data.dueDate ?? null }
+            : {}),
+          ...(data.boletoPaymentDate !== undefined
+            ? { boletoPaymentDate: data.boletoPaymentDate ?? null }
+            : {}),
         },
-      ]);
+      })
+    );
 
-      revalidate();
-      return { success: true, message: "Lançamento atualizado com sucesso." };
-    }
+    revalidate();
 
-    if (data.scope === "future") {
-      const futureLancamentos = await db.query.lancamentos.findMany({
-        columns: {
-          id: true,
-          purchaseDate: true,
-        },
-        where: and(
-          eq(lancamentos.seriesId, existing.seriesId),
-          eq(lancamentos.userId, user.id),
-          sql`${lancamentos.period} >= ${existing.period}`
-        ),
-        orderBy: asc(lancamentos.purchaseDate),
-      });
-
-      await applyUpdates(
-        futureLancamentos.map((item) => ({
-          id: item.id,
-          purchaseDate: item.purchaseDate ?? null,
-        }))
-      );
-
-      revalidate();
-      return {
-        success: true,
-        message: "Lançamentos atualizados com sucesso.",
-      };
-    }
-
-    if (data.scope === "all") {
-      const allLancamentos = await db.query.lancamentos.findMany({
-        columns: {
-          id: true,
-          purchaseDate: true,
-        },
-        where: and(
-          eq(lancamentos.seriesId, existing.seriesId),
-          eq(lancamentos.userId, user.id)
-        ),
-        orderBy: asc(lancamentos.purchaseDate),
-      });
-
-      await applyUpdates(
-        allLancamentos.map((item) => ({
-          id: item.id,
-          purchaseDate: item.purchaseDate ?? null,
-        }))
-      );
-
-      revalidate();
-      return {
-        success: true,
-        message: "Todos os lançamentos da série foram atualizados.",
-      };
-    }
-
-    return { success: false, error: "Escopo de ação inválido." };
+    const messages: Record<UpdateBulkInput["scope"], string> = {
+      current: "Lançamento atualizado com sucesso.",
+      future: "Lançamentos atualizados com sucesso.",
+      all: "Todos os lançamentos da série foram atualizados.",
+    };
+    return { success: true, message: messages[data.scope] };
   } catch (error) {
     return handleActionError(error);
   }
