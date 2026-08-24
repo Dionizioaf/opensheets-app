@@ -24,7 +24,7 @@ async function main() {
     await client.connect(transport);
 
     const tools = await client.listTools();
-    assert.equal(tools.tools.length, 23);
+    assert.equal(tools.tools.length, 25);
     assert.ok(tools.tools.some((tool) => tool.name === "finance_overview"));
     assert.ok(
       tools.tools.some(
@@ -55,6 +55,12 @@ async function main() {
       tools.tools.some(
         (tool) => tool.name === "finance_anticipate_installments"
       )
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_import_preview")
+    );
+    assert.ok(
+      tools.tools.some((tool) => tool.name === "finance_import_apply")
     );
 
     const overview = await client.callTool({

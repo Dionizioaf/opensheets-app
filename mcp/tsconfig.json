@@ -15,6 +15,10 @@
     "../lib/relatorios/**/*.ts",
     "../lib/utils/currency.ts",
     "../lib/utils/period/**/*.ts",
+    "../lib/ofx/**/*.ts",
+    "../lib/csv/parser.ts",
+    "../lib/csv/mapper.ts",
+    "../lib/csv/types.ts",
     "../db/schema.ts"
   ],
   "exclude": [

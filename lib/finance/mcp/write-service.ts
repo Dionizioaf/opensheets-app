@@ -35,6 +35,19 @@ import {
   applyAnticipation,
   previewAnticipation,
 } from "@/lib/finance/anticipation-service";
+import {
+  applyImportCandidates,
+  enrichCandidates,
+  parseImportSource,
+  type ImportCandidate,
+} from "@/lib/finance/import-service";
+import {
+  consumeImportPreview,
+  readImportPreview,
+  storeImportPreview,
+} from "@/lib/finance/mcp/import-preview-cache";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import type {
@@ -42,6 +55,8 @@ import type {
   CreateTransactionInput,
   DeleteSeriesInput,
   DeleteTransactionInput,
+  ImportApplyInput,
+  ImportPreviewInput,
   PayInvoiceInput,
   ReverseInvoicePaymentInput,
   ReverseTransferInput,
@@ -963,6 +978,172 @@ export async function anticipateInstallments(
         applyAnticipation(tx, params)
       );
       return { ...result, anticipated: true };
+    },
+  });
+}
+
+const MAX_IMPORT_CONTENT_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Loads raw import file content — either from an allowlisted absolute path
+ * anchored at OPENSHEETS_MCP_IMPORT_DIR (never network, never arbitrary paths)
+ * or from an inline base64 payload. Returns UTF-8 text.
+ */
+async function loadImportContent(
+  input: ImportPreviewInput
+): Promise<string> {
+  if (input.content) {
+    const buffer = Buffer.from(input.content, "base64");
+    if (buffer.length === 0) {
+      throw new Error("content decoded to zero bytes.");
+    }
+    if (buffer.length > MAX_IMPORT_CONTENT_BYTES) {
+      throw new Error(
+        `Import content exceeds ${MAX_IMPORT_CONTENT_BYTES} bytes.`
+      );
+    }
+    return buffer.toString("utf8");
+  }
+
+  const filePath = input.filePath!;
+  const importDir = process.env.OPENSHEETS_MCP_IMPORT_DIR?.trim();
+  if (!importDir) {
+    throw new Error(
+      "OPENSHEETS_MCP_IMPORT_DIR is not configured. Set it to the allowlisted import directory, or pass base64 content instead."
+    );
+  }
+  const rootAbs = path.resolve(importDir);
+  const targetAbs = path.resolve(rootAbs, filePath);
+  const relative = path.relative(rootAbs, targetAbs);
+  if (
+    relative.startsWith("..") ||
+    path.isAbsolute(relative) ||
+    relative === ""
+  ) {
+    throw new Error(
+      "filePath must resolve inside OPENSHEETS_MCP_IMPORT_DIR."
+    );
+  }
+  const stat = await fs.stat(targetAbs).catch(() => null);
+  if (!stat || !stat.isFile()) {
+    throw new Error("Import file not found.");
+  }
+  if (stat.size > MAX_IMPORT_CONTENT_BYTES) {
+    throw new Error(
+      `Import file exceeds ${MAX_IMPORT_CONTENT_BYTES} bytes.`
+    );
+  }
+  return fs.readFile(targetAbs, "utf8");
+}
+
+function summarizeCandidate(candidate: ImportCandidate) {
+  return {
+    rowId: candidate.rowId,
+    name: candidate.name,
+    amount: Number(candidate.amount),
+    purchaseDate: candidate.purchaseDate.toISOString().slice(0, 10),
+    period: candidate.period,
+    transactionType: candidate.transactionType,
+    paymentMethod: candidate.paymentMethod,
+    fitId: candidate.fitId ?? null,
+    suggestedCategoryId: candidate.suggestedCategoryId ?? null,
+    categoryConfidence: candidate.categoryConfidence ?? null,
+    duplicate: candidate.duplicate ?? null,
+  };
+}
+
+/**
+ * Parses + dedups + suggests categories for a whole file and returns a
+ * preview token the caller passes to finance_import_apply. Read-only — no
+ * audit record, no mutation.
+ */
+export async function importPreview(
+  userId: string,
+  input: ImportPreviewInput
+) {
+  const content = await loadImportContent(input);
+  const candidates = await parseImportSource({
+    sourceType: input.sourceType,
+    content,
+    csvMapping: input.csvMapping,
+    csvDelimiter: input.csvDelimiter,
+  });
+  if (candidates.length === 0) {
+    throw new Error("No transactions parsed from the import file.");
+  }
+  const enriched = await enrichCandidates({
+    userId,
+    accountId: input.accountId,
+    accountType: input.accountType,
+    candidates,
+  });
+  const { token, expiresAt } = storeImportPreview({
+    userId,
+    accountId: input.accountId,
+    accountType: input.accountType,
+    candidates: enriched.candidates,
+  });
+  return {
+    previewToken: token,
+    expiresAt: new Date(expiresAt).toISOString(),
+    accountId: input.accountId,
+    accountType: input.accountType,
+    sourceType: input.sourceType,
+    summary: enriched.summary,
+    candidates: enriched.candidates.map(summarizeCandidate),
+  };
+}
+
+export async function importApply(userId: string, input: ImportApplyInput) {
+  const entry = readImportPreview(input.previewToken, userId);
+  const accepted = entry.candidates.filter((row) =>
+    input.acceptedRowIds.includes(row.rowId)
+  );
+  if (accepted.length === 0) {
+    throw new Error(
+      "None of the acceptedRowIds match this preview. Rerun finance_import_preview."
+    );
+  }
+
+  return runPreviewableMutation({
+    mode: input.mode,
+    userId,
+    toolName: "finance_import_apply",
+    idempotencyKey: input.idempotencyKey,
+    input,
+    preview: async () => ({
+      previewToken: input.previewToken,
+      accountId: entry.accountId,
+      accountType: entry.accountType,
+      willImport: accepted.map(summarizeCandidate),
+      requestedCount: input.acceptedRowIds.length,
+      missingRowIds: input.acceptedRowIds.filter(
+        (id) => !entry.candidates.some((row) => row.rowId === id)
+      ),
+    }),
+    apply: async () => {
+      const result = await db.transaction((tx) =>
+        applyImportCandidates(tx, {
+          userId,
+          accountId: entry.accountId,
+          accountType: entry.accountType,
+          candidates: accepted,
+          defaults: {
+            categoryId: input.defaultCategoryId ?? null,
+            payerId: input.defaultPayerId ?? null,
+          },
+        })
+      );
+      consumeImportPreview(input.previewToken);
+      return {
+        previewToken: input.previewToken,
+        accountId: entry.accountId,
+        accountType: entry.accountType,
+        importedCount: result.importedCount,
+        importedIds: result.importedIds,
+        skippedDuplicateCount: result.skippedDuplicateCount,
+        imported: true,
+      };
     },
   });
 }

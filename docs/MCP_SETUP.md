@@ -84,6 +84,32 @@ command is `node`, whose argument is the absolute path to
 Use absolute paths because desktop applications may not inherit the same shell
 `PATH` or working directory as a terminal.
 
+## 5b. Claude Desktop via `.mcpb` bundle (recommended)
+
+Instead of wiring an ad-hoc local server, package the compiled server as a
+Claude Desktop MCP Bundle (`.mcpb`) that the app installs with a click:
+
+```bash
+pnpm mcp:pack
+```
+
+This builds `dist/mcp/server.js`, stages it with a minimal `package.json`,
+installs only the four external runtime deps (`@modelcontextprotocol/sdk`,
+`drizzle-orm`, `pg`, `zod`), and zips everything into
+`dist/mcpb/opensheets-finance-<version>.mcpb` (~8 MB). Set `SKIP_BUILD=1` to
+skip the compile step when the bundle is already fresh.
+
+Open the resulting `.mcpb` in Claude Desktop. The manifest prompts for:
+
+- `DATABASE_URL` (required, sensitive)
+- Opensheets user ID **or** user email (set exactly one)
+- Write mode (`readonly` default / `safe-writes` / `full`)
+- Optional import directory (allowlists a folder for `finance_import_preview`;
+  leave empty to accept only base64 content)
+
+Bundle contents are self-contained; the installed extension does not read from
+this repo's `node_modules`. Re-run `pnpm mcp:pack` after any code change.
+
 ## 6. Example questions
 
 - "Give me my financial overview for 2026-07."

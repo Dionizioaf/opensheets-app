@@ -28,6 +28,8 @@ import {
   deleteSeriesInputSchema,
   deleteTransactionInputSchema,
   entityIdInputSchema,
+  importApplyInputSchema,
+  importPreviewInputSchema,
   invoiceInputSchema,
   payInvoiceInputSchema,
   reverseInvoicePaymentInputSchema,
@@ -47,6 +49,8 @@ import {
   createTransaction,
   deleteSeries,
   deleteTransaction,
+  importApply,
+  importPreview,
   payInvoice,
   reverseInvoicePayment,
   reverseTransfer,
@@ -658,6 +662,49 @@ server.registerTool(
   }
 );
 
+server.registerTool(
+  "finance_import_preview",
+  {
+    title: "Preview an OFX/CSV import",
+    description:
+      "Parse an OFX or CSV file for one bank account or credit card, dedup against existing lançamentos, and suggest categories from history. Returns candidate rows and a previewToken to pass to finance_import_apply. Pass exactly one of filePath (must be under OPENSHEETS_MCP_IMPORT_DIR) or base64 content. Read-only — no writes and no audit record.",
+    inputSchema: importPreviewInputSchema.shape,
+    annotations: readAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = importPreviewInputSchema.parse(args);
+      return toolSuccess(
+        asRecord(await importPreview(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
+server.registerTool(
+  "finance_import_apply",
+  {
+    title: "Apply a previewed OFX/CSV import",
+    description:
+      "Insert the accepted rows from a prior finance_import_preview. Provide the previewToken and the acceptedRowIds you want imported; duplicates are re-checked at insert time. Requires full write mode. Call with mode='preview' first to confirm the affected rows, then mode='apply' with the same idempotency key.",
+    inputSchema: importApplyInputSchema.shape,
+    annotations: writeAnnotations,
+  },
+  async (args) => {
+    try {
+      const parsed = importApplyInputSchema.parse(args);
+      if (parsed.mode === "apply") assertFullWrites(principal);
+      return toolSuccess(
+        asRecord(await importApply(principal.userId, parsed))
+      );
+    } catch (error) {
+      return toolError(error);
+    }
+  }
+);
+
 const rules = {
   currency: "BRL",
   periodFormat: "YYYY-MM",
@@ -667,7 +714,7 @@ const rules = {
   cardSettlement:
     "Credit-card purchases use null settlement until their invoice is reconciled.",
   safety:
-    "The MCP safe-write surface does not delete records, edit series, import files, anticipate installments, or send payer email. High-risk tools (deletion, transfer reversal, invoice payment and reversal, series edit and delete, installment anticipation) require full write mode and a preview/apply confirmation; preview never mutates.",
+    "The MCP safe-write surface does not delete records, edit series, import files, anticipate installments, or send payer email. High-risk tools (deletion, transfer reversal, invoice payment and reversal, series edit and delete, installment anticipation, OFX/CSV import apply) require full write mode and a preview/apply confirmation; preview never mutates. finance_import_preview itself is read-only but its previewToken is required to apply.",
 };
 
 server.registerResource(

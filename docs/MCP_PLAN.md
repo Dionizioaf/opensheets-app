@@ -157,13 +157,22 @@ records one correctness gap in the shipped surface (`full` write mode) that must
 be closed before any high-risk tool is exposed.
 
 **Status:** Shared building blocks (`full`-mode gate + preview/apply protocol)
-and features 1–5 (deletion, transfer reversal, invoice payment/reversal, series
-edit/delete, installment anticipation) are implemented. Features 3–5
-single-source their logic through `lib/finance/invoice-payment-service.ts`,
-`lib/finance/series-service.ts`, and `lib/finance/anticipation-service.ts`, which
-the dashboard actions (`updateInvoicePaymentStatusAction`,
-`updateLancamentoBulkAction`, `deleteLancamentoBulkAction`,
-`createInstallmentAnticipationAction`) also call. Remaining: features 6–8.
+and features 1–6 (deletion, transfer reversal, invoice payment/reversal, series
+edit/delete, installment anticipation, OFX/CSV import preview + apply) are
+implemented. Features 3–5 single-source their logic through
+`lib/finance/invoice-payment-service.ts`, `lib/finance/series-service.ts`, and
+`lib/finance/anticipation-service.ts`, which the dashboard actions
+(`updateInvoicePaymentStatusAction`, `updateLancamentoBulkAction`,
+`deleteLancamentoBulkAction`, `createInstallmentAnticipationAction`) also call.
+Feature 6 ships a shared `lib/finance/import-service.ts`
+(`parseImportSource` + `enrichCandidates` + `applyImportCandidates`) that the
+MCP tools call directly; a follow-up will migrate the dashboard's
+`importOfxTransactionsAction` and `importCsvTransactionsAction` onto the same
+service to close their orchestration drift. Feature 7 ships a Claude Desktop
+`.mcpb` bundle: `mcp/mcpb/manifest.json` + `scripts/mcp/pack.ts` (`pnpm mcp:pack`)
+stage the compiled `dist/mcp/server.js` with a minimal `package.json` covering
+the four externalised runtime deps and zip everything into
+`dist/mcpb/opensheets-finance-<version>.mcpb`. Remaining: feature 8.
 
 ### Shared building blocks (do first)
 

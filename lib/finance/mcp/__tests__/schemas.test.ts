@@ -4,6 +4,8 @@ import {
   createTransactionInputSchema,
   deleteSeriesInputSchema,
   deleteTransactionInputSchema,
+  importApplyInputSchema,
+  importPreviewInputSchema,
   updateSeriesInputSchema,
   listTransactionsInputSchema,
   mcpMutationModeSchema,
@@ -171,6 +173,80 @@ describe("Opensheets MCP schemas", () => {
         anticipationPeriod: "2026-07",
         count: 2,
         throughPeriod: "2026-10",
+      })
+    ).toThrow();
+  });
+
+  it("requires exactly one of filePath or content and gates csv on mapping", () => {
+    const accountId = "f07902b7-2280-4aaf-a35b-0fe981262928";
+    const b64 = Buffer.from("OFXHEADER:100\r\n", "utf8").toString("base64");
+
+    const parsed = importPreviewInputSchema.parse({
+      sourceType: "ofx",
+      accountId,
+      accountType: "bank",
+      content: b64,
+    });
+    expect(parsed.sourceType).toBe("ofx");
+
+    // Providing both filePath and content is rejected.
+    expect(() =>
+      importPreviewInputSchema.parse({
+        sourceType: "ofx",
+        accountId,
+        accountType: "bank",
+        content: b64,
+        filePath: "extract.ofx",
+      })
+    ).toThrow();
+
+    // Providing neither is rejected.
+    expect(() =>
+      importPreviewInputSchema.parse({
+        sourceType: "ofx",
+        accountId,
+        accountType: "bank",
+      })
+    ).toThrow();
+
+    // CSV without a mapping is rejected.
+    expect(() =>
+      importPreviewInputSchema.parse({
+        sourceType: "csv",
+        accountId,
+        accountType: "bank",
+        content: b64,
+      })
+    ).toThrow();
+
+    // CSV with a mapping passes.
+    const csv = importPreviewInputSchema.parse({
+      sourceType: "csv",
+      accountId,
+      accountType: "card",
+      content: b64,
+      csvMapping: { date: "Data", amount: "Valor", description: "Descrição" },
+      csvDelimiter: ";",
+    });
+    expect(csv.csvMapping?.date).toBe("Data");
+  });
+
+  it("defaults import apply to preview and requires at least one row", () => {
+    const previewToken = "f07902b7-2280-4aaf-a35b-0fe981262928";
+    const rowId = "aa000000-2280-4aaf-a35b-0fe981262928";
+
+    const apply = importApplyInputSchema.parse({
+      idempotencyKey: "import-apply-2026-07-26-001",
+      previewToken,
+      acceptedRowIds: [rowId],
+    });
+    expect(apply.mode).toBe("preview");
+
+    expect(() =>
+      importApplyInputSchema.parse({
+        idempotencyKey: "import-apply-2026-07-26-002",
+        previewToken,
+        acceptedRowIds: [],
       })
     ).toThrow();
   });

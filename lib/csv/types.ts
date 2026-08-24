@@ -86,7 +86,7 @@ export interface ColumnMappingValidation {
 /**
  * Extended ImportTransaction for CSV with temporary ID
  */
-export interface CsvImportTransaction extends ImportTransaction {
+export interface CsvImportTransaction extends Omit<ImportTransaction, "rawData"> {
     csvRowIndex: number; // Reference to original CSV row
     rawData: CsvRow; // Original CSV data for debugging
 }

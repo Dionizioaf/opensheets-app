@@ -237,6 +237,56 @@ export const anticipateInstallmentsInputSchema = z
     }
   );
 
+/**
+ * OFX/CSV import preview input. Accepts EITHER a server-readable `filePath`
+ * (must resolve under `OPENSHEETS_MCP_IMPORT_DIR`) OR a base64-encoded
+ * `content` (max ~2 MB decoded). Never a URL — MCP must not fetch from the
+ * network. CSV callers must also supply `csvMapping`.
+ */
+export const importPreviewInputSchema = z
+  .object({
+    sourceType: z.enum(["ofx", "csv"]),
+    accountId: mcpUuidSchema,
+    accountType: z.enum(["bank", "card"]),
+    filePath: z.string().trim().min(1).max(1024).optional(),
+    content: z
+      .string()
+      .trim()
+      .min(1)
+      .max(3_000_000)
+      .regex(/^[A-Za-z0-9+/=\r\n]+$/, "content must be base64.")
+      .optional(),
+    csvMapping: z
+      .object({
+        date: z.string().trim().min(1).max(200),
+        amount: z.string().trim().min(1).max(200),
+        description: z.string().trim().min(1).max(200).optional(),
+      })
+      .optional(),
+    csvDelimiter: z.enum([",", ";", "\t"]).optional(),
+  })
+  .refine((value) => Boolean(value.filePath) !== Boolean(value.content), {
+    message: "Provide exactly one of filePath or content.",
+  })
+  .refine(
+    (value) => value.sourceType !== "csv" || Boolean(value.csvMapping),
+    { message: "CSV imports require csvMapping." }
+  );
+
+/**
+ * Applies a prior preview. `previewToken` is the token returned by
+ * finance_import_preview; `acceptedRowIds` selects which candidate rows to
+ * insert. Duplicates are re-checked at apply-time.
+ */
+export const importApplyInputSchema = z.object({
+  idempotencyKey: idempotencyKeySchema,
+  previewToken: mcpUuidSchema,
+  acceptedRowIds: z.array(mcpUuidSchema).min(1).max(1000),
+  defaultCategoryId: mcpUuidSchema.nullish(),
+  defaultPayerId: mcpUuidSchema.nullish(),
+  mode: mcpMutationModeSchema,
+});
+
 export const upsertBudgetInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   categoryId: mcpUuidSchema,
@@ -268,6 +318,8 @@ export type AnticipateInstallmentsInput = z.infer<
 export type SeriesScope = z.infer<typeof seriesScopeSchema>;
 export type UpdateSeriesInput = z.infer<typeof updateSeriesInputSchema>;
 export type DeleteSeriesInput = z.infer<typeof deleteSeriesInputSchema>;
+export type ImportPreviewInput = z.infer<typeof importPreviewInputSchema>;
+export type ImportApplyInput = z.infer<typeof importApplyInputSchema>;
 export type PayInvoiceInput = z.infer<typeof payInvoiceInputSchema>;
 export type ReverseInvoicePaymentInput = z.infer<
   typeof reverseInvoicePaymentInputSchema

@@ -18,6 +18,7 @@
     "mcp:typecheck": "tsc -p mcp/tsconfig.json",
     "mcp:test": "jest --runInBand lib/finance/mcp/__tests__",
     "mcp:smoke": "tsx mcp/smoke-client.ts",
+    "mcp:pack": "tsx scripts/mcp/pack.ts",
     "env:setup": "bash scripts/setup-env.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
