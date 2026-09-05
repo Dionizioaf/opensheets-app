@@ -24,7 +24,7 @@
 ## 📖 Índice
 
 - [Sobre o Projeto](#-sobre-o-projeto)
-- [Claude via MCP](#-claude-via-mcp)
+- [MCP com Claude e Codex](#-mcp-com-claude-e-codex)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
 - [Início Rápido](#-início-rápido)
@@ -38,15 +38,168 @@
 - [Arquitetura](#-arquitetura)
 - [Contribuindo](#-contribuindo)
 
-## 🤖 Claude via MCP
+## 🤖 MCP com Claude e Codex
 
-O projeto inclui um servidor MCP local para consultar e gerenciar dados do
-Opensheets com Claude Desktop ou Claude Code. Ele usa transporte `stdio`,
-identidade fixa por processo, modo somente leitura por padrão, idempotência e
-auditoria para escritas permitidas.
+O projeto inclui um servidor MCP local para consultar e gerenciar os dados do
+Opensheets usando **Claude Code**, **Claude Desktop** ou **Codex**. O servidor
+usa transporte `stdio`, não abre uma porta de rede e é iniciado
+automaticamente pelo cliente de IA quando a sessão precisar dele.
 
-Consulte [o guia de instalação do MCP](docs/MCP_SETUP.md) e
-[o plano de arquitetura](docs/MCP_PLAN.md).
+O MCP usa identidade fixa por processo, modo somente leitura por padrão,
+idempotência e auditoria para escritas permitidas.
+
+### Preparar o servidor
+
+Na raiz do repositório:
+
+```bash
+pnpm install
+pnpm db:migrate
+pnpm mcp:build
+```
+
+Configure o `.env` com o banco e exatamente um identificador do usuário:
+
+```env
+DATABASE_URL=postgresql://...
+OPENSHEETS_MCP_USER_ID=the-user-id
+# ou: OPENSHEETS_MCP_USER_EMAIL=user@example.com
+OPENSHEETS_MCP_WRITE_MODE=readonly
+```
+
+Antes de usar os comandos de registro abaixo, carregue essas variáveis no
+shell atual (ou substitua os valores pelos seus valores reais):
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Mantenha o `.env` fora do Git. Os clientes Claude e Codex precisam receber as
+variáveis explicitamente porque podem não herdar automaticamente o ambiente
+carregado pela aplicação web.
+
+Use `readonly` inicialmente. `safe-writes` habilita escritas protegidas e
+`full` também habilita operações de maior risco. Consulte
+[`docs/MCP_SETUP.md`](docs/MCP_SETUP.md) para a lista completa de permissões.
+
+### Claude Code
+
+Execute a partir deste repositório para registrar o servidor no projeto atual:
+
+```bash
+claude mcp add --transport stdio --scope local \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env OPENSHEETS_MCP_USER_ID="$OPENSHEETS_MCP_USER_ID" \
+  --env OPENSHEETS_MCP_WRITE_MODE=readonly \
+  opensheets-finance -- node "$PWD/dist/mcp/server.js"
+```
+
+Se você usa email em vez de ID, substitua a variável correspondente:
+
+```bash
+claude mcp add --transport stdio --scope local \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env OPENSHEETS_MCP_USER_EMAIL="$OPENSHEETS_MCP_USER_EMAIL" \
+  --env OPENSHEETS_MCP_WRITE_MODE=readonly \
+  opensheets-finance -- node "$PWD/dist/mcp/server.js"
+```
+
+Verifique a conexão com:
+
+```bash
+claude mcp get opensheets-finance
+claude mcp list
+```
+
+Dentro do Claude Code, use `/mcp` para ver o status e as ferramentas
+disponíveis. O escopo `local` mantém a configuração privada para este projeto.
+Use `--scope user` se quiser disponibilizá-la em todos os seus projetos.
+
+### Claude Desktop
+
+Há duas opções:
+
+1. Gere o bundle instalável recomendado:
+
+   ```bash
+   pnpm mcp:pack
+   ```
+
+   Abra o arquivo `dist/mcpb/opensheets-finance-<version>.mcpb` no Claude
+   Desktop e preencha `DATABASE_URL`, o ID ou email do usuário e o modo de
+   escrita.
+
+2. Configure o servidor manualmente em
+   `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+   ```json
+   {
+     "mcpServers": {
+       "opensheets-finance": {
+         "command": "/opt/homebrew/bin/node",
+         "args": ["/absolute/path/to/opensheets-app/dist/mcp/server.js"],
+         "env": {
+           "DATABASE_URL": "postgresql://...",
+           "OPENSHEETS_MCP_USER_ID": "the-user-id",
+           "OPENSHEETS_MCP_WRITE_MODE": "readonly"
+         }
+       }
+     }
+   }
+   ```
+
+   Use caminhos absolutos. Depois de salvar, reinicie o Claude Desktop.
+
+### Codex
+
+Registre o mesmo servidor no Codex usando o comando `codex mcp add`:
+
+```bash
+codex mcp add opensheets-finance \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env OPENSHEETS_MCP_USER_ID="$OPENSHEETS_MCP_USER_ID" \
+  --env OPENSHEETS_MCP_WRITE_MODE=readonly \
+  -- node /absolute/path/to/opensheets-app/dist/mcp/server.js
+```
+
+Ou, usando email:
+
+```bash
+codex mcp add opensheets-finance \
+  --env DATABASE_URL="$DATABASE_URL" \
+  --env OPENSHEETS_MCP_USER_EMAIL="$OPENSHEETS_MCP_USER_EMAIL" \
+  --env OPENSHEETS_MCP_WRITE_MODE=readonly \
+  -- node /absolute/path/to/opensheets-app/dist/mcp/server.js
+```
+
+Verifique a configuração com:
+
+```bash
+codex mcp get opensheets-finance
+codex mcp list
+```
+
+O Codex inicia e encerra o processo MCP automaticamente conforme a sessão; não
+é necessário executar `pnpm mcp:start` em outro terminal. Se o servidor for
+alterado, rode `pnpm mcp:build` novamente. A configuração é armazenada no
+arquivo de configuração do Codex, normalmente `~/.codex/config.toml`.
+
+### Checklist rápido
+
+- [ ] PostgreSQL está acessível e `DATABASE_URL` está correto.
+- [ ] `pnpm db:migrate` foi executado.
+- [ ] `pnpm mcp:build` foi executado após alterações no servidor.
+- [ ] Exatamente um de `OPENSHEETS_MCP_USER_ID` ou
+      `OPENSHEETS_MCP_USER_EMAIL` foi configurado.
+- [ ] O cliente está apontando para `dist/mcp/server.js` com caminho absoluto.
+- [ ] O modo começa em `readonly`.
+- [ ] O servidor aparece em `claude mcp list`, `/mcp` ou `codex mcp list`.
+
+Para detalhes de permissões, troubleshooting, bundle `.mcpb` e smoke tests,
+consulte [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md) e
+[`docs/MCP_PLAN.md`](docs/MCP_PLAN.md).
 
 ---
 
