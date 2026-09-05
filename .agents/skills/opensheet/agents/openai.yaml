@@ -1,0 +1,7 @@
+interface:
+  display_name: "Opensheet"
+  short_description: "Manage personal finances through Opensheets"
+  default_prompt: "Use $opensheet to review my finances for this month."
+
+policy:
+  allow_implicit_invocation: false
