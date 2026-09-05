@@ -56,6 +56,7 @@ const EMPTY_FILTERS: LancamentoSearchFilters = {
   paymentFilter: null,
   pagadorFilter: null,
   categoriaFilter: null,
+  categoriaIdFilter: null,
   contaCartaoFilter: null,
   searchFilter: null,
 };
@@ -193,8 +194,8 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const pagadorFilterOptions = pagadorSlug
     ? optionSets.pagadorFilterOptions.filter(
-        (option) => option.slug === pagadorSlug
-      )
+      (option) => option.slug === pagadorSlug
+    )
     : optionSets.pagadorFilterOptions;
 
   const pagadorData = {
@@ -352,6 +353,7 @@ function buildReadOnlyOptionSets(
 
   const categoriaFilterOptions: LancamentoFilterOption[] = categoriaOptions.map(
     (option) => ({
+      id: option.value,
       slug: option.value,
       label: option.label,
     })

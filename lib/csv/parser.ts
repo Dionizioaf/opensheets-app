@@ -189,7 +189,7 @@ export async function parseCsvFile(
 
                     resolve(parseResult);
                 },
-                error: (error) => {
+                error: (error: Error) => {
                     resolve({
                         success: false,
                         headers: [],

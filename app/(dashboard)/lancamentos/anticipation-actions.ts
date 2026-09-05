@@ -12,10 +12,7 @@ import { handleActionError } from "@/lib/actions/helpers";
 import type { ActionResult } from "@/lib/actions/types";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth/server";
-import {
-  generateAnticipationDescription,
-  generateAnticipationNote,
-} from "@/lib/installments/anticipation-helpers";
+import { applyAnticipation } from "@/lib/finance/anticipation-service";
 import type {
   CancelAnticipationInput,
   CreateAnticipationInput,
@@ -130,149 +127,31 @@ export async function createInstallmentAnticipationAction(
     const user = await getUser();
     const data = createAnticipationSchema.parse(input);
 
-    // 1. Validar parcelas selecionadas
-    const installments = await db.query.lancamentos.findMany({
-      where: and(
-        inArray(lancamentos.id, data.installmentIds),
-        eq(lancamentos.userId, user.id),
-        eq(lancamentos.seriesId, data.seriesId),
-        or(eq(lancamentos.isSettled, false), isNull(lancamentos.isSettled)),
-        eq(lancamentos.isAnticipated, false)
-      ),
-    });
-
-    if (installments.length !== data.installmentIds.length) {
-      return {
-        success: false,
-        error: "Algumas parcelas não estão elegíveis para antecipação.",
-      };
-    }
-
-    if (installments.length === 0) {
-      return {
-        success: false,
-        error: "Nenhuma parcela selecionada para antecipação.",
-      };
-    }
-
-    // 2. Calcular valor total
-    const totalAmountCents = installments.reduce(
-      (sum, inst) => sum + Number(inst.amount) * 100,
-      0
+    const result = await db.transaction((tx) =>
+      applyAnticipation(tx, {
+        userId: user.id,
+        seriesId: data.seriesId,
+        installmentIds: data.installmentIds,
+        anticipationPeriod: data.anticipationPeriod,
+        discount: data.discount,
+        pagadorId: data.pagadorId,
+        categoriaId: data.categoriaId,
+        note: data.note,
+      })
     );
-    const totalAmount = totalAmountCents / 100;
-    const totalAmountAbs = Math.abs(totalAmount);
-
-    // 2.1. Aplicar desconto
-    const discount = data.discount || 0;
-
-    // 2.2. Validar que o desconto não é maior que o valor absoluto total
-    if (discount > totalAmountAbs) {
-      return {
-        success: false,
-        error: "O desconto não pode ser maior que o valor total das parcelas.",
-      };
-    }
-
-    // 2.3. Calcular valor final (se negativo, soma o desconto para reduzir a despesa)
-    const finalAmount = totalAmount < 0
-      ? totalAmount + discount  // Despesa: -1000 + 20 = -980
-      : totalAmount - discount; // Receita: 1000 - 20 = 980
-
-    // 3. Pegar dados da primeira parcela para referência
-    const firstInstallment = installments[0]!;
-
-    // 4. Criar lançamento e antecipação em transação
-    await db.transaction(async (tx) => {
-      // 4.1. Criar o lançamento de antecipação (com desconto aplicado)
-      const [newLancamento] = await tx
-        .insert(lancamentos)
-        .values({
-          name: generateAnticipationDescription(
-            firstInstallment.name,
-            installments.length
-          ),
-          condition: "À vista",
-          transactionType: firstInstallment.transactionType,
-          paymentMethod: firstInstallment.paymentMethod,
-          amount: formatDecimalForDbRequired(finalAmount),
-          purchaseDate: new Date(),
-          period: data.anticipationPeriod,
-          dueDate: null,
-          isSettled: false,
-          pagadorId: data.pagadorId ?? firstInstallment.pagadorId,
-          categoriaId: data.categoriaId ?? firstInstallment.categoriaId,
-          cartaoId: firstInstallment.cartaoId,
-          contaId: firstInstallment.contaId,
-          note:
-            data.note ||
-            generateAnticipationNote(
-              installments.map((inst) => ({
-                id: inst.id,
-                name: inst.name,
-                amount: inst.amount,
-                period: inst.period,
-                purchaseDate: inst.purchaseDate,
-                dueDate: inst.dueDate,
-                currentInstallment: inst.currentInstallment,
-                installmentCount: inst.installmentCount,
-                paymentMethod: inst.paymentMethod,
-                categoriaId: inst.categoriaId,
-                pagadorId: inst.pagadorId,
-              }))
-            ),
-          userId: user.id,
-          installmentCount: null,
-          currentInstallment: null,
-          recurrenceCount: null,
-          isAnticipated: false,
-          isDivided: false,
-          seriesId: null,
-          transferId: null,
-          anticipationId: null,
-          boletoPaymentDate: null,
-        })
-        .returning();
-
-      // 4.2. Criar registro de antecipação
-      const [anticipation] = await tx
-        .insert(installmentAnticipations)
-        .values({
-          seriesId: data.seriesId,
-          anticipationPeriod: data.anticipationPeriod,
-          anticipationDate: new Date(),
-          anticipatedInstallmentIds: data.installmentIds,
-          totalAmount: formatDecimalForDbRequired(totalAmount),
-          installmentCount: installments.length,
-          discount: formatDecimalForDbRequired(discount),
-          lancamentoId: newLancamento.id,
-          pagadorId: data.pagadorId ?? firstInstallment.pagadorId,
-          categoriaId: data.categoriaId ?? firstInstallment.categoriaId,
-          note: data.note || null,
-          userId: user.id,
-        })
-        .returning();
-
-      // 4.3. Marcar parcelas como antecipadas e zerar seus valores
-      await tx
-        .update(lancamentos)
-        .set({
-          isAnticipated: true,
-          anticipationId: anticipation.id,
-          amount: "0",  // Zera o valor para não contar em dobro
-        })
-        .where(inArray(lancamentos.id, data.installmentIds));
-    });
 
     revalidatePath("/lancamentos");
     revalidatePath("/dashboard");
 
     return {
       success: true,
-      message: `${installments.length} ${
-        installments.length === 1 ? "parcela antecipada" : "parcelas antecipadas"
+      message: `${result.installmentCount} ${
+        result.installmentCount === 1
+          ? "parcela antecipada"
+          : "parcelas antecipadas"
       } com sucesso!`,
     };
+
   } catch (error) {
     return handleActionError(error);
   }

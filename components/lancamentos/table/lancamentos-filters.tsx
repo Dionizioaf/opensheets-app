@@ -160,6 +160,35 @@ export function LancamentosFilters({
     [pathname, router, searchParams, startTransition]
   );
 
+  const handleMultiFilterChange = useCallback(
+    (changes: Array<{ key: string; value: string | null }>, removeKeys: string[] = []) => {
+      const currentParamsStr = searchParams.toString();
+      const nextParams = new URLSearchParams(currentParamsStr);
+
+      changes.forEach(({ key, value }) => {
+        if (value && value !== FILTER_EMPTY_VALUE) {
+          nextParams.set(key, value);
+        } else {
+          nextParams.delete(key);
+        }
+      });
+
+      removeKeys.forEach((key) => nextParams.delete(key));
+
+      const nextParamsStr = nextParams.toString();
+      if (nextParamsStr === currentParamsStr) {
+        return;
+      }
+
+      startTransition(() => {
+        router.replace(`${pathname}?${nextParamsStr}`, {
+          scroll: false,
+        });
+      });
+    },
+    [pathname, router, searchParams, startTransition]
+  );
+
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
   const currentSearchParam = searchParams.get("q") ?? "";
 
@@ -230,10 +259,13 @@ export function LancamentosFilters({
     [contaCartaoOptions]
   );
 
-  const categoriaValue = getParamValue("categoria");
-  const selectedCategoria =
-    categoriaValue !== FILTER_EMPTY_VALUE
-      ? categoriaOptions.find((option) => option.slug === categoriaValue)
+  const categoriaIdValue = searchParams.get("categoriaId");
+  const categoriaSlugValue = searchParams.get("categoria");
+  const categoriaValue = categoriaIdValue ?? categoriaSlugValue ?? FILTER_EMPTY_VALUE;
+  const selectedCategoria = categoriaIdValue
+    ? categoriaOptions.find((option) => option.id === categoriaIdValue)
+    : categoriaSlugValue
+      ? categoriaOptions.find((option) => option.slug === categoriaSlugValue)
       : null;
 
   const pagadorValue = getParamValue("pagador");
@@ -358,7 +390,10 @@ export function LancamentosFilters({
                 <CommandItem
                   value={FILTER_EMPTY_VALUE}
                   onSelect={() => {
-                    handleFilterChange("categoria", null);
+                    handleMultiFilterChange(
+                      [{ key: "categoriaId", value: null }],
+                      ["categoria"]
+                    );
                     setCategoriaOpen(false);
                   }}
                 >
@@ -372,7 +407,10 @@ export function LancamentosFilters({
                     key={option.slug}
                     value={option.slug}
                     onSelect={() => {
-                      handleFilterChange("categoria", option.slug);
+                      handleMultiFilterChange(
+                        [{ key: "categoriaId", value: option.id ?? null }],
+                        ["categoria"]
+                      );
                       setCategoriaOpen(false);
                     }}
                   >
@@ -380,7 +418,9 @@ export function LancamentosFilters({
                       label={option.label}
                       icon={option.icon}
                     />
-                    {categoriaValue === option.slug ? (
+                    {(categoriaIdValue
+                      ? categoriaIdValue === option.id
+                      : categoriaValue === option.slug) ? (
                       <RiCheckLine className="ml-auto size-4" />
                     ) : null}
                   </CommandItem>

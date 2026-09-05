@@ -1,0 +1,62 @@
+{
+  "dxt_version": "0.1",
+  "name": "opensheets-finance",
+  "display_name": "Opensheets Finance",
+  "version": "0.0.0",
+  "description": "Local MCP server for the Opensheets personal-finance app.",
+  "long_description": "Exposes the Opensheets finance tools (reports, lookups, transaction/transfer creation, invoice payment, OFX/CSV import) to a Claude Desktop client over stdio. The server talks directly to the same PostgreSQL database as the web app; it does not open a network port. Writes are gated by OPENSHEETS_MCP_WRITE_MODE (readonly | safe-writes | full) and every mutation is audited and idempotent.",
+  "author": {
+    "name": "Opensheets"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "DATABASE_URL": "${user_config.database_url}",
+        "OPENSHEETS_MCP_USER_ID": "${user_config.user_id}",
+        "OPENSHEETS_MCP_USER_EMAIL": "${user_config.user_email}",
+        "OPENSHEETS_MCP_WRITE_MODE": "${user_config.write_mode}",
+        "OPENSHEETS_MCP_IMPORT_DIR": "${user_config.import_dir}"
+      }
+    }
+  },
+  "user_config": {
+    "database_url": {
+      "type": "string",
+      "title": "PostgreSQL connection string",
+      "description": "postgres://user:pass@host:port/database — the same database the web app uses.",
+      "sensitive": true,
+      "required": true
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Opensheets user ID (optional)",
+      "description": "UUID from the user table. Set THIS or user email — not both.",
+      "sensitive": false,
+      "required": false
+    },
+    "user_email": {
+      "type": "string",
+      "title": "Opensheets user email (optional)",
+      "description": "Login email. Set THIS or user ID — not both.",
+      "sensitive": false,
+      "required": false
+    },
+    "write_mode": {
+      "type": "string",
+      "title": "Write mode",
+      "description": "readonly (default), safe-writes, or full. Start with readonly. High-risk tools (delete, reversal, invoice payment, series edit, anticipation, import apply) require full.",
+      "default": "readonly",
+      "required": false
+    },
+    "import_dir": {
+      "type": "directory",
+      "title": "OFX/CSV import directory (optional)",
+      "description": "Absolute path finance_import_preview may read files from. Leave empty to accept only base64 content.",
+      "required": false
+    }
+  }
+}

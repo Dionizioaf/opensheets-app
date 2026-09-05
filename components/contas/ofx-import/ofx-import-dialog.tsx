@@ -18,7 +18,11 @@ import { mapOfxTransactionsToLancamentos } from "@/lib/ofx/mapper";
 import {
     importOfxTransactionsAction,
     detectOfxDuplicatesAction,
+    suggestAiCategoriesForOfxAction,
+    suggestCategoriesForOfxAction,
 } from "@/app/(dashboard)/contas/[contaId]/extrato/actions";
+import { DEFAULT_MODEL } from "@/app/(dashboard)/insights/data";
+import { isAiCategorizationEnabledClient } from "@/lib/ai/flags";
 import { UploadStep } from "./upload-step";
 import { ReviewStep } from "./review-step";
 import { ConfirmStep } from "./confirm-step";
@@ -77,6 +81,13 @@ export function OfxImportDialog({
     const [transactions, setTransactions] = useState<ImportTransaction[]>([]);
     const [showDuplicates, setShowDuplicates] = useState(true);
     const [isDetectingDuplicates, setIsDetectingDuplicates] = useState(false);
+    const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);
+
+    const aiFeatureAvailable = isAiCategorizationEnabledClient();
+    const [useAiCategorization, setUseAiCategorization] = useState(
+        aiFeatureAvailable
+    );
+    const [aiModelId, setAiModelId] = useState(DEFAULT_MODEL);
 
     // Import step state
     const [isImporting, setIsImporting] = useState(false);
@@ -240,11 +251,12 @@ export function OfxImportDialog({
                     }))
                 );
 
+                let updatedTransactions = importTransactions;
+
                 // Mark transactions as duplicates based on detection results
                 if (duplicateResult.success && duplicateResult.data) {
                     const duplicatesMap = duplicateResult.data;
-                    // Create a new array with updated duplicate flags
-                    const updatedTransactions = importTransactions.map((t) => {
+                    updatedTransactions = importTransactions.map((t) => {
                         const matches = duplicatesMap.get(t.id);
                         if (matches && matches.length > 0) {
                             return {
@@ -265,10 +277,101 @@ export function OfxImportDialog({
                         }
                         return t;
                     });
-
-                    // Update state with new array
-                    setTransactions(updatedTransactions);
                 }
+
+                const shouldUseAi = aiFeatureAvailable && useAiCategorization;
+                const nonDuplicateTransactions = updatedTransactions.filter(
+                    (t) => !t.isDuplicate
+                );
+
+                let remainingForAi = nonDuplicateTransactions;
+
+                if (nonDuplicateTransactions.length > 0) {
+                    try {
+                        const fuzzyResult = await suggestCategoriesForOfxAction(
+                            contaId,
+                            nonDuplicateTransactions.map((t) => ({
+                                id: t.id,
+                                nome: t.nome,
+                                valor: t.valor,
+                                tipo_transacao: t.tipo_transacao,
+                            }))
+                        );
+
+                        if (fuzzyResult.success && fuzzyResult.data) {
+                            updatedTransactions = updatedTransactions.map((t) => {
+                                const suggestion = fuzzyResult.data?.get(t.id);
+                                if (suggestion?.categoriaId) {
+                                    return {
+                                        ...t,
+                                        categoriaId: suggestion.categoriaId,
+                                        suggestedCategoriaId: suggestion.categoriaId,
+                                        categoryConfidence: suggestion.confidence,
+                                    };
+                                }
+                                return t;
+                            });
+
+                            const fuzzySuggestedIds = new Set(
+                                Array.from(fuzzyResult.data.entries())
+                                    .filter(([, suggestion]) => suggestion?.categoriaId)
+                                    .map(([id]) => id)
+                            );
+
+                            remainingForAi = nonDuplicateTransactions.filter(
+                                (t) => !fuzzySuggestedIds.has(t.id)
+                            );
+                        }
+                    } catch (error) {
+                        console.error("Erro ao sugerir categorias:", error);
+                    }
+                }
+
+                if (shouldUseAi && remainingForAi.length > 0) {
+                    setIsSuggestingCategories(true);
+                    try {
+                        const aiResult = await suggestAiCategoriesForOfxAction(
+                            contaId,
+                            remainingForAi.map((t) => ({
+                                id: t.id,
+                                nome: t.nome,
+                                valor: t.valor,
+                                tipo_transacao: t.tipo_transacao,
+                                categoriaId: t.categoriaId ?? null,
+                            })),
+                            aiModelId
+                        );
+
+                        if (aiResult.success && aiResult.data) {
+                            updatedTransactions = updatedTransactions.map((t) => {
+                                const suggestion = aiResult.data?.[t.id];
+                                if (
+                                    suggestion?.categoriaId &&
+                                    suggestion.confidence === "high"
+                                ) {
+                                    return {
+                                        ...t,
+                                        categoriaId: suggestion.categoriaId,
+                                        suggestedCategoriaId: suggestion.categoriaId,
+                                        categoryConfidence: suggestion.confidence,
+                                        isEdited: true,
+                                    };
+                                }
+
+                                return t;
+                            });
+                        } else {
+                            throw new Error(aiResult.error);
+                        }
+                    } catch (error) {
+                        console.error("Erro ao sugerir categorias com IA:", error);
+                    } finally {
+                        setIsSuggestingCategories(false);
+                    }
+                }
+
+                // Update state with new array
+                setTransactions(updatedTransactions);
 
                 setIsDetectingDuplicates(false);
 
@@ -294,7 +397,7 @@ export function OfxImportDialog({
                 setIsParsingFile(false);
             }
         },
-        [contaId, defaultCategoriaId]
+        [aiFeatureAvailable, aiModelId, contaId, defaultCategoriaId, useAiCategorization]
     );
 
     /**
@@ -462,10 +565,13 @@ export function OfxImportDialog({
             setParsingError(null);
             setImportError(null);
             setShowDuplicates(true);
+            setIsSuggestingCategories(false);
+            setUseAiCategorization(aiFeatureAvailable);
+            setAiModelId(DEFAULT_MODEL);
         }, 300);
 
         onCancel?.();
-    }, [isImporting, onCancel]);
+    }, [aiFeatureAvailable, isImporting, onCancel]);
 
     /**
      * Get selected count for review step
@@ -578,6 +684,12 @@ export function OfxImportDialog({
                             showDuplicates={showDuplicates}
                             onToggleDuplicates={setShowDuplicates}
                             isDetectingDuplicates={isDetectingDuplicates}
+                            isSuggestingCategories={isSuggestingCategories}
+                            aiFeatureAvailable={aiFeatureAvailable}
+                            aiEnabled={useAiCategorization}
+                            onToggleAi={setUseAiCategorization}
+                            aiModelId={aiModelId}
+                            onAiModelChange={setAiModelId}
                         />
                     )}
 
@@ -600,7 +712,11 @@ export function OfxImportDialog({
                         <Button
                             variant="outline"
                             onClick={handleBack}
-                            disabled={currentStep === "upload" || isParsingFile}
+                            disabled={
+                                currentStep === "upload" ||
+                                isParsingFile ||
+                                isSuggestingCategories
+                            }
                             className="min-w-[80px] text-sm"
                         >
                             Voltar
@@ -611,6 +727,7 @@ export function OfxImportDialog({
                             disabled={
                                 currentStep === "upload" ||
                                 isParsingFile ||
+                                isSuggestingCategories ||
                                 (currentStep === "review" && selectedCount === 0)
                             }
                             className="min-w-[100px] text-sm"

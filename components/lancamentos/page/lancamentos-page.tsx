@@ -5,14 +5,19 @@ import {
   deleteLancamentoAction,
   deleteLancamentoBulkAction,
   deleteMultipleLancamentosAction,
+  applyLancamentoCategorySuggestionsAction,
+  suggestLancamentoCategoriesAction,
   toggleLancamentoSettlementAction,
   updateLancamentoBulkAction,
 } from "@/app/(dashboard)/lancamentos/actions";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { calculateTotalizers } from "@/lib/lancamentos/totalizers";
 import LancamentosTotalizer from "../totalizer/lancamentos-totalizer";
+import { DEFAULT_MODEL } from "@/app/(dashboard)/insights/data";
+import { isAiCategorizationEnabledClient } from "@/lib/ai/flags";
+import { ImportModelSelector } from "@/components/ai/import-model-selector";
 
 import { AnticipateInstallmentsDialog } from "../dialogs/anticipate-installments-dialog/anticipate-installments-dialog";
 import { AnticipationHistoryDialog } from "../dialogs/anticipate-installments-dialog/anticipation-history-dialog";
@@ -22,6 +27,14 @@ import { LancamentoDialog } from "../dialogs/lancamento-dialog/lancamento-dialog
 import { LancamentosTable } from "../table/lancamentos-table";
 import { MassAddDialog, type MassAddFormData } from "../dialogs/mass-add-dialog";
 import { CsvImportDialog } from "../csv-import/csv-import-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
+import { RiSparklingLine } from "@remixicon/react";
 import type {
   ContaCartaoFilterOption,
   LancamentoFilterOption,
@@ -30,6 +43,7 @@ import type {
 } from "../types";
 
 interface LancamentosPageProps {
+  userId: string;
   lancamentos: LancamentoItem[];
   pagadorOptions: SelectOption[];
   splitPagadorOptions: SelectOption[];
@@ -50,6 +64,7 @@ interface LancamentosPageProps {
 }
 
 export function LancamentosPage({
+  userId,
   lancamentos,
   pagadorOptions,
   splitPagadorOptions,
@@ -141,6 +156,77 @@ export function LancamentosPage({
   const [anticipationHistoryOpen, setAnticipationHistoryOpen] = useState(false);
   const [selectedForAnticipation, setSelectedForAnticipation] =
     useState<LancamentoItem | null>(null);
+  const [categorizeOpen, setCategorizeOpen] = useState(false);
+  const [categorizeRunning, setCategorizeRunning] = useState(false);
+  const [categorizeAppliedCount, setCategorizeAppliedCount] = useState(0);
+  const [categorizeSuggestions, setCategorizeSuggestions] = useState<
+    Array<{
+      id: string;
+      name: string;
+      currentCategoriaName: string | null;
+      suggestedCategoriaName: string | null;
+      suggestedCategoriaId: string | null;
+      confidence: "high" | "medium" | "low";
+    }>
+  >([]);
+  const [categorizeSelection, setCategorizeSelection] = useState<Set<string>>(
+    new Set()
+  );
+  const [categorizeSelectedOnly, setCategorizeSelectedOnly] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<LancamentoItem[]>([]);
+  const aiFeatureAvailable = isAiCategorizationEnabledClient();
+  const [useAiCategorization, setUseAiCategorization] = useState(
+    aiFeatureAvailable
+  );
+  const [aiModelId, setAiModelId] = useState(DEFAULT_MODEL);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const storageKey = `lancamentos:categorization:${userId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as {
+        useAi?: boolean;
+        modelId?: string;
+        selectedOnly?: boolean;
+      };
+      if (typeof parsed.useAi === "boolean") {
+        setUseAiCategorization(parsed.useAi);
+      }
+      if (typeof parsed.modelId === "string" && parsed.modelId.length > 0) {
+        setAiModelId(parsed.modelId);
+      }
+      if (typeof parsed.selectedOnly === "boolean") {
+        setCategorizeSelectedOnly(parsed.selectedOnly);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar preferências de categorização:", error);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const storageKey = `lancamentos:categorization:${userId}`;
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        useAi: useAiCategorization,
+        modelId: aiModelId,
+        selectedOnly: categorizeSelectedOnly,
+      })
+    );
+  }, [aiModelId, categorizeSelectedOnly, useAiCategorization, userId]);
 
   const handleToggleSettlement = useCallback(async (item: LancamentoItem) => {
     if (item.paymentMethod === "Cartão de crédito") {
@@ -385,6 +471,117 @@ export function LancamentosPage({
     setAnticipationHistoryOpen(true);
   }, []);
 
+  const handleOpenCategorization = useCallback(() => {
+    setCategorizeOpen(true);
+    setCategorizeAppliedCount(0);
+    setCategorizeSuggestions([]);
+    setCategorizeSelection(new Set());
+  }, []);
+
+  const handleRunCategorization = useCallback(async () => {
+    const baseItems = categorizeSelectedOnly
+      ? selectedRows
+      : lancamentos;
+
+    if (baseItems.length === 0) {
+      toast.info("Nenhum lançamento para classificar.");
+      return;
+    }
+
+    if (baseItems.length > 300) {
+      toast.error("Limite de 300 lançamentos por classificação.");
+      return;
+    }
+
+    try {
+      setCategorizeRunning(true);
+      const result = await suggestLancamentoCategoriesAction({
+        ids: baseItems.map((item) => item.id),
+        modelId: aiModelId,
+        useAi: useAiCategorization,
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error ?? "Erro ao sugerir categorias.");
+      }
+
+      setCategorizeAppliedCount(result.data.appliedCount);
+      setCategorizeSuggestions(result.data.reviewSuggestions);
+      setCategorizeSelection(
+        new Set(result.data.reviewSuggestions.map((item) => item.id))
+      );
+
+      if (result.data.appliedCount > 0) {
+        toast.success(
+          `${result.data.appliedCount} lançamentos atualizados automaticamente.`
+        );
+      }
+
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Erro ao sugerir categorias.";
+      toast.error(message);
+    } finally {
+      setCategorizeRunning(false);
+    }
+  }, [
+    aiModelId,
+    categorizeSelectedOnly,
+    lancamentos,
+    router,
+    selectedRows,
+    useAiCategorization,
+  ]);
+
+  const toggleCategorizeSelection = useCallback((id: string) => {
+    setCategorizeSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleApplyCategorization = useCallback(async () => {
+    if (categorizeSelection.size === 0) {
+      toast.info("Selecione pelo menos uma sugestão.");
+      return;
+    }
+
+    const selectedSuggestions = categorizeSuggestions
+      .filter((item) => categorizeSelection.has(item.id))
+      .filter((item) => item.suggestedCategoriaId);
+
+    if (selectedSuggestions.length === 0) {
+      toast.info("Nenhuma sugestão válida selecionada.");
+      return;
+    }
+
+    const result = await applyLancamentoCategorySuggestionsAction({
+      suggestions: selectedSuggestions.map((item) => ({
+        id: item.id,
+        categoriaId: item.suggestedCategoriaId!,
+      })),
+    });
+
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Erro ao aplicar sugestões.");
+      return;
+    }
+
+    toast.success(`${result.data.appliedCount} sugestões aplicadas.`);
+    setCategorizeOpen(false);
+    setCategorizeSuggestions([]);
+    setCategorizeSelection(new Set());
+    router.refresh();
+  }, [categorizeSelection, categorizeSuggestions, router]);
+
   return (
     <>
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -401,6 +598,8 @@ export function LancamentosPage({
           onCreate={allowCreate ? handleCreate : undefined}
           onMassAdd={allowCreate ? handleMassAdd : undefined}
           onCsvImport={allowCreate ? handleCsvImport : undefined}
+          onRunCategorization={allowCreate ? handleOpenCategorization : undefined}
+          onSelectionChange={setSelectedRows}
           onEdit={handleEdit}
           onCopy={handleCopy}
           onConfirmDelete={handleConfirmDelete}
@@ -533,6 +732,167 @@ export function LancamentosPage({
         }
         onConfirm={handleBulkEdit}
       />
+
+      <Dialog open={categorizeOpen} onOpenChange={setCategorizeOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Classificar lançamentos</DialogTitle>
+            <DialogDescription>
+              Classifica os lançamentos visíveis do período atual. Alta confiança
+              é aplicada automaticamente e as demais ficam para revisão.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Usar IA para sugerir categorias</p>
+                  <p className="text-xs text-muted-foreground">
+                    Se desativado, usamos a sugestão baseada no histórico.
+                  </p>
+                </div>
+                <Switch
+                  checked={useAiCategorization}
+                  onCheckedChange={setUseAiCategorization}
+                  disabled={!aiFeatureAvailable}
+                />
+              </div>
+
+              {useAiCategorization && aiFeatureAvailable ? (
+                <ImportModelSelector
+                  value={aiModelId}
+                  onValueChange={setAiModelId}
+                  disabled={categorizeRunning}
+                />
+              ) : null}
+
+              <div className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium">Apenas linhas selecionadas</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedRows.length > 0
+                      ? `${selectedRows.length} selecionadas na tabela.`
+                      : "Nenhuma linha selecionada."}
+                  </p>
+                </div>
+                <Switch
+                  checked={categorizeSelectedOnly}
+                  onCheckedChange={setCategorizeSelectedOnly}
+                  disabled={selectedRows.length === 0}
+                />
+              </div>
+            </div>
+
+            {(categorizeAppliedCount > 0 || categorizeSuggestions.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                <span className="font-medium">Resumo:</span>
+                <span>{categorizeAppliedCount} aplicadas automaticamente</span>
+                <span className="text-muted-foreground">|</span>
+                <span>{categorizeSuggestions.length} para revisao</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-muted-foreground">
+                {categorizeAppliedCount > 0
+                  ? `${categorizeAppliedCount} atualizados automaticamente.`
+                  : "Pronto para analisar os lançamentos."}
+              </div>
+              <Button
+                onClick={handleRunCategorization}
+                disabled={
+                  categorizeRunning ||
+                  (categorizeSelectedOnly && selectedRows.length === 0)
+                }
+              >
+                <RiSparklingLine className="size-4" />
+                {categorizeRunning ? "Classificando..." : "Classificar agora"}
+              </Button>
+            </div>
+
+            {categorizeSuggestions.length > 0 ? (
+              <div className="space-y-3">
+                <div className="text-sm font-medium">
+                  Sugestões para revisar ({categorizeSuggestions.length})
+                </div>
+                <div className="max-h-[320px] overflow-y-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={
+                              categorizeSelection.size ===
+                              categorizeSuggestions.length &&
+                              categorizeSuggestions.length > 0
+                            }
+                            onCheckedChange={(value) => {
+                              if (value) {
+                                setCategorizeSelection(
+                                  new Set(
+                                    categorizeSuggestions.map((item) => item.id)
+                                  )
+                                );
+                              } else {
+                                setCategorizeSelection(new Set());
+                              }
+                            }}
+                            aria-label="Selecionar todas"
+                          />
+                        </TableHead>
+                        <TableHead>Estabelecimento</TableHead>
+                        <TableHead>Atual</TableHead>
+                        <TableHead>Sugerida</TableHead>
+                        <TableHead>Confiança</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {categorizeSuggestions.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={categorizeSelection.has(item.id)}
+                              onCheckedChange={() =>
+                                toggleCategorizeSelection(item.id)
+                              }
+                              aria-label="Selecionar sugestão"
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm">{item.name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {item.currentCategoriaName ?? "Sem categoria"}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {item.suggestedCategoriaName ?? "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {item.confidence === "high"
+                                ? "Alta"
+                                : item.confidence === "medium"
+                                  ? "Média"
+                                  : "Baixa"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleApplyCategorization}
+                    disabled={categorizeSelection.size === 0}
+                  >
+                    Aplicar selecionadas
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {allowCreate ? (
         <MassAddDialog

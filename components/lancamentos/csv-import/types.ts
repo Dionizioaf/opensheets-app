@@ -184,6 +184,13 @@ export interface CsvReviewStepProps {
     onBulkCategorySet: (ids: string[], categoriaId: string) => void;
     showDuplicates: boolean;
     onToggleDuplicates: (show: boolean) => void;
+    isDetectingDuplicates?: boolean;
+    aiFeatureAvailable?: boolean;
+    aiEnabled?: boolean;
+    onToggleAi?: (enabled: boolean) => void;
+    aiModelId?: string;
+    onAiModelChange?: (modelId: string) => void;
+    isSuggestingCategories?: boolean;
 }
 
 /**

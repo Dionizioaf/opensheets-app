@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { getIconComponent } from "@/lib/utils/icons";
 import { formatPeriodLabel, formatCurrency, formatPercentageChange } from "@/lib/relatorios/utils";
+import { formatPeriodForUrl } from "@/lib/utils/period";
 import type { CategoryReportData } from "@/lib/relatorios/types";
 import { cn } from "@/lib/utils/ui";
 import { RiArrowDownLine, RiArrowUpLine, RiPieChartLine } from "@remixicon/react";
@@ -85,6 +86,10 @@ export function CategoryReportCards({ data }: CategoryReportCardsProps) {
                                                 const isFirstMonth = periodIndex === 0;
                                                 const value = monthData?.amount ?? 0;
                                                 const previousValue = monthData?.previousAmount ?? 0;
+                                                const periodParam = formatPeriodForUrl(period);
+                                                const lancamentosHref = `/lancamentos?periodo=${encodeURIComponent(
+                                                    periodParam
+                                                )}&categoriaId=${encodeURIComponent(category.categoryId)}`;
 
                                                 // Calculate percentage change
                                                 const percentageChange = isFirstMonth
@@ -107,9 +112,13 @@ export function CategoryReportCards({ data }: CategoryReportCardsProps) {
                                                     category.type === "despesa" ? hasDecrease : hasIncrease;
 
                                                 return (
-                                                    <div
+                                                    <a
                                                         key={period}
-                                                        className="flex items-center justify-between gap-4 py-2 border-b last:border-b-0"
+                                                        href={lancamentosHref}
+                                                        target="_blank"
+                                                        rel="noopener"
+                                                        className="flex items-center justify-between gap-4 py-2 border-b last:border-b-0 hover:underline focus-visible:underline focus-visible:outline-none"
+                                                        aria-label={`Abrir lancamentos de ${category.name} em ${formatPeriodLabel(period)}`}
                                                     >
                                                         <span className="text-sm font-medium text-muted-foreground">
                                                             {formatPeriodLabel(period)}
@@ -136,7 +145,7 @@ export function CategoryReportCards({ data }: CategoryReportCardsProps) {
                                                                 <span className="text-xs text-muted-foreground">-</span>
                                                             )}
                                                         </div>
-                                                    </div>
+                                                    </a>
                                                 );
                                             })}
                                         </div>

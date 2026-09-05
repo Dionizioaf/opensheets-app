@@ -1,12 +1,6 @@
 "use server";
 
-import {
-  cartoes,
-  categorias,
-  faturas,
-  lancamentos,
-  pagadores,
-} from "@/db/schema";
+import { cartoes, lancamentos } from "@/db/schema";
 import { buildInvoicePaymentNote } from "@/lib/accounts/constants";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/auth/server";
@@ -16,9 +10,9 @@ import {
   PERIOD_FORMAT_REGEX,
   type InvoicePaymentStatus,
 } from "@/lib/faturas";
-import { PAGADOR_ROLE_ADMIN } from "@/lib/pagadores/constants";
+import { applyInvoicePaymentStatus } from "@/lib/finance/invoice-payment-service";
 import { parseLocalDateString } from "@/lib/utils/date";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -48,9 +42,6 @@ const successMessageByStatus: Record<InvoicePaymentStatus, string> = {
   [INVOICE_PAYMENT_STATUS.PENDING]: "Pagamento da fatura foi revertido.",
 };
 
-const formatDecimal = (value: number) =>
-  (Math.round(value * 100) / 100).toFixed(2);
-
 export async function updateInvoicePaymentStatusAction(
   input: UpdateInvoicePaymentStatusInput
 ): Promise<ActionResult> {
@@ -59,153 +50,13 @@ export async function updateInvoicePaymentStatusAction(
     const data = updateInvoicePaymentStatusSchema.parse(input);
 
     await db.transaction(async (tx: typeof db) => {
-      const card = await tx.query.cartoes.findFirst({
-        columns: { id: true, contaId: true, name: true },
-        where: and(eq(cartoes.id, data.cartaoId), eq(cartoes.userId, user.id)),
+      await applyInvoicePaymentStatus(tx, {
+        userId: user.id,
+        cartaoId: data.cartaoId,
+        period: data.period,
+        status: data.status,
+        paymentDate: data.paymentDate,
       });
-
-      if (!card) {
-        throw new Error("Cartão não encontrado.");
-      }
-
-      const existingInvoice = await tx.query.faturas.findFirst({
-        columns: {
-          id: true,
-        },
-        where: and(
-          eq(faturas.cartaoId, data.cartaoId),
-          eq(faturas.userId, user.id),
-          eq(faturas.period, data.period)
-        ),
-      });
-
-      if (existingInvoice) {
-        await tx
-          .update(faturas)
-          .set({
-            paymentStatus: data.status,
-          })
-          .where(eq(faturas.id, existingInvoice.id));
-      } else {
-        await tx.insert(faturas).values({
-          cartaoId: data.cartaoId,
-          period: data.period,
-          paymentStatus: data.status,
-          userId: user.id,
-        });
-      }
-
-      const shouldMarkAsPaid = data.status === INVOICE_PAYMENT_STATUS.PAID;
-
-      await tx
-        .update(lancamentos)
-        .set({ isSettled: shouldMarkAsPaid })
-        .where(
-          and(
-            eq(lancamentos.userId, user.id),
-            eq(lancamentos.cartaoId, card.id),
-            eq(lancamentos.period, data.period)
-          )
-        );
-
-      const invoiceNote = buildInvoicePaymentNote(card.id, data.period);
-
-      if (shouldMarkAsPaid) {
-        const [adminShareRow] = await tx
-          .select({
-            total: sql<number>`
-              coalesce(
-                sum(
-                  case
-                    when ${lancamentos.transactionType} = 'Despesa' then ${lancamentos.amount}
-                    else 0
-                  end
-                ),
-                0
-              )
-            `,
-          })
-          .from(lancamentos)
-          .leftJoin(pagadores, eq(lancamentos.pagadorId, pagadores.id))
-          .where(
-            and(
-              eq(lancamentos.userId, user.id),
-              eq(lancamentos.cartaoId, card.id),
-              eq(lancamentos.period, data.period),
-              eq(pagadores.role, PAGADOR_ROLE_ADMIN)
-            )
-          );
-
-        const adminShare = Math.abs(Number(adminShareRow?.total ?? 0));
-
-        if (adminShare > 0 && card.contaId) {
-          const adminPagador = await tx.query.pagadores.findFirst({
-            columns: { id: true },
-            where: and(
-              eq(pagadores.userId, user.id),
-              eq(pagadores.role, PAGADOR_ROLE_ADMIN)
-            ),
-          });
-
-          const paymentCategory = await tx.query.categorias.findFirst({
-            columns: { id: true },
-            where: and(
-              eq(categorias.userId, user.id),
-              eq(categorias.name, "Pagamentos")
-            ),
-          });
-
-          if (adminPagador) {
-            // Usar a data customizada ou a data atual como data de pagamento
-            const invoiceDate = data.paymentDate
-              ? parseLocalDateString(data.paymentDate)
-              : new Date();
-
-            const amount = `-${formatDecimal(adminShare)}`;
-            const payload = {
-              condition: "À vista",
-              name: `Pagamento fatura - ${card.name}`,
-              paymentMethod: "Pix",
-              note: invoiceNote,
-              amount,
-              purchaseDate: invoiceDate,
-              transactionType: "Despesa" as const,
-              period: data.period,
-              isSettled: true,
-              userId: user.id,
-              contaId: card.contaId,
-              categoriaId: paymentCategory?.id ?? null,
-              pagadorId: adminPagador.id,
-            };
-
-            const existingPayment = await tx.query.lancamentos.findFirst({
-              columns: { id: true },
-              where: and(
-                eq(lancamentos.userId, user.id),
-                eq(lancamentos.note, invoiceNote)
-              ),
-            });
-
-            if (existingPayment) {
-              await tx
-                .update(lancamentos)
-                .set(payload)
-                .where(eq(lancamentos.id, existingPayment.id));
-            } else {
-              await tx.insert(lancamentos).values(payload);
-            }
-          }
-        }
-      } else {
-        await tx
-          .delete(lancamentos)
-          .where(
-            and(
-              eq(lancamentos.userId, user.id),
-              eq(lancamentos.note, invoiceNote)
-            )
-          );
-      }
     });
 
     revalidatePath(`/cartoes/${data.cartaoId}/fatura`);

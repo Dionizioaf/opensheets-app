@@ -50,12 +50,15 @@ import {
   RiAddCircleFill,
   RiAddCircleLine,
   RiArrowLeftRightLine,
+  RiArrowDownLine,
+  RiArrowUpLine,
   RiBankCard2Line,
   RiBankLine,
   RiChat1Line,
   RiCheckLine,
   RiDeleteBin5Line,
   RiEyeLine,
+  RiExpandUpDownLine,
   RiFileCopyLine,
   RiFileUploadLine,
   RiGroupLine,
@@ -518,24 +521,40 @@ const buildColumns = ({
             const loading = isSettlementLoading(row.original.id);
             const settled = Boolean(row.original.isSettled);
             const Icon = settled ? RiThumbUpFill : RiThumbUpLine;
+            const tooltipLabel = loading
+              ? "Atualizando pagamento"
+              : readOnly
+                ? "Lançamento somente leitura"
+                : !canToggleSettlement
+                  ? "Pagamento conciliado automaticamente"
+                  : settled
+                    ? "Desfazer pagamento"
+                    : "Marcar como pago";
 
             return (
-              <Button
-                variant={settled ? "secondary" : "ghost"}
-                size="icon-sm"
-                onClick={() => handleToggleSettlement(row.original)}
-                disabled={loading || readOnly || !canToggleSettlement}
-                className={canToggleSettlement ? undefined : "opacity-70"}
-              >
-                {loading ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <Icon className={cn("size-4", settled && "text-green-600")} />
-                )}
-                <span className="sr-only">
-                  {settled ? "Desfazer pagamento" : "Marcar como pago"}
-                </span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant={settled ? "secondary" : "ghost"}
+                      size="icon-sm"
+                      onClick={() => handleToggleSettlement(row.original)}
+                      disabled={loading || readOnly || !canToggleSettlement}
+                      className={canToggleSettlement ? undefined : "opacity-70"}
+                    >
+                      {loading ? (
+                        <Spinner className="size-4" />
+                      ) : (
+                        <Icon
+                          className={cn("size-4", settled && "text-green-600")}
+                        />
+                      )}
+                      <span className="sr-only">{tooltipLabel}</span>
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top">{tooltipLabel}</TooltipContent>
+              </Tooltip>
             );
           })()}
 
@@ -627,6 +646,8 @@ type LancamentosTableProps = {
   onCreate?: () => void;
   onMassAdd?: () => void;
   onCsvImport?: () => void;
+  onRunCategorization?: () => void;
+  onSelectionChange?: (items: LancamentoItem[]) => void;
   onEdit?: (item: LancamentoItem) => void;
   onCopy?: (item: LancamentoItem) => void;
   onConfirmDelete?: (item: LancamentoItem) => void;
@@ -675,6 +696,8 @@ export function LancamentosTable({
   onCreate,
   onMassAdd,
   onCsvImport,
+  onRunCategorization,
+  onSelectionChange,
   onEdit,
   onCopy,
   onConfirmDelete,
@@ -705,6 +728,23 @@ export function LancamentosTable({
   const [columnOrder, setColumnOrder] = useState<string[]>(
     preferences?.columnOrder ?? DEFAULT_COLUMN_ORDER
   );
+
+  const renderSortIcon = (direction: false | "asc" | "desc") => {
+    if (!direction) {
+      return (
+        <RiExpandUpDownLine
+          className="h-4 w-4 text-muted-foreground"
+          aria-hidden
+        />
+      );
+    }
+
+    return direction === "asc" ? (
+      <RiArrowUpLine className="h-4 w-4" aria-hidden />
+    ) : (
+      <RiArrowDownLine className="h-4 w-4" aria-hidden />
+    );
+  };
 
   const columns = useMemo(
     () =>
@@ -760,6 +800,10 @@ export function LancamentosTable({
     (total, row) => total + (row.original.amount ?? 0),
     0
   );
+
+  useEffect(() => {
+    onSelectionChange?.(selectedRows.map((row) => row.original));
+  }, [onSelectionChange, selectedRows]);
 
   // Initialize column visibility from preferences on mount
   useEffect(() => {
@@ -834,13 +878,17 @@ export function LancamentosTable({
   };
 
   const showTopControls =
-    Boolean(onCreate) || Boolean(onMassAdd) || Boolean(onCsvImport) || showFilters;
+    Boolean(onCreate) ||
+    Boolean(onMassAdd) ||
+    Boolean(onCsvImport) ||
+    Boolean(onRunCategorization) ||
+    showFilters;
 
   return (
     <TooltipProvider>
       {showTopControls ? (
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {onCreate || onMassAdd || onCsvImport ? (
+          {onCreate || onMassAdd || onCsvImport || onRunCategorization ? (
             <div className="flex gap-2">
               {onCreate ? (
                 <Button onClick={onCreate} className="w-full sm:w-auto">
@@ -871,6 +919,19 @@ export function LancamentosTable({
                   <RiFileUploadLine className="size-4" />
                   <span className="sr-only">
                     Importar arquivo CSV
+                  </span>
+                </Button>
+              ) : null}
+              {onRunCategorization ? (
+                <Button
+                  onClick={onRunCategorization}
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                >
+                  <RiChat1Line className="size-4" />
+                  <span className="sr-only">
+                    Classificar com IA
                   </span>
                 </Button>
               ) : null}
@@ -939,13 +1000,36 @@ export function LancamentosTable({
                           <TableHead
                             key={header.id}
                             className="whitespace-nowrap"
+                            aria-sort={
+                              header.column.getIsSorted() === "asc"
+                                ? "ascending"
+                                : header.column.getIsSorted() === "desc"
+                                  ? "descending"
+                                  : "none"
+                            }
                           >
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
+                            {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="-ml-2 h-8 px-2 text-xs font-semibold"
+                                onClick={header.column.getToggleSortingHandler()}
+                              >
+                                <span className="flex items-center gap-1">
+                                  {flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                                  {renderSortIcon(header.column.getIsSorted())}
+                                </span>
+                              </Button>
+                            ) : (
+                              flexRender(
                                 header.column.columnDef.header,
                                 header.getContext()
-                              )}
+                              )
+                            )}
                           </TableHead>
                         ))}
                       </TableRow>

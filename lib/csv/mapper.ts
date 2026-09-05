@@ -217,8 +217,11 @@ export function mapCsvRowToTransaction(
     const month = String(purchaseDate.getMonth() + 1).padStart(2, "0");
     const period = `${year}-${month}`;
 
-    // Create ImportTransaction object
-    const transaction: CsvImportTransaction = {
+    // Create ImportTransaction object. Object shape carries English keys
+    // (name/amount/purchaseDate/…) rather than the Portuguese keys declared
+    // by ParsedOfxTransaction because downstream CSV consumers read them
+    // that way; cast so TS accepts the excess properties.
+    const transaction = {
         id: randomUUID(), // Temporary ID for UI
         csvRowIndex: rowIndex,
         rawData: row,
@@ -262,5 +265,5 @@ export function mapCsvRowToTransaction(
         note: null,
     };
 
-    return transaction;
+    return transaction as unknown as CsvImportTransaction;
 }

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "opensheets-finance": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR}/dist/mcp/server.js"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}",
+        "OPENSHEETS_MCP_USER_ID": "${OPENSHEETS_MCP_USER_ID}",
+        "OPENSHEETS_MCP_WRITE_MODE": "${OPENSHEETS_MCP_WRITE_MODE:-readonly}"
+      }
+    }
+  }
+}

@@ -16,10 +16,16 @@ import {
     type DuplicateMatch,
 } from "@/lib/ofx/duplicate-detector";
 import { db } from "@/lib/db";
-import { contas, lancamentos, pagadores } from "@/db/schema";
+import { categorias, contas, lancamentos, pagadores } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { PAGADOR_ROLE_ADMIN } from "@/lib/pagadores/constants";
+import { DEFAULT_MODEL } from "@/app/(dashboard)/insights/data";
+import {
+    suggestAiCategories,
+    type AiTransactionInput,
+} from "@/lib/ai/categorization";
+import { isAiCategorizationEnabled } from "@/lib/ai/flags";
 
 /**
  * Server actions for OFX import functionality
@@ -339,6 +345,160 @@ export async function suggestCategoriesForOfxAction(
         return handleActionError(error) as ActionResult<
             Map<string, CategorySuggestion>
         >;
+    }
+}
+
+const suggestAiCategoriesSchema = z.object({
+    contaId: z.string().uuid("Conta inválida."),
+    modelId: z.string().optional(),
+    transactions: z
+        .array(
+            z.object({
+                id: z.string().min(1),
+                nome: z.string().min(1),
+                valor: z.string().min(1),
+                tipo_transacao: z.enum(["Despesa", "Receita"]),
+                categoriaId: z.string().uuid().nullable().optional(),
+            })
+        )
+        .min(1, "Lista de transações vazia.")
+        .max(200, "Máximo de 200 transações por sugestão."),
+});
+
+/**
+ * Suggest categories for OFX transactions using AI
+ */
+export async function suggestAiCategoriesForOfxAction(
+    contaId: string,
+    transactions: Array<{
+        id: string;
+        nome: string;
+        valor: string;
+        tipo_transacao: "Despesa" | "Receita";
+        categoriaId?: string | null;
+    }>,
+    modelId?: string
+): Promise<
+    ActionResult<
+        Record<
+            string,
+            { categoriaId: string | null; confidence: "high" | "medium" | "low" }
+        >
+    >
+> {
+    try {
+        if (!isAiCategorizationEnabled()) {
+            return errorResult("IA desativada.");
+        }
+
+        const user = await getUser();
+        if (!user) {
+            return errorResult("Usuário não autenticado");
+        }
+
+        const validation = suggestAiCategoriesSchema.safeParse({
+            contaId,
+            modelId,
+            transactions,
+        });
+        if (!validation.success) {
+            return errorResult(
+                validation.error.issues[0]?.message ?? "Dados inválidos"
+            );
+        }
+
+        const account = await db.query.contas.findFirst({
+            where: and(eq(contas.id, contaId), eq(contas.userId, user.id)),
+            columns: { id: true },
+        });
+
+        if (!account) {
+            return errorResult(
+                "Conta não encontrada ou você não tem permissão para acessá-la"
+            );
+        }
+
+        const categoryRows = await db.query.categorias.findMany({
+            where: eq(categorias.userId, user.id),
+            columns: { id: true, name: true, type: true },
+        });
+
+        if (categoryRows.length === 0) {
+            return errorResult("Nenhuma categoria encontrada.");
+        }
+
+        const categoryMap = new Map(
+            categoryRows.map((category) => [category.id, category])
+        );
+
+        const aiTransactions: AiTransactionInput[] = transactions.map(
+            (transaction) => ({
+                id: transaction.id,
+                nome: transaction.nome,
+                valor: transaction.valor,
+                tipo_transacao: transaction.tipo_transacao,
+                categoriaId: transaction.categoriaId ?? null,
+                categoriaNome: transaction.categoriaId
+                    ? categoryMap.get(transaction.categoriaId)?.name ?? null
+                    : null,
+            })
+        );
+
+        const result = await suggestAiCategories(
+            modelId ?? DEFAULT_MODEL,
+            categoryRows.map((category) => ({
+                id: category.id,
+                name: category.name,
+                type: category.type === "despesa" ? "despesa" : "receita",
+            })),
+            aiTransactions
+        );
+
+        const allowedCategoriesByType = {
+            Despesa: new Set(
+                categoryRows
+                    .filter((category) => category.type === "despesa")
+                    .map((category) => category.id)
+            ),
+            Receita: new Set(
+                categoryRows
+                    .filter((category) => category.type === "receita")
+                    .map((category) => category.id)
+            ),
+        };
+
+        const response: Record<
+            string,
+            { categoriaId: string | null; confidence: "high" | "medium" | "low" }
+        > = {};
+
+        result.suggestions.forEach((suggestion) => {
+            const transaction = aiTransactions.find(
+                (item) => item.id === suggestion.id
+            );
+
+            if (!transaction) {
+                return;
+            }
+
+            const allowedSet = allowedCategoriesByType[transaction.tipo_transacao];
+            const categoriaId =
+                suggestion.categoriaId && allowedSet.has(suggestion.categoriaId)
+                    ? suggestion.categoriaId
+                    : null;
+
+            response[suggestion.id] = {
+                categoriaId,
+                confidence: suggestion.confidence,
+            };
+        });
+
+        return successResult(
+            `Sugestões geradas para ${Object.keys(response).length} transações`,
+            response
+        );
+    } catch (error) {
+        return handleActionError(error);
     }
 }
 

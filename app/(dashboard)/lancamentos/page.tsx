@@ -66,6 +66,7 @@ export default async function Page({ searchParams }: PageProps) {
     <main className="flex flex-col gap-6">
       <MonthPicker />
       <LancamentosPage
+        userId={userId}
         lancamentos={lancamentosData}
         pagadorOptions={pagadorOptions}
         splitPagadorOptions={splitPagadorOptions}

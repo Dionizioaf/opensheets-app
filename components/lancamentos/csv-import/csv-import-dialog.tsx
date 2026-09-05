@@ -17,6 +17,8 @@ import { CsvUploadStep } from "./csv-upload-step";
 import { CsvColumnMappingStep } from "./csv-column-mapping-step";
 import { CsvReviewStep } from "./csv-review-step";
 import { CsvConfirmStep } from "./csv-confirm-step";
+import { DEFAULT_MODEL } from "@/app/(dashboard)/insights/data";
+import { isAiCategorizationEnabledClient } from "@/lib/ai/flags";
 import type {
     CsvTransactionWithUiState,
     CsvColumnMapping,
@@ -25,6 +27,7 @@ import type {
 import type { Categoria } from "@/db/schema";
 import { parseCsvFileAction } from "@/app/(dashboard)/lancamentos/actions";
 import { detectCsvDuplicatesAction } from "@/app/(dashboard)/lancamentos/actions";
+import { suggestAiCsvCategoriesAction } from "@/app/(dashboard)/lancamentos/actions";
 import { suggestCsvCategoriesAction } from "@/app/(dashboard)/lancamentos/actions";
 import { importCsvTransactionsAction } from "@/app/(dashboard)/lancamentos/actions";
 import { convertExcelToCsv } from "@/lib/csv/excel";
@@ -118,6 +121,13 @@ export function CsvImportDialog({
     const [transactions, setTransactions] = useState<CsvTransactionWithUiState[]>([]);
     const [showDuplicates, setShowDuplicates] = useState(true);
     const [isDetectingDuplicates, setIsDetectingDuplicates] = useState(false);
+    const [isSuggestingCategories, setIsSuggestingCategories] = useState(false);
+
+    const aiFeatureAvailable = isAiCategorizationEnabledClient();
+    const [useAiCategorization, setUseAiCategorization] = useState(
+        aiFeatureAvailable
+    );
+    const [aiModelId, setAiModelId] = useState(DEFAULT_MODEL);
 
     // Confirm/Import step state
     const [isImporting, setIsImporting] = useState(false);
@@ -198,6 +208,7 @@ export function CsvImportDialog({
             setSelectedAccount(account);
             setTransactions(mappedTransactions);
             setSelectedPeriod(periodOverride ?? null);
+            setCurrentStep("review");
 
             // Automatically detect duplicates and suggest categories
             setIsDetectingDuplicates(true);
@@ -253,45 +264,170 @@ export function CsvImportDialog({
                     // Suggest categories for non-duplicate transactions
                     const nonDuplicates = updatedTransactions.filter((t) => !t.isDuplicate);
                     if (nonDuplicates.length > 0) {
-                        const categoryResult = await suggestCsvCategoriesAction(nonDuplicates);
+                        const shouldUseAi = aiFeatureAvailable && useAiCategorization;
+                        let remainingForAi = nonDuplicates;
+
+                        const categoryResult =
+                            await suggestCsvCategoriesAction(nonDuplicates);
 
                         if (categoryResult.success && categoryResult.data) {
-                            // Apply suggested categories (also a plain object, not a Map)
-                            const transactionsWithCategories = updatedTransactions.map((t) => {
-                                const suggestion = categoryResult.data?.[t.id];
-                                if (suggestion && suggestion.categoriaId) {
-                                    return {
-                                        ...t,
-                                        categoriaId: suggestion.categoriaId,
-                                    };
+                            const fuzzySuggestedIds = new Set(
+                                Object.entries(categoryResult.data)
+                                    .filter(([, suggestion]) => suggestion?.categoriaId)
+                                    .map(([id]) => id)
+                            );
+
+                            const transactionsWithCategories = updatedTransactions.map(
+                                (t) => {
+                                    const suggestion = categoryResult.data?.[t.id];
+                                    if (suggestion && suggestion.categoriaId) {
+                                        return {
+                                            ...t,
+                                            categoriaId: suggestion.categoriaId,
+                                            suggestedCategoriaId: suggestion.categoriaId,
+                                            categoryConfidence: suggestion.confidence,
+                                        };
+                                    }
+                                    return t;
                                 }
-                                return t;
-                            });
+                            );
 
                             setTransactions(transactionsWithCategories);
+
+                            remainingForAi = nonDuplicates.filter(
+                                (t) => !fuzzySuggestedIds.has(t.id)
+                            );
                         } else {
                             setTransactions(updatedTransactions);
+                        }
+
+                        if (shouldUseAi && remainingForAi.length > 0) {
+                            setIsSuggestingCategories(true);
+                            try {
+                                const aiCategoryResult =
+                                    await suggestAiCsvCategoriesAction(
+                                        remainingForAi.map((t) => ({
+                                            id: t.id,
+                                            name: t.nome || "",
+                                            amount: t.valor?.toString() || "0",
+                                            transactionType: t.tipo_transacao,
+                                            categoriaId: t.categoriaId ?? null,
+                                        })),
+                                        aiModelId
+                                    );
+
+                                if (aiCategoryResult.success && aiCategoryResult.data) {
+                                    const transactionsWithAi = updatedTransactions.map(
+                                        (t) => {
+                                            const suggestion =
+                                                aiCategoryResult.data?.[t.id];
+                                            if (
+                                                suggestion?.categoriaId &&
+                                                suggestion.confidence === "high"
+                                            ) {
+                                                return {
+                                                    ...t,
+                                                    categoriaId: suggestion.categoriaId,
+                                                    suggestedCategoriaId: suggestion.categoriaId,
+                                                    categoryConfidence: suggestion.confidence,
+                                                    isEdited: true,
+                                                };
+                                            }
+                                            return t;
+                                        }
+                                    );
+
+                                    setTransactions(transactionsWithAi);
+                                } else {
+                                    throw new Error(aiCategoryResult.error);
+                                }
+                            } catch (error) {
+                                console.error("Erro ao sugerir categorias com IA:", error);
+                            } finally {
+                                setIsSuggestingCategories(false);
+                            }
                         }
                     } else {
                         setTransactions(updatedTransactions);
                     }
                 } else {
                     // No duplicate detection, just suggest categories
-                    const categoryResult = await suggestCsvCategoriesAction(mappedTransactions);
+                    const shouldUseAi = aiFeatureAvailable && useAiCategorization;
+                    let remainingForAi = mappedTransactions;
+
+                    const categoryResult = await suggestCsvCategoriesAction(
+                        mappedTransactions
+                    );
 
                     if (categoryResult.success && categoryResult.data) {
+                        const fuzzySuggestedIds = new Set(
+                            Object.entries(categoryResult.data)
+                                .filter(([, suggestion]) => suggestion?.categoriaId)
+                                .map(([id]) => id)
+                        );
+
                         const transactionsWithCategories = mappedTransactions.map((t) => {
                             const suggestion = categoryResult.data?.[t.id];
                             if (suggestion && suggestion.categoriaId) {
                                 return {
                                     ...t,
                                     categoriaId: suggestion.categoriaId,
+                                    suggestedCategoriaId: suggestion.categoriaId,
+                                    categoryConfidence: suggestion.confidence,
                                 };
                             }
                             return t;
                         });
 
                         setTransactions(transactionsWithCategories);
+
+                        remainingForAi = mappedTransactions.filter(
+                            (t) => !fuzzySuggestedIds.has(t.id)
+                        );
+                    }
+
+                    if (shouldUseAi && remainingForAi.length > 0) {
+                        setIsSuggestingCategories(true);
+                        try {
+                            const aiCategoryResult =
+                                await suggestAiCsvCategoriesAction(
+                                    remainingForAi.map((t) => ({
+                                        id: t.id,
+                                        name: t.nome || "",
+                                        amount: t.valor?.toString() || "0",
+                                        transactionType: t.tipo_transacao,
+                                        categoriaId: t.categoriaId ?? null,
+                                    })),
+                                    aiModelId
+                                );
+
+                            if (aiCategoryResult.success && aiCategoryResult.data) {
+                                const transactionsWithAi = mappedTransactions.map((t) => {
+                                    const suggestion = aiCategoryResult.data?.[t.id];
+                                    if (
+                                        suggestion?.categoriaId &&
+                                        suggestion.confidence === "high"
+                                    ) {
+                                        return {
+                                            ...t,
+                                            categoriaId: suggestion.categoriaId,
+                                            suggestedCategoriaId: suggestion.categoriaId,
+                                            categoryConfidence: suggestion.confidence,
+                                            isEdited: true,
+                                        };
+                                    }
+                                    return t;
+                                });
+
+                                setTransactions(transactionsWithAi);
+                            } else {
+                                throw new Error(aiCategoryResult.error);
+                            }
+                        } catch (error) {
+                            console.error("Erro ao sugerir categorias com IA:", error);
+                        } finally {
+                            setIsSuggestingCategories(false);
+                        }
                     }
                 }
 
@@ -304,7 +440,7 @@ export function CsvImportDialog({
                 setIsDetectingDuplicates(false);
             }
         },
-        []
+        [aiFeatureAvailable, aiModelId, useAiCategorization]
     );
 
     /**
@@ -565,10 +701,13 @@ export function CsvImportDialog({
             setParsingError(null);
             setImportError(null);
             setShowDuplicates(true);
+            setIsSuggestingCategories(false);
+            setUseAiCategorization(aiFeatureAvailable);
+            setAiModelId(DEFAULT_MODEL);
         }, 300);
 
         onCancel?.();
-    }, [isImporting, onCancel]);
+    }, [aiFeatureAvailable, isImporting, onCancel]);
 
     /**
      * Get selected count for review step
@@ -695,6 +834,12 @@ export function CsvImportDialog({
                             showDuplicates={showDuplicates}
                             onToggleDuplicates={setShowDuplicates}
                             isDetectingDuplicates={isDetectingDuplicates}
+                            aiFeatureAvailable={aiFeatureAvailable}
+                            aiEnabled={useAiCategorization}
+                            onToggleAi={setUseAiCategorization}
+                            aiModelId={aiModelId}
+                            onAiModelChange={setAiModelId}
+                            isSuggestingCategories={isSuggestingCategories}
                         />
                     )}
 
@@ -720,7 +865,8 @@ export function CsvImportDialog({
                             disabled={
                                 currentStep === "upload" ||
                                 isParsingFile ||
-                                isDetectingDuplicates
+                                isDetectingDuplicates ||
+                                isSuggestingCategories
                             }
                             className="min-w-[80px] text-sm"
                         >
@@ -734,6 +880,7 @@ export function CsvImportDialog({
                                 isParsingFile ||
                                 (currentStep === "mapping" && (!columnMapping || !selectedAccount)) ||
                                 isDetectingDuplicates ||
+                                isSuggestingCategories ||
                                 (currentStep === "review" && selectedCount === 0)
                             }
                             className="min-w-[100px] text-sm"

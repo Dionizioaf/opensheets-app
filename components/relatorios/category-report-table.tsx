@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { getIconComponent } from "@/lib/utils/icons";
 import { formatPeriodLabel } from "@/lib/relatorios/utils";
+import { formatPeriodForUrl } from "@/lib/utils/period";
 import type { CategoryReportData } from "@/lib/relatorios/types";
 import { CategoryCell } from "./category-cell";
 import { formatCurrency } from "@/lib/relatorios/utils";
@@ -79,15 +80,27 @@ export function CategoryReportTable({ data }: CategoryReportTableProps) {
                                 {periods.map((period, periodIndex) => {
                                     const monthData = category.monthlyData.get(period);
                                     const isFirstMonth = periodIndex === 0;
+                                    const periodParam = formatPeriodForUrl(period);
+                                    const lancamentosHref = `/lancamentos?periodo=${encodeURIComponent(
+                                        periodParam
+                                    )}&categoriaId=${encodeURIComponent(category.categoryId)}`;
 
                                     return (
                                         <TableCell key={period} className="text-right">
-                                            <CategoryCell
-                                                value={monthData?.amount ?? 0}
-                                                previousValue={monthData?.previousAmount ?? 0}
-                                                categoryType={category.type}
-                                                isFirstMonth={isFirstMonth}
-                                            />
+                                            <a
+                                                href={lancamentosHref}
+                                                target="_blank"
+                                                rel="noopener"
+                                                className="inline-flex w-full justify-end hover:underline focus-visible:underline focus-visible:outline-none"
+                                                aria-label={`Abrir lancamentos de ${category.name} em ${formatPeriodLabel(period)}`}
+                                            >
+                                                <CategoryCell
+                                                    value={monthData?.amount ?? 0}
+                                                    previousValue={monthData?.previousAmount ?? 0}
+                                                    categoryType={category.type}
+                                                    isFirstMonth={isFirstMonth}
+                                                />
+                                            </a>
                                         </TableCell>
                                     );
                                 })}
