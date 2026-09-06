@@ -1,7 +1,12 @@
 /**
  * Tipos de providers disponíveis
  */
-export type AIProvider = "openai" | "anthropic" | "google" | "openrouter";
+export type AIProvider =
+  | "openai"
+  | "anthropic"
+  | "google"
+  | "openrouter"
+  | "openollama";
 
 /**
  * Metadados dos providers
@@ -26,6 +31,11 @@ export const PROVIDERS = {
     id: "openrouter" as const,
     name: "OpenRouter",
     icon: "RiRouterLine",
+  },
+  openollama: {
+    id: "openollama" as const,
+    name: "OpenOllama",
+    icon: "RiCpuLine",
   },
 } as const;
 
@@ -67,6 +77,18 @@ export const AVAILABLE_MODELS = [
     id: "gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
     provider: "google" as const,
+  },
+
+  // OpenOllama models (served by a local Ollama-compatible endpoint)
+  {
+    id: "llama3.2",
+    name: "Llama 3.2",
+    provider: "openollama" as const,
+  },
+  {
+    id: "qwen2.5:7b",
+    name: "Qwen 2.5 7B",
+    provider: "openollama" as const,
   },
 ] as const;
 

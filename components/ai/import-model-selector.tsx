@@ -13,13 +13,15 @@ import {
 import { useState } from "react";
 
 interface ImportModelSelectorProps {
-    value: "gpt-5.1" | "gpt-5.1-chat" | "gpt-5" | "gpt-5-mini" | "gpt-5-nano" | "claude-4.5-haiku" | "claude-4.5-sonnet" | "claude-opus-4.1" | "gemini-2.5-pro" | "gemini-2.5-flash";
+    value: string;
     onValueChange: (value: string) => void;
     disabled?: boolean;
 }
 
 const CUSTOM_MODEL_VALUE = "__custom__";
-const AVAILABLE_MODEL_IDS = new Set(AVAILABLE_MODELS.map((model) => model.id));
+const AVAILABLE_MODEL_IDS: Set<string> = new Set(
+    AVAILABLE_MODELS.map((model) => model.id),
+);
 
 export function ImportModelSelector({
     value,

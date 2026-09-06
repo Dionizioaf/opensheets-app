@@ -1,7 +1,11 @@
 import { db } from "@/lib/db";
-import { lancamentos } from "@/db/schema";
+import { categorias, lancamentos } from "@/db/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
 import Fuzzysort from "fuzzysort";
+import {
+    getDeterministicCategoryName,
+    getDeterministicCategoryRule,
+} from "@/lib/ofx/category-rules";
 
 /**
  * Confidence level for category suggestions
@@ -42,6 +46,34 @@ export async function suggestCategory(
     transactionAmount?: string,
     transactionType?: string
 ): Promise<CategorySuggestion | null> {
+    const deterministicRule = getDeterministicCategoryRule(
+        transactionName,
+        transactionAmount,
+        transactionType
+    );
+
+    if (deterministicRule) {
+        const category = await db.query.categorias.findFirst({
+            where: and(
+                eq(categorias.userId, userId),
+                eq(
+                    categorias.name,
+                    getDeterministicCategoryName(deterministicRule, transactionType)
+                )
+            ),
+            columns: { id: true },
+        });
+
+        if (category) {
+            return {
+                categoriaId: category.id,
+                confidence: "high",
+                score: 1,
+                matchReason: "exact",
+            };
+        }
+    }
+
     // Normalize input
     const normalizedName = transactionName.trim().toLowerCase();
 
@@ -221,10 +253,6 @@ export async function suggestCategoriesForTransactions(
         limit: 1000, // Increased limit for batch processing
     });
 
-    if (historicalTransactions.length === 0) {
-        return suggestions; // No historical data
-    }
-
     // Group historical transactions by type for efficiency
     const historicalByType = new Map<string, typeof historicalTransactions>();
     for (const hist of historicalTransactions) {
@@ -237,6 +265,38 @@ export async function suggestCategoriesForTransactions(
 
     // Process each transaction with the pre-fetched historical data
     for (const transaction of transactions) {
+        const deterministicRule = getDeterministicCategoryRule(
+            transaction.name,
+            transaction.amount,
+            transaction.transactionType
+        );
+
+        if (deterministicRule) {
+            const category = await db.query.categorias.findFirst({
+                where: and(
+                    eq(categorias.userId, userId),
+                    eq(
+                        categorias.name,
+                        getDeterministicCategoryName(
+                            deterministicRule,
+                            transaction.transactionType
+                        )
+                    )
+                ),
+                columns: { id: true },
+            });
+
+            if (category) {
+                suggestions.set(transaction.id, {
+                    categoriaId: category.id,
+                    confidence: "high",
+                    score: 1,
+                    matchReason: "exact",
+                });
+                continue;
+            }
+        }
+
         const normalizedName = transaction.name.trim().toLowerCase();
 
         if (!normalizedName || normalizedName.length < 3) {

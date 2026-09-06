@@ -20,7 +20,7 @@ import {
 import { getPreviousPeriod } from "@/lib/utils/period";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateObject } from "ai";
 import { getDay } from "date-fns";
@@ -549,8 +549,15 @@ export async function generateInsightsAction(
     // Selecionar provider
     let model;
 
-    // Se o modelo tem "/" é OpenRouter (formato: provider/model)
-    if (modelId.includes("/")) {
+    // OpenOllama usa o formato openollama/<modelo> para modelos customizados.
+    if (modelId.startsWith("openollama/")) {
+      const openollama = createOpenAI({
+        apiKey: process.env.OPENOLLAMA_API_KEY ?? "openollama",
+        baseURL: process.env.OPENOLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      });
+      model = openollama.chat(modelId.slice("openollama/".length));
+    // Outros modelos com "/" são OpenRouter (formato: provider/model).
+    } else if (modelId.includes("/")) {
       const apiKey = process.env.OPENROUTER_API_KEY;
       if (!apiKey) {
         return {
@@ -569,6 +576,11 @@ export async function generateInsightsAction(
       model = anthropic(modelId);
     } else if (selectedModel?.provider === "google") {
       model = google(modelId);
+    } else if (selectedModel?.provider === "openollama") {
+      model = createOpenAI({
+        apiKey: process.env.OPENOLLAMA_API_KEY ?? "openollama",
+        baseURL: process.env.OPENOLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      }).chat(modelId);
     } else {
       return {
         success: false,

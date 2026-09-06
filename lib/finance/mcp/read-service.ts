@@ -156,6 +156,17 @@ export async function listTransactions(
 ) {
   const conditions: SQL[] = [eq(lancamentos.userId, userId)];
   if (input.period) conditions.push(eq(lancamentos.period, input.period));
+  if (input.invoicePeriod) {
+    conditions.push(
+      or(
+        eq(lancamentos.invoicePeriod, input.invoicePeriod),
+        and(
+          isNull(lancamentos.invoicePeriod),
+          eq(lancamentos.period, input.invoicePeriod)
+        )
+      )!
+    );
+  }
   if (input.dateFrom) {
     conditions.push(gte(lancamentos.purchaseDate, parseDate(input.dateFrom)));
   }
@@ -334,7 +345,12 @@ export async function getInvoice(
         eq(faturas.period, period)
       ),
     }),
-    listTransactions(userId, { cardId, period, page: 1, limit: 100 }),
+    listTransactions(userId, {
+      cardId,
+      invoicePeriod: period,
+      page: 1,
+      limit: 100,
+    }),
   ]);
 
   return {
@@ -516,6 +532,7 @@ type SerializableTransaction = {
   dueDate: Date | null;
   boletoPaymentDate: Date | null;
   period: string;
+  invoicePeriod: string | null;
   transactionType: string;
   condition: string;
   paymentMethod: string;
@@ -543,6 +560,7 @@ function serializeTransaction(row: SerializableTransaction) {
     dueDate: dateValue(row.dueDate),
     boletoPaymentDate: dateValue(row.boletoPaymentDate),
     period: row.period as string,
+    invoicePeriod: row.invoicePeriod as string | null,
     transactionType: row.transactionType as string,
     condition: row.condition as string,
     paymentMethod: row.paymentMethod as string,

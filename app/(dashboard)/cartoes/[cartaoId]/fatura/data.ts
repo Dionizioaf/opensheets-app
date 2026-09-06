@@ -5,7 +5,7 @@ import {
   INVOICE_PAYMENT_STATUS,
   type InvoicePaymentStatus,
 } from "@/lib/faturas";
-import { and, eq, sum } from "drizzle-orm";
+import { and, eq, isNull, or, sum } from "drizzle-orm";
 
 const toNumber = (value: string | number | null | undefined) => {
   if (typeof value === "number") {
@@ -67,7 +67,13 @@ export async function fetchInvoiceData(
         and(
           eq(lancamentos.userId, userId),
           eq(lancamentos.cartaoId, cartaoId),
-          eq(lancamentos.period, selectedPeriod)
+          or(
+            eq(lancamentos.invoicePeriod, selectedPeriod),
+            and(
+              isNull(lancamentos.invoicePeriod),
+              eq(lancamentos.period, selectedPeriod)
+            )
+          )
         )
       ),
   ]);

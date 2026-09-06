@@ -7,7 +7,7 @@ import {
   type InvoicePaymentStatus,
 } from "@/lib/faturas";
 import { toNumber } from "@/lib/dashboard/common";
-import { and, eq, ilike, isNotNull, sql } from "drizzle-orm";
+import { and, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 type RawDashboardInvoice = {
   invoiceId: string | null;
@@ -152,7 +152,13 @@ export async function fetchDashboardInvoices(
         and(
           eq(lancamentos.cartaoId, cartoes.id),
           eq(lancamentos.userId, userId),
-          eq(lancamentos.period, period)
+          or(
+            eq(lancamentos.invoicePeriod, period),
+            and(
+              isNull(lancamentos.invoicePeriod),
+              eq(lancamentos.period, period)
+            )
+          )
         )
       )
       .where(eq(cartoes.userId, userId))
@@ -181,7 +187,13 @@ export async function fetchDashboardInvoices(
       .where(
         and(
           eq(lancamentos.userId, userId),
-          eq(lancamentos.period, period),
+          or(
+            eq(lancamentos.invoicePeriod, period),
+            and(
+              isNull(lancamentos.invoicePeriod),
+              eq(lancamentos.period, period)
+            )
+          ),
           isNotNull(lancamentos.cartaoId)
         )
       )

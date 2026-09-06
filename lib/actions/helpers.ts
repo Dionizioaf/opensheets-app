@@ -26,12 +26,16 @@ export function handleActionError(error: unknown): ActionResult {
  */
 export const revalidateConfig = {
   cartoes: ["/cartoes"],
-  contas: ["/contas", "/lancamentos"],
+  contas: ["/contas", "/contas/[contaId]/extrato", "/lancamentos"],
   categorias: ["/categorias"],
   orcamentos: ["/orcamentos"],
   pagadores: ["/pagadores"],
   anotacoes: ["/anotacoes"],
-  lancamentos: ["/lancamentos", "/contas"],
+  lancamentos: [
+    "/lancamentos",
+    "/contas",
+    "/contas/[contaId]/extrato",
+  ],
 } as const;
 
 /**
