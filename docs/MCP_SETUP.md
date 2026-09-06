@@ -116,6 +116,7 @@ this repo's `node_modules`. Re-run `pnpm mcp:pack` after any code change.
 - "Compare food spending over the last six months."
 - "Which unpaid obligations are due in the next fourteen days?"
 - "Show my card exposure and remaining limits."
+- "Import this credit-card CSV as invoice 2026-01, preserving each purchase date."
 - "Create a paid R$ 89.90 Pix expense at Farmácia today."
 - "Transfer R$ 1,000 from checking to savings."
 

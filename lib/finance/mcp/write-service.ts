@@ -1043,6 +1043,7 @@ function summarizeCandidate(candidate: ImportCandidate) {
     amount: Number(candidate.amount),
     purchaseDate: candidate.purchaseDate.toISOString().slice(0, 10),
     period: candidate.period,
+    invoicePeriod: candidate.invoicePeriod ?? null,
     transactionType: candidate.transactionType,
     paymentMethod: candidate.paymentMethod,
     fitId: candidate.fitId ?? null,
@@ -1067,6 +1068,7 @@ export async function importPreview(
     content,
     csvMapping: input.csvMapping,
     csvDelimiter: input.csvDelimiter,
+    invoicePeriod: input.invoicePeriod,
   });
   if (candidates.length === 0) {
     throw new Error("No transactions parsed from the import file.");

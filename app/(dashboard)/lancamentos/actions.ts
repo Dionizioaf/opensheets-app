@@ -639,6 +639,7 @@ export async function updateLancamentoAction(
         transactionType: true,
         condition: true,
         paymentMethod: true,
+        isSettled: true,
         contaId: true,
         categoriaId: true,
       },
@@ -676,7 +677,7 @@ export async function updateLancamentoAction(
     const normalizedSettled =
       data.paymentMethod === "Cartão de crédito"
         ? null
-        : data.isSettled ?? false;
+        : data.isSettled ?? existing.isSettled ?? false;
     const shouldSetBoletoPaymentDate =
       data.paymentMethod === "Boleto" && Boolean(normalizedSettled);
     const boletoPaymentDateValue = shouldSetBoletoPaymentDate
@@ -720,7 +721,7 @@ export async function updateLancamentoAction(
         );
     }
 
-    revalidate();
+    revalidateForEntity("lancamentos");
 
     return { success: true, message: "Lançamento atualizado com sucesso." };
   } catch (error) {

@@ -5,7 +5,7 @@ import {
 } from "@/lib/schemas/ai-categorization";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateObject } from "ai";
 
@@ -39,6 +39,13 @@ REGRAS:
 function resolveModel(modelId: string) {
     const selectedModel = AVAILABLE_MODELS.find((model) => model.id === modelId);
 
+    if (modelId.startsWith("openollama/")) {
+        return createOpenAI({
+            apiKey: process.env.OPENOLLAMA_API_KEY ?? "openollama",
+            baseURL: process.env.OPENOLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+        }).chat(modelId.slice("openollama/".length));
+    }
+
     if (!selectedModel && !modelId.includes("/")) {
         throw new Error("Modelo invalido.");
     }
@@ -65,6 +72,13 @@ function resolveModel(modelId: string) {
 
     if (selectedModel?.provider === "google") {
         return google(modelId);
+    }
+
+    if (selectedModel?.provider === "openollama") {
+        return createOpenAI({
+            apiKey: process.env.OPENOLLAMA_API_KEY ?? "openollama",
+            baseURL: process.env.OPENOLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+        }).chat(modelId);
     }
 
     throw new Error("Provider de modelo nao suportado.");

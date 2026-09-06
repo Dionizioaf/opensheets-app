@@ -388,6 +388,8 @@ export const lancamentos = pgTable(
     transactionType: text("tipo_transacao").notNull(),
     installmentCount: smallint("qtde_parcela"),
     period: text("periodo").notNull(),
+    // Purchase month and credit-card invoice month can differ.
+    invoicePeriod: text("periodo_fatura"),
     currentInstallment: smallint("parcela_atual"),
     recurrenceCount: integer("qtde_recorrencia"),
     dueDate: date("data_vencimento", { mode: "date" }),

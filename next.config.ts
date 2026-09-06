@@ -6,9 +6,6 @@ dotenv.config();
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  experimental: {
-    turbopackFileSystemCacheForDev: true,
-  },
   reactCompiler: true,
   typescript: {
     ignoreBuildErrors: true,

@@ -821,7 +821,15 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_GENERATIVE_AI_API_KEY=...
 OPENROUTER_API_KEY=sk-or-...
+# OpenOllama/Ollama OpenAI-compatible endpoint (optional)
+OPENOLLAMA_BASE_URL=http://localhost:11434/v1
+OPENOLLAMA_API_KEY=openollama
 ```
+
+OpenOllama models are available in the AI model selectors alongside the hosted
+providers. Select a listed local model, or enter a custom model as
+`openollama/<model-name>`. The Ollama service must be running and the model
+must already be available locally (for example, `ollama pull llama3.2`).
 
 ### Gerando Secrets
 

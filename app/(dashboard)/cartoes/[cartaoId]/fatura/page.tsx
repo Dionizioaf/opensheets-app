@@ -63,6 +63,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const filters = buildLancamentoWhere({
     userId,
     period: selectedPeriod,
+    invoicePeriod: selectedPeriod,
     filters: searchFilters,
     slugMaps,
     cardId: card.id,

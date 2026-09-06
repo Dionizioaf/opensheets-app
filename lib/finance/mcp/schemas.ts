@@ -40,6 +40,7 @@ export const overviewInputSchema = z.object({
 
 export const listTransactionsInputSchema = z.object({
   period: mcpPeriodSchema.optional(),
+  invoicePeriod: mcpPeriodSchema.optional(),
   dateFrom: mcpDateSchema.optional(),
   dateTo: mcpDateSchema.optional(),
   accountId: mcpUuidSchema.optional(),
@@ -264,6 +265,7 @@ export const importPreviewInputSchema = z
       })
       .optional(),
     csvDelimiter: z.enum([",", ";", "\t"]).optional(),
+    invoicePeriod: mcpPeriodSchema.optional(),
   })
   .refine((value) => Boolean(value.filePath) !== Boolean(value.content), {
     message: "Provide exactly one of filePath or content.",

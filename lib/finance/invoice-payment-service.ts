@@ -13,7 +13,7 @@ import {
 } from "@/lib/faturas";
 import { PAGADOR_ROLE_ADMIN } from "@/lib/pagadores/constants";
 import { parseLocalDateString } from "@/lib/utils/date";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 
 /**
  * Shared credit-card invoice payment logic, single-sourced between the dashboard
@@ -34,6 +34,16 @@ export type InvoicePaymentParams = {
 
 const formatDecimal = (value: number) =>
   (Math.round(value * 100) / 100).toFixed(2);
+
+const invoiceTransactionCondition = (userId: string, cardId: string, period: string) =>
+  and(
+    eq(lancamentos.userId, userId),
+    eq(lancamentos.cartaoId, cardId),
+    or(
+      eq(lancamentos.invoicePeriod, period),
+      and(isNull(lancamentos.invoicePeriod), eq(lancamentos.period, period))
+    )
+  );
 
 async function loadInvoiceCard(
   handle: DbHandle,
@@ -74,12 +84,7 @@ async function loadInvoiceAdminShare(
     .from(lancamentos)
     .leftJoin(pagadores, eq(lancamentos.pagadorId, pagadores.id))
     .where(
-      and(
-        eq(lancamentos.userId, userId),
-        eq(lancamentos.cartaoId, cardId),
-        eq(lancamentos.period, period),
-        eq(pagadores.role, PAGADOR_ROLE_ADMIN)
-      )
+      and(invoiceTransactionCondition(userId, cardId, period), eq(pagadores.role, PAGADOR_ROLE_ADMIN))
     );
   return Math.abs(Number(row?.total ?? 0));
 }
@@ -119,11 +124,7 @@ export async function previewInvoicePaymentStatus(
     .select({ total: sql<number>`count(*)` })
     .from(lancamentos)
     .where(
-      and(
-        eq(lancamentos.userId, userId),
-        eq(lancamentos.cartaoId, card.id),
-        eq(lancamentos.period, period)
-      )
+      invoiceTransactionCondition(userId, card.id, period)
     );
   const affectedTransactions = Number(countRow?.total ?? 0);
 
@@ -186,11 +187,7 @@ export async function applyInvoicePaymentStatus(
     .update(lancamentos)
     .set({ isSettled: shouldMarkAsPaid })
     .where(
-      and(
-        eq(lancamentos.userId, userId),
-        eq(lancamentos.cartaoId, card.id),
-        eq(lancamentos.period, period)
-      )
+      invoiceTransactionCondition(userId, card.id, period)
     );
 
   const invoiceNote = buildInvoicePaymentNote(card.id, period);

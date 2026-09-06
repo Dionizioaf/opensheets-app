@@ -1,0 +1,1 @@
+ALTER TABLE "lancamentos" ADD COLUMN "periodo_fatura" text;

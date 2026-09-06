@@ -35,6 +35,8 @@ export interface ImportCandidate {
   period: string;
   transactionType: "Despesa" | "Receita";
   paymentMethod: string;
+  /** Credit-card invoice period, independent from the purchase month. */
+  invoicePeriod?: string | null;
   note: string | null;
   /** OFX FITID, when the source is OFX. */
   fitId?: string;
@@ -71,6 +73,7 @@ export interface ParseImportSourceParams {
   /** CSV only: which columns hold date/amount/description. */
   csvMapping?: ColumnMapping;
   csvDelimiter?: CsvDelimiter;
+  invoicePeriod?: string;
 }
 
 export interface EnrichCandidatesParams {
@@ -117,6 +120,7 @@ export async function parseImportSource(
         amount: row.valor,
         purchaseDate: row.data_compra,
         period: row.periodo,
+        invoicePeriod: params.invoicePeriod ?? null,
         transactionType: row.tipo_transacao,
         paymentMethod: row.forma_pagamento,
         note,
@@ -163,6 +167,7 @@ export async function parseImportSource(
       period: mapped.period,
       transactionType: mapped.transactionType,
       paymentMethod: mapped.paymentMethod,
+      invoicePeriod: params.invoicePeriod ?? null,
       note: `Importado de CSV em ${new Date().toISOString()}`,
     });
   }
@@ -383,6 +388,7 @@ export async function applyImportCandidates(
       purchaseDate: candidate.purchaseDate,
       transactionType: candidate.transactionType,
       period: candidate.period,
+      invoicePeriod: candidate.invoicePeriod ?? null,
       isSettled: accountType === "card" ? false : true,
       userId,
       contaId: accountType === "bank" ? accountId : null,
