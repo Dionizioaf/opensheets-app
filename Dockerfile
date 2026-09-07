@@ -41,6 +41,9 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 # Nota: Se houver erros de tipo, ajuste typescript.ignoreBuildErrors no next.config.ts
 RUN pnpm build
 
+# Build the remote Streamable HTTP MCP server as part of the same release.
+RUN pnpm mcp:build
+
 # ============================================
 # Stage 3: Runtime (produção)
 # ============================================
@@ -68,6 +71,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/db ./db
+COPY --from=builder --chown=nextjs:nodejs /app/dist/mcp ./dist/mcp
 
 # Copiar node_modules para ter drizzle-kit disponível para migrations
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules

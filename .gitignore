@@ -39,6 +39,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+/logs/mcp/
+.mcp-server.pid
 
 # === OS Files ===
 .DS_Store
