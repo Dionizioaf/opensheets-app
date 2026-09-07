@@ -13,7 +13,7 @@ export type McpPrincipal = {
 };
 
 export function resolveWriteMode(
-  value = process.env.OPENSHEETS_MCP_WRITE_MODE
+  value = "readonly"
 ): McpWriteMode {
   if (!value) return "readonly";
   if (MCP_WRITE_MODES.includes(value as McpWriteMode)) {
@@ -49,7 +49,7 @@ export async function resolveMcpPrincipal(): Promise<McpPrincipal> {
     userId: record.id,
     email: record.email,
     name: record.name,
-    writeMode: resolveWriteMode(),
+    writeMode: resolveWriteMode(process.env.OPENSHEETS_MCP_WRITE_MODE),
   };
 }
 

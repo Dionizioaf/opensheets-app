@@ -4,6 +4,39 @@ The Opensheets MCP server is local and uses the same PostgreSQL database as the
 web application. It communicates with Claude over `stdio`; it does not open a
 network port.
 
+## Remote Docker endpoint
+
+The Docker Compose stack also includes a Streamable HTTP MCP endpoint at
+`/mcp`. It is bound to `0.0.0.0:8787` for public network access, but it is not
+anonymous: every request requires a bearer token. The endpoint uses the one
+server-configured Opensheets user and the server-configured write mode; a
+client cannot supply either value.
+
+Add these values to the deployment `.env` before starting Docker:
+
+```env
+OPENSHEETS_MCP_USER_EMAIL=user@example.com
+OPENSHEETS_MCP_WRITE_MODE=readonly
+MCP_HTTP_AUTH_TOKEN=<at-least-32-character-random-token>
+MCP_HTTP_ALLOWED_ORIGINS=*
+MCP_PORT=8787
+```
+
+Generate a token with `openssl rand -hex 32`. Connect MCP clients to
+`http://<server-ip>:8787/mcp` and send `Authorization: Bearer <token>`. Put the
+endpoint behind HTTPS (a reverse proxy such as Caddy or Nginx) before exposing
+it outside a trusted network; the deployment script does not provision TLS.
+
+Deploy the app, MCP image, and local PostgreSQL container over SSH with:
+
+```bash
+pnpm deploy:remote
+```
+
+The default target is `root@177.153.203.62`; override it with `DEPLOY_HOST` or
+`DEPLOY_DIR`. The script transfers source and `.env`, runs
+`docker compose up -d --build app mcp db`, and waits for both health checks.
+
 ## 1. Prepare the project
 
 ```bash

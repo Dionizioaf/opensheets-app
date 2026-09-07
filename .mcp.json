@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "opensheets-finance": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/dionizioaf/.claude/mcp/opensheets-finance/server.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres.yaaodhwgcjudqnfgicxe:05mR50Ifs6AwK1h4@aws-1-us-east-2.pooler.supabase.com:5432/postgres",
+        "OPENSHEETS_MCP_USER_EMAIL": "dionizioaf@gmail.com",
+        "OPENSHEETS_MCP_WRITE_MODE": "full"
+      }
+    }
+  }
+}

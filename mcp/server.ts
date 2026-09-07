@@ -5,6 +5,8 @@ import {
   assertFullWrites,
   assertSafeWrites,
   resolveMcpPrincipal,
+  resolveWriteMode,
+  type McpPrincipal,
 } from "@/lib/finance/mcp/config";
 import {
   getAccountStatement,
@@ -63,9 +65,16 @@ import {
 import { getCurrentPeriod } from "@/lib/utils/period";
 import { z } from "zod";
 
-async function main() {
+export async function createMcpServer() {
 dotenv.config({ quiet: true });
-const principal = await resolveMcpPrincipal();
+
+let _principal: McpPrincipal | undefined;
+async function getPrincipal(): Promise<McpPrincipal> {
+  if (!_principal) _principal = await resolveMcpPrincipal();
+  return _principal;
+}
+
+const writeMode = resolveWriteMode(process.env.OPENSHEETS_MCP_WRITE_MODE);
 
 const server = new McpServer(
   {
@@ -80,7 +89,7 @@ const server = new McpServer(
       "Resolve human names with finance_lookup_entities before passing IDs.",
       "Never infer that a pending item was paid.",
       "Before a write, summarize the exact financial change for the user.",
-      `Write mode is ${principal.writeMode}.`,
+      `Write mode is ${writeMode}.`,
     ].join(" "),
   }
 );
@@ -139,7 +148,7 @@ server.registerTool(
     try {
       const input = overviewInputSchema.parse(args);
       return toolSuccess(
-        asRecord(await getFinanceOverview(principal.userId, input.period))
+        asRecord(await getFinanceOverview((await getPrincipal()).userId, input.period))
       );
     } catch (error) {
       return toolError(error);
@@ -161,7 +170,7 @@ server.registerTool(
       return toolSuccess(
         asRecord(
           await listTransactions(
-            principal.userId,
+            (await getPrincipal()).userId,
             listTransactionsInputSchema.parse(args)
           )
         )
@@ -185,7 +194,7 @@ server.registerTool(
     try {
       const { id } = entityIdInputSchema.parse(args);
       return toolSuccess(
-        asRecord(await getTransaction(principal.userId, id))
+        asRecord(await getTransaction((await getPrincipal()).userId, id))
       );
     } catch (error) {
       return toolError(error);
@@ -205,7 +214,7 @@ server.registerTool(
   async () => {
     try {
       return toolSuccess({
-        accounts: await listAccounts(principal.userId),
+        accounts: await listAccounts((await getPrincipal()).userId),
       });
     } catch (error) {
       return toolError(error);
@@ -228,7 +237,7 @@ server.registerTool(
       return toolSuccess(
         asRecord(
           await getAccountStatement(
-            principal.userId,
+            (await getPrincipal()).userId,
             input.accountId,
             input.period
           )
@@ -251,7 +260,7 @@ server.registerTool(
   },
   async () => {
     try {
-      return toolSuccess({ cards: await listCards(principal.userId) });
+      return toolSuccess({ cards: await listCards((await getPrincipal()).userId) });
     } catch (error) {
       return toolError(error);
     }
@@ -272,7 +281,7 @@ server.registerTool(
       const input = invoiceInputSchema.parse(args);
       return toolSuccess(
         asRecord(
-          await getInvoice(principal.userId, input.cardId, input.period)
+          await getInvoice((await getPrincipal()).userId, input.cardId, input.period)
         )
       );
     } catch (error) {
@@ -295,7 +304,7 @@ server.registerTool(
       const { period } = budgetsInputSchema.parse(args);
       return toolSuccess({
         period,
-        budgets: await listBudgets(principal.userId, period),
+        budgets: await listBudgets((await getPrincipal()).userId, period),
       });
     } catch (error) {
       return toolError(error);
@@ -317,7 +326,7 @@ server.registerTool(
       return toolSuccess(
         asRecord(
           await getCategoryReport(
-            principal.userId,
+            (await getPrincipal()).userId,
             categoryReportInputSchema.parse(args)
           )
         )
@@ -341,7 +350,7 @@ server.registerTool(
     try {
       return toolSuccess(
         await lookupEntities(
-          principal.userId,
+          (await getPrincipal()).userId,
           lookupInputSchema.parse(args)
         )
       );
@@ -366,7 +375,7 @@ server.registerTool(
       return toolSuccess(
         asRecord(
           await getUpcomingObligations(
-            principal.userId,
+            (await getPrincipal()).userId,
             input.from,
             input.days
           )
@@ -389,11 +398,11 @@ server.registerTool(
   },
   async (args) => {
     try {
-      assertSafeWrites(principal);
+      assertSafeWrites(await getPrincipal());
       return toolSuccess(
         asRecord(
           await createTransaction(
-            principal.userId,
+            (await getPrincipal()).userId,
             createTransactionInputSchema.parse(args)
           )
         )
@@ -415,11 +424,11 @@ server.registerTool(
   },
   async (args) => {
     try {
-      assertSafeWrites(principal);
+      assertSafeWrites(await getPrincipal());
       return toolSuccess(
         asRecord(
           await updateTransaction(
-            principal.userId,
+            (await getPrincipal()).userId,
             updateTransactionInputSchema.parse(args)
           )
         )
@@ -441,11 +450,11 @@ server.registerTool(
   },
   async (args) => {
     try {
-      assertSafeWrites(principal);
+      assertSafeWrites(await getPrincipal());
       return toolSuccess(
         asRecord(
           await setTransactionSettled(
-            principal.userId,
+            (await getPrincipal()).userId,
             settleTransactionInputSchema.parse(args)
           )
         )
@@ -467,11 +476,11 @@ server.registerTool(
   },
   async (args) => {
     try {
-      assertSafeWrites(principal);
+      assertSafeWrites(await getPrincipal());
       return toolSuccess(
         asRecord(
           await transferBetweenAccounts(
-            principal.userId,
+            (await getPrincipal()).userId,
             transferInputSchema.parse(args)
           )
         )
@@ -493,11 +502,11 @@ server.registerTool(
   },
   async (args) => {
     try {
-      assertSafeWrites(principal);
+      assertSafeWrites(await getPrincipal());
       return toolSuccess(
         asRecord(
           await upsertBudget(
-            principal.userId,
+            (await getPrincipal()).userId,
             upsertBudgetInputSchema.parse(args)
           )
         )
@@ -520,9 +529,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = deleteTransactionInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await deleteTransaction(principal.userId, parsed))
+        asRecord(await deleteTransaction((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -542,9 +551,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = reverseTransferInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await reverseTransfer(principal.userId, parsed))
+        asRecord(await reverseTransfer((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -564,9 +573,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = payInvoiceInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await payInvoice(principal.userId, parsed))
+        asRecord(await payInvoice((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -586,9 +595,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = reverseInvoicePaymentInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await reverseInvoicePayment(principal.userId, parsed))
+        asRecord(await reverseInvoicePayment((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -608,9 +617,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = updateSeriesInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await updateSeries(principal.userId, parsed))
+        asRecord(await updateSeries((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -630,9 +639,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = deleteSeriesInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await deleteSeries(principal.userId, parsed))
+        asRecord(await deleteSeries((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -652,9 +661,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = anticipateInstallmentsInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await anticipateInstallments(principal.userId, parsed))
+        asRecord(await anticipateInstallments((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -675,7 +684,7 @@ server.registerTool(
     try {
       const parsed = importPreviewInputSchema.parse(args);
       return toolSuccess(
-        asRecord(await importPreview(principal.userId, parsed))
+        asRecord(await importPreview((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -695,9 +704,9 @@ server.registerTool(
   async (args) => {
     try {
       const parsed = importApplyInputSchema.parse(args);
-      if (parsed.mode === "apply") assertFullWrites(principal);
+      if (parsed.mode === "apply") assertFullWrites(await getPrincipal());
       return toolSuccess(
-        asRecord(await importApply(principal.userId, parsed))
+        asRecord(await importApply((await getPrincipal()).userId, parsed))
       );
     } catch (error) {
       return toolError(error);
@@ -736,14 +745,14 @@ for (const resource of [
   {
     name: "accounts-catalog",
     uri: "finance://catalog/accounts",
-    load: () => listAccounts(principal.userId),
+    load: async () => listAccounts((await getPrincipal()).userId),
   },
   {
     name: "cards-catalog",
     uri: "finance://catalog/cards",
-    load: () => listCards(principal.userId),
+    load: async () => listCards((await getPrincipal()).userId),
   },
-] as const) {
+]) {
   server.registerResource(
     resource.name,
     resource.uri,
@@ -785,7 +794,7 @@ for (const resource of [
           uri: uri.href,
           mimeType: "application/json",
           text: JSON.stringify(
-            await lookupEntities(principal.userId, {
+            await lookupEntities((await getPrincipal()).userId, {
               query: "",
               entityTypes: [resource.type],
               limit: 50,
@@ -820,8 +829,12 @@ server.registerPrompt(
   })
 );
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+return server;
+}
+
+async function main() {
+  const server = await createMcpServer();
+  await server.connect(new StdioServerTransport());
 }
 
 main().catch((error) => {
