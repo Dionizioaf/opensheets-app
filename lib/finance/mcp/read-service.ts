@@ -358,9 +358,8 @@ export async function getInvoice(
     card: { id: card.id, name: card.name, dueDay: Number(card.dueDay) },
     period,
     paymentStatus: invoice?.paymentStatus ?? "Pendente",
-    invoiceTotal: result.transactions.reduce(
-      (sum, item) => sum + Math.abs(item.amount),
-      0
+    invoiceTotal: Math.abs(
+      result.transactions.reduce((sum, item) => sum + item.amount, 0)
     ),
   };
 }

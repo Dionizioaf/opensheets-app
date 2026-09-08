@@ -37,20 +37,30 @@ REGRAS:
 - Retorne apenas JSON valido seguindo o schema.`;
 
 function resolveModel(modelId: string) {
+    // O seletor de modelos customizados também é usado para o Ollama. Aceite
+    // o prefixo usual "ollama/" além do prefixo interno "openollama/" para
+    // não classificar um modelo local como se fosse um modelo do OpenRouter.
+    const normalizedModelId = modelId.trim();
     const selectedModel = AVAILABLE_MODELS.find((model) => model.id === modelId);
 
-    if (modelId.startsWith("openollama/")) {
+    const ollamaModelId = normalizedModelId.startsWith("openollama/")
+        ? normalizedModelId.slice("openollama/".length)
+        : normalizedModelId.startsWith("ollama/")
+          ? normalizedModelId.slice("ollama/".length)
+          : null;
+
+    if (ollamaModelId) {
         return createOpenAI({
             apiKey: process.env.OPENOLLAMA_API_KEY ?? "openollama",
             baseURL: process.env.OPENOLLAMA_BASE_URL ?? "http://localhost:11434/v1",
-        }).chat(modelId.slice("openollama/".length));
+        }).chat(ollamaModelId);
     }
 
-    if (!selectedModel && !modelId.includes("/")) {
+    if (!selectedModel && !normalizedModelId.includes("/")) {
         throw new Error("Modelo invalido.");
     }
 
-    if (modelId.includes("/")) {
+    if (normalizedModelId.includes("/")) {
         const apiKey = process.env.OPENROUTER_API_KEY;
         if (!apiKey) {
             throw new Error(
@@ -59,7 +69,7 @@ function resolveModel(modelId: string) {
         }
 
         const openrouter = createOpenRouter({ apiKey });
-        return openrouter.chat(modelId);
+        return openrouter.chat(normalizedModelId);
     }
 
     if (selectedModel?.provider === "openai") {

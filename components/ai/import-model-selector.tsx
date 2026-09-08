@@ -86,7 +86,7 @@ export function ImportModelSelector({
                     id="import-model-custom"
                     value={isKnownModel ? "" : value}
                     onChange={(e) => handleCustomModelChange(e.target.value)}
-                    placeholder="Ex: anthropic/claude-3.5-sonnet"
+                    placeholder="Ollama: ollama/llama3.2 · OpenRouter: anthropic/claude-3.5-sonnet"
                     disabled={disabled}
                     className="h-8"
                 />

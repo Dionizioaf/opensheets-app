@@ -549,13 +549,20 @@ export async function generateInsightsAction(
     // Selecionar provider
     let model;
 
-    // OpenOllama usa o formato openollama/<modelo> para modelos customizados.
-    if (modelId.startsWith("openollama/")) {
+    // Aceita os dois formatos para modelos locais: openollama/<modelo> (interno)
+    // e ollama/<modelo> (formato mais comum no campo de modelo customizado).
+    const ollamaModelId = modelId.startsWith("openollama/")
+      ? modelId.slice("openollama/".length)
+      : modelId.startsWith("ollama/")
+        ? modelId.slice("ollama/".length)
+        : null;
+
+    if (ollamaModelId) {
       const openollama = createOpenAI({
         apiKey: process.env.OPENOLLAMA_API_KEY ?? "openollama",
         baseURL: process.env.OPENOLLAMA_BASE_URL ?? "http://localhost:11434/v1",
       });
-      model = openollama.chat(modelId.slice("openollama/".length));
+      model = openollama.chat(ollamaModelId);
     // Outros modelos com "/" são OpenRouter (formato: provider/model).
     } else if (modelId.includes("/")) {
       const apiKey = process.env.OPENROUTER_API_KEY;
